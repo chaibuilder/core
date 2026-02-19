@@ -15,7 +15,6 @@ type PublishChangesActionData = {
 
 type PublishChangesActionResponse = {
   tags: string[];
-  paths: string[];
 };
 
 /**
@@ -86,9 +85,7 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
       );
 
       await this.clearChanges(ids);
-      const tags = uniq(flattenDeep(responses.map((r) => r.tags)));
-      const paths = uniq(flattenDeep(responses.map((r) => r.paths)));
-      return { tags, paths };
+      return { tags: uniq(flattenDeep(responses)) };
     } catch (error) {
       return this.handleExecutionError(error);
     }
@@ -106,7 +103,7 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
   /**
    * Publish theme changes
    */
-  private async publishTheme(): Promise<{ tags: string[]; paths: string[] }> {
+  private async publishTheme(): Promise<string[]> {
     const app = await this.cloneApp();
 
     // Delete existing online app
@@ -130,13 +127,13 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
     // Remove 'THEME' from changes array, set null only if no other changes remain
     await this.removeFromChangesArray("THEME", "ERROR_PUBLISHING_THEME");
 
-    return { tags: [`website-settings-${this.appId}`], paths: [] };
+    return [`website-settings-${this.appId}`];
   }
 
   /**
    * Publish design token changes
    */
-  private async publishDesignToken(): Promise<{ tags: string[]; paths: string[] }> {
+  private async publishDesignToken(): Promise<string[]> {
     const app = await this.cloneApp();
 
     // Delete existing online app
@@ -160,7 +157,7 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
     // Remove 'DESIGN_TOKENS' from changes array, set null only if no other changes remain
     await this.removeFromChangesArray("DESIGN_TOKENS", "ERROR_PUBLISHING_DESIGN_TOKEN");
 
-    return { tags: [`website-settings-${this.appId}`], paths: [] };
+    return [`website-settings-${this.appId}`];
   }
 
   /**
@@ -253,18 +250,15 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
   /**
    * Publish a single page
    */
-  private async publishPage(id: string): Promise<{ tags: string[]; paths: string[] }> {
+  private async publishPage(id: string): Promise<string[]> {
     const page = await this.clonePage(id);
     await this.addOnlinePage(page);
 
     const tags = [`page-${page.primaryPage ?? page.id}`];
-    const paths: string[] = [];
     if (isEmpty(page.slug)) {
       tags.push(...(await this.getPartialBlockUsage(page.primaryPage ?? page.id)));
-    } else {
-      paths.push(`${page.slug}`);
     }
-    return { tags, paths };
+    return tags;
   }
 
   /**

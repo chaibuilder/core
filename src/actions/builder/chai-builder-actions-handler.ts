@@ -2,9 +2,9 @@ import { ActionError } from "./action-error";
 import { getChaiAction } from "./actions-registery";
 import { ChaiBaseAction } from "./base-action";
 
-export const initChaiBuilderActionHandler = (params: { apiKey: string; userId: string; hostname?: string }) => {
+export const initChaiBuilderActionHandler = (params: { apiKey: string; userId: string; }) => {
   return async (actionData: { action: string; data?: unknown }) => {
-    const { apiKey, userId, hostname } = params;
+    const { apiKey, userId } = params;
     try {
       const requestBody = actionData;
       const { action, data } = requestBody;
@@ -29,7 +29,7 @@ export const initChaiBuilderActionHandler = (params: { apiKey: string; userId: s
       }
       // If action is registered in the new system, use it
       // Set the context on the action handler
-      actionHandler.setContext({ appId: apiKey, userId, hostname });
+      actionHandler.setContext({ appId: apiKey, userId });
       // Execute the action
       return await actionHandler.execute(data);
       // }

@@ -5,7 +5,6 @@
 export interface ChaiActionContext {
   appId: string;
   userId?: string;
-  hostname?: string;
 }
 
 /**
