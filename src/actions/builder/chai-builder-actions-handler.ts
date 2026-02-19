@@ -2,7 +2,7 @@ import { ActionError } from "./action-error";
 import { getChaiAction } from "./actions-registery";
 import { ChaiBaseAction } from "./base-action";
 
-export const initChaiBuilderActionHandler = (params: { apiKey: string; userId: string; }) => {
+export const initChaiBuilderActionHandler = (params: { apiKey: string; userId: string }) => {
   return async (actionData: { action: string; data?: unknown }) => {
     const { apiKey, userId } = params;
     try {

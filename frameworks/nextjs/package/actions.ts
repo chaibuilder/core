@@ -1,6 +1,9 @@
 import { initChaiBuilderActionHandler } from "@chaibuilder/sdk/actions";
 import { NextResponse } from "next/server";
+import { updatePages } from "./update-pages";
+
 export * from "@chaibuilder/sdk/actions";
+export { updatePages };
 export function initChaiBuilderNextJSActionHandler({ apiKey, userId }: { apiKey: string, userId: string }) {
     return async function (body: any) {
         const actionHandler = initChaiBuilderActionHandler({ apiKey, userId })

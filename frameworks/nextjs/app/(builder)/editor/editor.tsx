@@ -9,7 +9,7 @@ import "@chaibuilder/sdk/styles";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useState } from "react";
 import { LoginScreen } from "./login";
-import { updatePages } from "@/package/update-pages";
+import { updatePages } from "@/package/actions";
 const ChaiWebsiteBuilder = dynamic(() => import("@chaibuilder/sdk/pages").then((mod) => mod.ChaiWebsiteBuilder), {
   ssr: false,
 });
