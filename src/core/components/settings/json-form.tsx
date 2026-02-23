@@ -10,6 +10,7 @@ import { RTEField } from "@/core/rjsf-widgets/rte-widget/rte-widget";
 import { SliderField } from "@/core/rjsf-widgets/slider";
 import { SourcesField } from "@/core/rjsf-widgets/sources";
 import { useLanguages } from "@/hooks/use-languages";
+import { useWebsitePrimaryPages } from "@/pages/hooks/pages/use-project-pages";
 import { useChaiBlockSettingComponents } from "@/runtime/client";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { useThrottledCallback } from "@react-hookz/web";
@@ -37,6 +38,7 @@ const CustomAddButton = (props: any) => (
 
 export const JSONForm = memo(({ blockId, schema, uiSchema, formData, onChange }: JSONFormType) => {
   const { selectedLang } = useLanguages();
+  const { data: primaryPages, isFetching: isFetchingPages } = useWebsitePrimaryPages();
   const widgets = useChaiBlockSettingComponents("widget");
   const fields = useChaiBlockSettingComponents("field");
   const templates = useChaiBlockSettingComponents("template");
@@ -80,6 +82,7 @@ export const JSONForm = memo(({ blockId, schema, uiSchema, formData, onChange }:
         },
         ...templates,
       }}
+      formContext={{ primaryPages, isFetchingPages }}
       idSeparator="."
       autoComplete="off"
       omitExtraData={false}

@@ -6,11 +6,21 @@ import { get, isEmpty, map, split, startsWith, filter, includes, toLower } from 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DataBindingSelector } from "./data-binding-selector";
-import { useWebsitePrimaryPages } from "@/pages/hooks/pages/use-project-pages";
 
-const PageTypeField = ({ href, onChange }: { href: string; onChange: (href: string) => void }) => {
+type PageItem = { id: string; name: string; slug?: string; pageType?: string };
+
+const PageTypeField = ({
+  href,
+  onChange,
+  primaryPages,
+  isFetching,
+}: {
+  href: string;
+  onChange: (href: string) => void;
+  primaryPages: PageItem[];
+  isFetching: boolean;
+}) => {
   const { t } = useTranslation();
-  const { data: primaryPages, isFetching } = useWebsitePrimaryPages();
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(-1);
@@ -26,7 +36,7 @@ const PageTypeField = ({ href, onChange }: { href: string; onChange: (href: stri
     const pageId = get(initHref, 2, "page");
 
     // find the page in primaryPages
-    const page = primaryPages?.find((p: any) => p.id === pageId);
+    const page = primaryPages?.find((p) => p.id === pageId);
     if (page) {
       setSearchQuery(page.name);
     }
@@ -37,13 +47,13 @@ const PageTypeField = ({ href, onChange }: { href: string; onChange: (href: stri
     if (isEmpty(searchQuery) || !isSearching) return [];
     return filter(
       primaryPages,
-      (page: any) =>
+      (page) =>
         includes(toLower(page.name || ""), toLower(searchQuery)) ||
         includes(toLower(page.slug || ""), toLower(searchQuery)),
     );
   }, [searchQuery, primaryPages, isSearching]);
 
-  const handleSelect = (pageTypeItem: any) => {
+  const handleSelect = (pageTypeItem: PageItem) => {
     const href = ["pageType", pageTypeItem.pageType || "page", pageTypeItem.id];
     if (!href[1]) return;
     onChange(href.join(":"));
@@ -151,10 +161,14 @@ const PageTypeField = ({ href, onChange }: { href: string; onChange: (href: stri
   );
 };
 
-const LinkField = ({ schema, formData, onChange, name }: FieldProps) => {
+const LinkField = ({ schema, formData, onChange, name, registry }: FieldProps) => {
   const { t } = useTranslation();
   const { type = "pageType", href = "", target = "self" } = formData ?? {};
   const { selectedLang, fallbackLang, languages } = useLanguages();
+  const { primaryPages = [], isFetchingPages = false } = (registry.formContext ?? {}) as {
+    primaryPages?: PageItem[];
+    isFetchingPages?: boolean;
+  };
   const lang = useMemo(
     () => (isEmpty(languages) ? "" : isEmpty(selectedLang) ? fallbackLang : selectedLang),
     [languages, selectedLang, fallbackLang],
@@ -196,7 +210,12 @@ const LinkField = ({ schema, formData, onChange, name }: FieldProps) => {
           )}
         </select>
         {linkType === "pageType" ? (
-          <PageTypeField href={href} onChange={(href: string) => onChange({ ...formData, href })} />
+          <PageTypeField
+            href={href}
+            onChange={(href: string) => onChange({ ...formData, href })}
+            primaryPages={primaryPages}
+            isFetching={isFetchingPages}
+          />
         ) : null}
         <input
           id={`root.${name}.href`}
