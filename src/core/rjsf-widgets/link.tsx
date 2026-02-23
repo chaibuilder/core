@@ -1,62 +1,72 @@
 import { LANGUAGES } from "@/core/constants/LANGUAGES";
+import { useBuilderProp } from "@/hooks/use-builder-prop";
 import { useLanguages } from "@/hooks/use-languages";
 import { Cross1Icon } from "@radix-ui/react-icons";
 import { FieldProps } from "@rjsf/utils";
-import { get, isEmpty, map, split, startsWith, filter, includes, toLower } from "lodash-es";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { get, isEmpty, map, split, startsWith } from "lodash-es";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { DataBindingSelector } from "./data-binding-selector";
 
 type PageItem = { id: string; name: string; slug?: string; pageType?: string };
 
-const PageTypeField = ({
-  href,
-  onChange,
-  primaryPages,
-  isFetching,
-}: {
-  href: string;
-  onChange: (href: string) => void;
-  primaryPages: PageItem[];
-  isFetching: boolean;
-}) => {
+const PageTypeField = ({ href, onChange }: { href: string; onChange: (href: string) => void }) => {
   const { t } = useTranslation();
+  const searchPageTypeItems = useBuilderProp("searchPageTypeItems", (_: string, __: any) => [] as PageItem[]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(-1);
+  const [pageTypeItems, setPageTypeItems] = useState<PageItem[]>([]);
+  const [isFetching, setIsFetching] = useState(false);
   const listRef = useRef<HTMLUListElement>(null);
 
+  // Initialize display name from an existing href
   useEffect(() => {
     setSearchQuery("");
     setSelectedIndex(-1);
     setIsSearching(false);
+    setPageTypeItems([]);
 
-    if (!href || isFetching || !startsWith(href, "pageType:")) return;
-    const initHref = split(href, ":");
-    const pageId = get(initHref, 2, "page");
+    if (!href || !startsWith(href, "pageType:")) return;
+    const parts = split(href, ":");
+    const pageType = get(parts, 1, "page");
+    const pageId = get(parts, 2, "");
+    if (!pageId) return;
 
-    // find the page in primaryPages
-    const page = primaryPages?.find((p) => p.id === pageId);
-    if (page) {
-      setSearchQuery(page.name);
-    }
+    setIsFetching(true);
+    Promise.resolve(searchPageTypeItems(pageType, [pageId]))
+      .then((results) => {
+        const items: PageItem[] = Array.isArray(results) ? (results as PageItem[]) : [];
+        const page = items.find((p) => p.id === pageId);
+        if (page) setSearchQuery(page.name);
+        setIsFetching(false);
+      })
+      .catch(() => setIsFetching(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [href, primaryPages, isFetching]);
+  }, [href]);
 
-  const pageTypeItems = useMemo(() => {
-    if (isEmpty(searchQuery) || !isSearching) return [];
-    return filter(
-      primaryPages,
-      (page) =>
-        includes(toLower(page.name || ""), toLower(searchQuery)) ||
-        includes(toLower(page.slug || ""), toLower(searchQuery)),
-    );
-  }, [searchQuery, primaryPages, isSearching]);
+  // Search pages as the user types
+  const performSearch = useCallback(
+    (query: string) => {
+      if (isEmpty(query)) {
+        setPageTypeItems([]);
+        return;
+      }
+      setIsFetching(true);
+      Promise.resolve(searchPageTypeItems("", query))
+        .then((results) => {
+          setPageTypeItems(Array.isArray(results) ? (results as PageItem[]) : []);
+          setIsFetching(false);
+        })
+        .catch(() => setIsFetching(false));
+    },
+    [searchPageTypeItems],
+  );
 
   const handleSelect = (pageTypeItem: PageItem) => {
-    const href = ["pageType", pageTypeItem.pageType || "page", pageTypeItem.id];
-    if (!href[1]) return;
-    onChange(href.join(":"));
+    const newHref = ["pageType", pageTypeItem.pageType || "page", pageTypeItem.id];
+    if (!newHref[1]) return;
+    onChange(newHref.join(":"));
     setSearchQuery(pageTypeItem.name);
     setIsSearching(false);
     setSelectedIndex(-1);
@@ -75,10 +85,7 @@ const PageTypeField = ({
       case "Enter":
         e.preventDefault();
         if (pageTypeItems.length === 0) return;
-
-        if (selectedIndex >= 0) {
-          handleSelect(pageTypeItems[selectedIndex]);
-        }
+        if (selectedIndex >= 0) handleSelect(pageTypeItems[selectedIndex]);
         break;
       case "Escape":
         e.preventDefault();
@@ -98,12 +105,16 @@ const PageTypeField = ({
     setSearchQuery("");
     setSelectedIndex(-1);
     setIsSearching(false);
+    setPageTypeItems([]);
     onChange("");
   };
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
-    setIsSearching(!isEmpty(query));
+    const searching = !isEmpty(query);
+    setIsSearching(searching);
+    if (searching) performSearch(query);
+    else setPageTypeItems([]);
   };
 
   return (
@@ -139,7 +150,7 @@ const PageTypeField = ({
             </div>
           ) : (
             <ul ref={listRef}>
-              {map(pageTypeItems?.slice(0, 20), (item, index) => (
+              {map(pageTypeItems.slice(0, 20), (item, index) => (
                 <li
                   key={item.id}
                   onClick={() => handleSelect(item)}
@@ -161,14 +172,10 @@ const PageTypeField = ({
   );
 };
 
-const LinkField = ({ schema, formData, onChange, name, registry }: FieldProps) => {
+const LinkField = ({ schema, formData, onChange, name }: FieldProps) => {
   const { t } = useTranslation();
   const { type = "pageType", href = "", target = "self" } = formData ?? {};
   const { selectedLang, fallbackLang, languages } = useLanguages();
-  const { primaryPages = [], isFetchingPages = false } = (registry.formContext ?? {}) as {
-    primaryPages?: PageItem[];
-    isFetchingPages?: boolean;
-  };
   const lang = useMemo(
     () => (isEmpty(languages) ? "" : isEmpty(selectedLang) ? fallbackLang : selectedLang),
     [languages, selectedLang, fallbackLang],
@@ -210,12 +217,7 @@ const LinkField = ({ schema, formData, onChange, name, registry }: FieldProps) =
           )}
         </select>
         {linkType === "pageType" ? (
-          <PageTypeField
-            href={href}
-            onChange={(href: string) => onChange({ ...formData, href })}
-            primaryPages={primaryPages}
-            isFetching={isFetchingPages}
-          />
+          <PageTypeField href={href} onChange={(href: string) => onChange({ ...formData, href })} />
         ) : null}
         <input
           id={`root.${name}.href`}
