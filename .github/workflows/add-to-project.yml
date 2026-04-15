@@ -1,0 +1,22 @@
+name: Auto-Add to ChaiBuilder Project
+
+on:
+  issues:
+    types:
+      - opened
+  pull_request:
+    types:
+      - opened
+
+jobs:
+  add-to-project:
+    name: Add new items to Project Board
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add to Project
+        uses: actions/add-to-project@v1.0.2
+        with:
+          # Automatically routes to your ChaiBuilder Project #3
+          project-url: https://github.com/orgs/chaibuilder/projects/3
+          # Uses the Organization secret you set up in Step 1
+          github-token: ${{ secrets.GITHUB_TOKEN }}
