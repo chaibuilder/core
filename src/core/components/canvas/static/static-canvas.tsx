@@ -1,8 +1,10 @@
 // @ts-nochecks
 
+import { Provider as JotaiProvider } from "jotai";
 import { isEmpty } from "lodash-es";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Provider } from "react-wrap-balancer";
+import { Provider as BalancerProvider } from "react-wrap-balancer";
+import { builderStore } from "~/atoms/store";
 import { Skeleton } from "~/components/ui/skeleton";
 import { BlockSelectionHighlighter } from "~/core/components/canvas/block-floating-actions";
 import { useDragAndDrop, useDropIndicator } from "~/core/components/canvas/dnd/drag-and-drop/hooks";
@@ -73,19 +75,21 @@ const StaticCanvas = () => {
           <KeyboardHandler />
           <BlockSelectionHighlighter />
           <HeadTags />
-          <Provider>
-            <Canvas>
-              {loadingCanvas ? (
-                <div className="h-full p-4">
-                  <Skeleton className="h-full" />
-                </div>
-              ) : (
-                <StaticBlocksRenderer />
-              )}
-              <AddBlockAtBottom />
-            </Canvas>
-            <CanvasEventsWatcher />
-          </Provider>
+          <JotaiProvider store={builderStore}>
+            <BalancerProvider>
+              <Canvas>
+                {loadingCanvas ? (
+                  <div className="h-full p-4">
+                    <Skeleton className="h-full" />
+                  </div>
+                ) : (
+                  <StaticBlocksRenderer />
+                )}
+                <AddBlockAtBottom />
+              </Canvas>
+              <CanvasEventsWatcher />
+            </BalancerProvider>
+          </JotaiProvider>
           {dropIndicator.isVisible && (
             <div
               id="placeholder"

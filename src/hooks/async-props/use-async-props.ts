@@ -8,6 +8,8 @@ import { useEffect, useState } from "react";
 import { ChaiBlock } from "~/types/common";
 import { useUpdateBlocksPropsRealtime } from "../use-update-blocks-props";
 
+const CHAI_ASYNC_PROPS_STUB = async (_args: { block: ChaiBlock }) => ({});
+
 type BlockAsyncProps = {
   status: "idle" | "loading" | "loaded" | "error";
   props: Record<string, any>;
@@ -30,7 +32,7 @@ export const useAsyncProps = (
   mockDataProvider?: (args: { block: ChaiBlock }) => object,
 ) => {
   const updateRuntimeProps = useUpdateBlocksPropsRealtime();
-  const getAsyncBlockProps = useBuilderProp("getBlockAsyncProps", async (_args: { block: ChaiBlock }) => ({}));
+  const getAsyncBlockProps = useBuilderProp("getBlockAsyncProps", CHAI_ASYNC_PROPS_STUB);
   const setBlockRepeaterDataAtom = useSetAtom(blockRepeaterDataAtom);
   const depsString = JSON.stringify([block?._id, ...values(pick(block, dependencies ?? []))]);
   const isCollectionRepeater = block?._type === "Repeater" && startsWith(block.repeaterItems, `{{${COLLECTION_PREFIX}`);
