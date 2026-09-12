@@ -257,7 +257,7 @@
     "@tiptap/extension-text-align": "2.27.1",
     "@tiptap/extension-text-style": "2.27.1",
     "@tiptap/extension-underline": "2.27.1",
-    "@tiptap/pm": "2.27.1",
+    "@tiptap/pm": "2.27.3",
     "@tiptap/react": "2.27.1",
     "@tiptap/starter-kit": "2.27.1",
     "@tiptap/suggestion": "2.27.1",
