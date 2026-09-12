@@ -90,14 +90,21 @@ jobs:
       - name: Push branch and open pull request
         if: steps.apply.outputs.changed == 'true'
         working-directory: core
+        # Every value below reaches the script through the environment. Interpolating a dispatch
+        # input or command output straight into `run:` would let its text run as shell, here with
+        # a push token in scope.
         env:
           GH_TOKEN: ${{ secrets.SYNC_PR_TOKEN }}
+          PRO_REF: ${{ github.event.inputs.pro_ref || 'dev' }}
+          SYNC_SHORT: ${{ steps.apply.outputs.short }}
+          SYNC_SUBJECT: ${{ steps.apply.outputs.subject }}
+          BASE_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
-          BRANCH="sync/pro-${{ steps.apply.outputs.short }}"
+          BRANCH="sync/pro-${SYNC_SHORT}"
           git checkout -b "$BRANCH"
           git push --force-with-lease "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
           {
-            echo "Automated sync of \`src/\` from chaibuilder/pro (${{ github.event.inputs.pro_ref || 'dev' }})."
+            echo "Automated sync of \`src/\` from chaibuilder/pro (${PRO_REF})."
             echo
             echo "Review this as \"core now equals pro\"; the content was reviewed where it was written."
             echo "Merge with a merge commit or rebase, not squash, so the sync trailers survive."
@@ -107,10 +114,10 @@ jobs:
             echo '```'
           } > pr-body.md
           if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
-            gh pr edit "$BRANCH" --title "${{ steps.apply.outputs.subject }}" --body-file pr-body.md
+            gh pr edit "$BRANCH" --title "$SYNC_SUBJECT" --body-file pr-body.md
           else
-            gh pr create --base "${{ github.event.repository.default_branch }}" --head "$BRANCH" \
-              --title "${{ steps.apply.outputs.subject }}" --body-file pr-body.md
+            gh pr create --base "$BASE_BRANCH" --head "$BRANCH" \
+              --title "$SYNC_SUBJECT" --body-file pr-body.md
           fi
 
       - name: Nothing to sync
