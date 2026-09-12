@@ -307,7 +307,7 @@
     "prettier-plugin-tailwindcss": "^0.7.4",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
-    "sharp": "0.34.2",
+    "sharp": "0.35.4",
     "tailwindcss": "^4.3.0",
     "tsup": "8.5.1",
     "typedoc": "0.28.19",
