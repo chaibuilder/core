@@ -24,7 +24,7 @@ jobs:
       # Required for npm provenance — the attestation is signed with this OIDC token.
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ github.event.release.tag_name || github.ref }}
 

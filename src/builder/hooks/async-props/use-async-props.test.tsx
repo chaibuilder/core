@@ -17,8 +17,12 @@ vi.mock("~/builder/hooks/use-update-blocks-props", () => ({
 
 const block = (heading: string) => ({ _id: "block-1", _type: "MyBlock", heading }) as unknown as ChaiBlock;
 
+// The hook spreads resolved async props over `$loading`, so its static return type is just
+// `{ $loading: boolean }`. Widen it here to read the props the fixtures resolve.
 const renderAsyncProps = (heading: string) =>
-  renderHook(({ block: b }) => useAsyncProps(b, "live", ["heading"]), { initialProps: { block: block(heading) } });
+  renderHook(({ block: b }) => useAsyncProps(b, "live", ["heading"]) as Record<string, any>, {
+    initialProps: { block: block(heading) },
+  });
 
 describe("useAsyncProps", () => {
   beforeEach(() => {

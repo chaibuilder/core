@@ -33,7 +33,7 @@ describe("fetchRepeaterItems for CollectionItem", () => {
   });
 
   it("fetches through fetchItem with a limit-1 query and returns a single-element array", async () => {
-    const fetchItem = vi.fn(async () => ({ item: { slug: "a", bio: "full detail" } }));
+    const fetchItem = vi.fn(async (_args: any) => ({ item: { slug: "a", bio: "full detail" } }));
     mockResolve.mockReturnValue({ kind: "repeaterData", source: makeSource({ fetchItem }) });
 
     const result = await fetchRepeaterItems(
