@@ -1,8 +1,9 @@
 /**
- * Server plugin barrel — what `<pkg>/plugins/server` resolves to.
+ * Server plugin barrel.
  *
- * The exported set is edition-specific (the pro edition adds its plugins and the
- * `chaiProServerPlugins()` preset), so the list lives in `src/edition/server-plugins-barrel.ts`;
- * this shared file only forwards it.
+ * The exported set is edition-specific — an edition with server plugins exports them and a
+ * preset that installs the usual set, one without exports nothing — so the list lives in
+ * `src/edition/server-plugins-barrel.ts` and this file only forwards it. Editions that have
+ * something to export publish it as `<pkg>/plugins/server`.
  */
 export * from "~/edition/server-plugins-barrel";

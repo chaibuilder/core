@@ -7,12 +7,15 @@
 //
 // Paths listed in src-sync.exclude are never copied and never deleted (pro-only plugins,
 // src/payload, and each repo's own src/edition). Every other file under src/ ends up
-// byte-identical to the sibling. The sync commit records what it carried in its body and in
+// byte-identical to the sibling, and so do the root files that shape it (ALSO_IDENTICAL in
+// sync-lib.mjs: the prettier/eslint/vitest config the tree is written against, and these
+// scripts). src-sync.exclude is the exception: both repos must already agree on it. The sync commit records what it carried in its body and in
 // git trailers (Sync-Source, Sync-Direction, …) so `pnpm sync:log` can find it later. See SYNC.md.
 import fs from "node:fs";
 import path from "node:path";
 import {
   assertSameManifest,
+  diffRootFiles,
   diffSharedTrees,
   fail,
   git,
@@ -48,7 +51,8 @@ const siblingDirty = (tryGit(sibling, "status", "--porcelain", "--", "src") ?? "
 const previous = readSyncRef(here);
 const sourceCommits = listSourceCommits(sibling, previous, siblingSlug);
 const plan = diffSharedTrees(sibling, here, manifest);
-const total = plan.add.length + plan.update.length + plan.delete.length;
+const rootPlan = diffRootFiles(sibling, here);
+const total = plan.add.length + plan.update.length + plan.delete.length + rootPlan.copy.length;
 
 printPreview();
 
@@ -65,16 +69,30 @@ if (args["dry-run"]) {
 if (siblingDirty) {
   fail(`${sibling} has uncommitted changes under src/. Commit or stash them so .sync-ref points at real history.`);
 }
-const dirty = tryGit(here, "status", "--porcelain", "--", "src", SYNC_REF_FILE) ?? "";
-if (dirty)
-  fail(`this repo has uncommitted changes under src/ or ${SYNC_REF_FILE}. Commit or stash them first.\n${dirty}`);
+const written = ["src", SYNC_REF_FILE, ...rootPlan.copy];
+const dirty = tryGit(here, "status", "--porcelain", "--", ...written) ?? "";
+if (dirty) fail(`this repo has uncommitted changes in paths this sync rewrites. Commit or stash them first.\n${dirty}`);
+
+// `git commit` records the whole index, so anything already staged would ride along inside the
+// sync commit — and the same goes for the tree `--no-commit` hands over. Refuse instead.
+const stray = (tryGit(here, "diff", "--cached", "--name-only") ?? "")
+  .split("\n")
+  .filter(Boolean)
+  .filter((file) => !file.startsWith("src/") && file !== SYNC_REF_FILE && !rootPlan.copy.includes(file));
+if (stray.length > 0) {
+  fail(
+    "changes unrelated to the sync are already staged; commit or unstage them so the sync commit " +
+      `carries only what it synced:\n  ${stray.join("\n  ")}`,
+  );
+}
 
 apply();
 fs.writeFileSync(path.join(here, SYNC_REF_FILE), `${siblingSlug}@${siblingSha}\n`);
-git(here, "add", "-A", "--", "src", SYNC_REF_FILE);
+git(here, "add", "-A", "--", ...written);
 
 const message = buildCommitMessage();
-const messageFile = path.join(here, ".git", "SYNC_COMMIT_MSG");
+// Resolved through git: in a linked worktree `.git` is a file, not a directory.
+const messageFile = path.resolve(here, git(here, "rev-parse", "--git-path", "SYNC_COMMIT_MSG"));
 fs.writeFileSync(messageFile, message);
 if (args["no-commit"]) {
   console.log(
@@ -132,9 +150,20 @@ function printPreview() {
   section("Add", plan.add, "+");
   section("Update", plan.update, "~");
   section("Delete", plan.delete, "-");
+  if (rootPlan.copy.length > 0) {
+    console.log(`Root files that must match (${rootPlan.copy.length}):`);
+    for (const rel of rootPlan.copy) console.log(`  ~ ${rel}`);
+  }
   console.log(
-    `\n${plan.identical} identical, ${plan.add.length} to add, ${plan.update.length} to update, ${plan.delete.length} to delete`,
+    `\n${plan.identical} identical, ${plan.add.length} to add, ${plan.update.length} to update, ` +
+      `${plan.delete.length} to delete, ${rootPlan.copy.length} root file(s) to copy`,
   );
+  if (rootPlan.sourceMissing.length > 0) {
+    console.log(
+      `\n!! Only in this repo, left untouched: ${rootPlan.sourceMissing.join(", ")}.\n` +
+        "   sync:check keeps reporting them until both repos agree.",
+    );
+  }
   if (plan.delete.length > 0) {
     console.log(
       "\n!! Deletions remove files that exist only in this repo. If any of them is meant to stay, add its\n" +
@@ -145,16 +174,23 @@ function printPreview() {
 }
 
 function apply() {
-  for (const rel of [...plan.add, ...plan.update]) {
-    const target = path.join(here, "src", rel);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.copyFileSync(plan.source.get(rel), target);
-  }
   const srcRoot = path.join(here, "src");
+  // Deletions first: when a path changes shape (`src/foo` the file becomes `src/foo/bar`, or the
+  // other way round) the old one has to go before the new one can be written.
   for (const rel of plan.delete) {
     const target = path.join(srcRoot, rel);
     fs.rmSync(target, { force: true });
     pruneEmptyDirs(path.dirname(target), srcRoot);
+  }
+  for (const rel of [...plan.add, ...plan.update]) {
+    const target = path.join(srcRoot, rel);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(plan.source.get(rel), target);
+  }
+  for (const rel of rootPlan.copy) {
+    const target = path.join(here, rel);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.copyFileSync(path.join(sibling, rel), target);
   }
 }
 
@@ -186,11 +222,13 @@ function buildCommitMessage() {
   } else {
     lines.push("First recorded sync from this source.");
   }
-  lines.push(`Files: ${plan.update.length} updated, ${plan.add.length} added, ${plan.delete.length} deleted`);
+  const root = rootPlan.copy.length > 0 ? `, ${rootPlan.copy.length} root file(s) copied` : "";
+  lines.push(`Files: ${plan.update.length} updated, ${plan.add.length} added, ${plan.delete.length} deleted${root}`);
   const listed = [
     ...plan.add.map((rel) => `  + src/${rel}`),
     ...plan.update.map((rel) => `  ~ src/${rel}`),
     ...plan.delete.map((rel) => `  - src/${rel}`),
+    ...rootPlan.copy.map((rel) => `  ~ ${rel}`),
   ];
   for (const line of listed.slice(0, MAX_LISTED_FILES)) lines.push(truncate(line, 96));
   if (listed.length > MAX_LISTED_FILES) lines.push(`  (+${listed.length - MAX_LISTED_FILES} more, see the diff)`);

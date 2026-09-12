@@ -13,6 +13,5 @@ fi
 echo "ESLint passed."
 
 # Unit and integration tests deliberately do not run here: CI (.github/workflows/ci.yml)
-# runs them on every push and PR
-# the prefix back into this repo. Keeping this hook lint-only keeps pushes fast.
+# runs them on every push and pull request. Keeping this hook lint-only keeps pushes fast.
 exit 0

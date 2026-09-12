@@ -9,6 +9,7 @@ import {
 } from "~/builder/pages/utils/parse-chai-http-action-response";
 import {
   collectChaiFetchInterceptorHeaders,
+  mergeChaiFetchHeaders,
   notifyChaiFetchInterceptors,
 } from "~/builder/register-apis/register-chai-fetch-interceptor";
 
@@ -76,17 +77,16 @@ export const useFetch = () => {
 
       try {
         const action = get(modifiedBody, "action", "").toLowerCase();
-        // Registered client plugins may ride along on every action request (see
-        // registerChaiFetchInterceptor). Caller headers and Authorization always win.
+        // Registered client plugins may ride along on the action requests this hook makes (see
+        // registerChaiFetchInterceptor). Caller headers and Authorization always win, whatever
+        // case an interceptor spelled them in.
         const interceptorContext = { action: modifiedBody.action };
         const response = await fetchAPI(
           url + (action ? `?action=${action}` : ""),
           modifiedBody,
-          {
-            ...collectChaiFetchInterceptorHeaders(interceptorContext),
-            ...headers,
+          mergeChaiFetchHeaders(collectChaiFetchInterceptorHeaders(interceptorContext), headers, {
             Authorization: `Bearer ${authToken}`,
-          },
+          }),
           options,
         );
         if (streamResponse) {

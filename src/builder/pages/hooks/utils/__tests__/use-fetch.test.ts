@@ -550,6 +550,29 @@ describe("useFetch", () => {
       );
     });
 
+    it("wins over interceptor headers spelled in a different case", async () => {
+      mockProps();
+      registerChaiFetchInterceptor("chai:test", {
+        headers: () => ({ authorization: "Bearer from-interceptor", "x-custom-header": "from-interceptor" }),
+      });
+      vi.mocked(fetchAPI).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: vi.fn(async () => ({ ok: true, data: {} })),
+      } as any);
+
+      const { result } = renderHook(() => useFetch());
+      await result.current("https://api.test.com", { action: "GET_PAGES", data: {} }, { "X-Custom-Header": "caller" });
+
+      // One Authorization, one custom header: the interceptor's spellings were replaced, not kept.
+      expect(fetchAPI).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.any(Object),
+        { "X-Custom-Header": "caller", Authorization: "Bearer mock-token" },
+        undefined,
+      );
+    });
+
     it("hands the parsed body to onResponse on success and on 401", async () => {
       mockProps();
       const onResponse = vi.fn();

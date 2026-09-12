@@ -9,9 +9,25 @@ fi
 # on the way in is what stops that backlog from growing.
 STAGED_FORMATTABLE=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|jsx|mjs|ts|tsx|json|css|scss|md|ya?ml)$' || true)
 
-if [ -n "$STAGED_FORMATTABLE" ]; then
+# Prettier rewrites the file in the working tree and the `git add` below stages it whole, so a
+# file that also carries unstaged edits would have them committed along with it. Format only the
+# files whose staged content is all there is; the rest are left to the author.
+FORMATTABLE=""
+UNFORMATTED=""
+UNSTAGED=$(git diff --name-only --diff-filter=ACMR)
+
+for file in $STAGED_FORMATTABLE; do
+    if echo "$UNSTAGED" | grep -qxF "$file"; then
+        UNFORMATTED="$UNFORMATTED $file"
+    else
+        FORMATTABLE="$FORMATTABLE $file"
+    fi
+done
+
+if [ -n "$FORMATTABLE" ]; then
     echo "Formatting staged files..."
-    echo "$STAGED_FORMATTABLE" | xargs pnpm exec prettier --write --ignore-unknown
+    # shellcheck disable=SC2086
+    pnpm exec prettier --write --ignore-unknown $FORMATTABLE
 
     if [ $? -ne 0 ]; then
         echo "Prettier failed. Commit aborted."
@@ -19,7 +35,12 @@ if [ -n "$STAGED_FORMATTABLE" ]; then
     fi
 
     # Re-stage whatever Prettier rewrote, so the commit matches what was checked.
-    echo "$STAGED_FORMATTABLE" | xargs git add
+    # shellcheck disable=SC2086
+    git add $FORMATTABLE
+fi
+
+if [ -n "$UNFORMATTED" ]; then
+    echo "Not formatted (unstaged changes in the same file):$UNFORMATTED"
 fi
 
 echo "Running ESLint..."
@@ -52,25 +73,27 @@ if [ -n "$STAGED_FILES" ]; then
     
     # Find corresponding test files for staged source files
     TEST_FILES=""
+    # `case`, not `[[ ]]`: husky runs this hook with sh, where the bash test never matched and
+    # every staged test file was quietly skipped.
     for file in $STAGED_FILES; do
-        if [[ "$file" == *".test."* ]] || [[ "$file" == *".spec."* ]]; then
-            # Add staged test file, but skip integration tests which need different config
-            if [[ "$file" != *".integration.test."* ]]; then
-                TEST_FILES="$TEST_FILES $file"
-            fi
-        else
-            # Look for test files in common patterns
-            test_file=$(echo "$file" | sed -E 's/\.(js|jsx|ts|tsx)$/.test.\1/')
-            if [ -f "$test_file" ]; then
-                TEST_FILES="$TEST_FILES $test_file"
-            fi
-            
-            # Also check for .spec.js/ts files
-            spec_file=$(echo "$file" | sed -E 's/\.(js|jsx|ts|tsx)$/.spec.\1/')
-            if [ -f "$spec_file" ]; then
-                TEST_FILES="$TEST_FILES $spec_file"
-            fi
-        fi
+        case "$file" in
+            # Integration tests need a different config; CI runs them.
+            *.integration.test.*) ;;
+            *.test.* | *.spec.*) TEST_FILES="$TEST_FILES $file" ;;
+            *)
+                # Look for test files in common patterns
+                test_file=$(echo "$file" | sed -E 's/\.(js|jsx|ts|tsx)$/.test.\1/')
+                if [ -f "$test_file" ]; then
+                    TEST_FILES="$TEST_FILES $test_file"
+                fi
+
+                # Also check for .spec.js/ts files
+                spec_file=$(echo "$file" | sed -E 's/\.(js|jsx|ts|tsx)$/.spec.\1/')
+                if [ -f "$spec_file" ]; then
+                    TEST_FILES="$TEST_FILES $spec_file"
+                fi
+                ;;
+        esac
     done
     
     if [ -n "$TEST_FILES" ]; then

@@ -49,7 +49,13 @@ export function fail(message) {
 }
 
 export function git(cwd, ...args) {
-  return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+  // History reads (the commit list since the last sync) outgrow the 1 MB default after a long gap.
+  return execFileSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    maxBuffer: 64 * 1024 * 1024,
+  }).trim();
 }
 
 export function tryGit(cwd, ...args) {
@@ -123,7 +129,8 @@ export function listSharedFiles(root, manifest) {
     if (rel.split("/").some((part) => JUNK.has(part))) continue;
     if (isExcluded(manifest, rel)) continue;
     const abs = path.join(root, file);
-    if (!fs.existsSync(abs) || !fs.statSync(abs).isFile()) continue;
+    // lstat, not stat: a symlink under src/ is not shared content and must never be followed.
+    if (!fs.existsSync(abs) || !fs.lstatSync(abs).isFile()) continue;
     out.set(rel, abs);
   }
   return out;
@@ -161,6 +168,28 @@ export function diffSharedTrees(sourceRoot, targetRoot, manifest) {
   update.sort();
   del.sort();
   return { add, update, delete: del, identical, source, target };
+}
+
+/**
+ * What a sync must copy outside `src/`: the ALSO_IDENTICAL root files whose bytes differ from
+ * the source (or are missing here). `src-sync.exclude` is never copied — the two repos must
+ * already agree on it before a sync runs (`assertSameManifest`), so it cannot be a sync's job.
+ * `sourceMissing` names files this repo has and the source does not; those are left alone.
+ */
+export function diffRootFiles(sourceRoot, targetRoot) {
+  const copy = [];
+  const sourceMissing = [];
+  for (const rel of ALSO_IDENTICAL) {
+    if (rel === MANIFEST_FILE) continue;
+    const source = path.join(sourceRoot, rel);
+    const target = path.join(targetRoot, rel);
+    if (!fs.existsSync(source)) {
+      if (fs.existsSync(target)) sourceMissing.push(rel);
+      continue;
+    }
+    if (!fs.existsSync(target) || !sameBytes(source, target)) copy.push(rel);
+  }
+  return { copy, sourceMissing };
 }
 
 /** Root files from ALSO_IDENTICAL whose bytes differ (or exist in only one repo). */

@@ -1,7 +1,8 @@
 import "~/server/only-server";
 // Side effect: registers the Next.js framework adapter (persistent cache + revalidation).
-// NOTE: a host that only ever uses `import type` from this entry never evaluates this module, and
-// must import `<pkg>/nextjs/register-adapter` itself (framework integrations may do so lazily).
+// NOTE: a host that only ever uses `import type` from this entry never evaluates this module, so
+// it needs a value import of the entry (`import "<pkg>/nextjs/server";`) to get a real adapter —
+// unless an edition entry point it already uses imports the adapter for it, lazily.
 import "~/nextjs/register-adapter";
 
 export type {
@@ -51,6 +52,7 @@ export { buildChaiBuilderConfig, getChaiBuilderConfigOnInit } from "~/server/bui
 export type { BuildChaiBuilderConfigOptions } from "~/server/build-config";
 export {
   defineChaiServerPlugin,
+  getChaiRequestHeader,
   registerChaiActionHook,
   registerChaiRequestMiddleware,
   runChaiActionHooks,

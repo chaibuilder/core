@@ -18,8 +18,10 @@ Every file under `src/` is byte-identical in both repos **except** the paths lis
 
 Root files that shape `src/` are also kept identical (see `ALSO_IDENTICAL` in
 `scripts/sync-lib.mjs`): the manifest, Prettier and ESLint configs, `declaration.d.ts`,
-`drizzle.config.test.ts`, `vitest-setup.ts`, `postcss.config.mjs`, and the sync scripts.
-`package.json`, `tsup.config.ts`, `tsconfig.json`, workflows and READMEs differ by design.
+`drizzle.config.test.ts`, `vitest-setup.ts`, `postcss.config.mjs`, and the sync scripts. A sync
+carries those along with `src/`, so `sync:check` never reports drift that `sync:src` cannot
+repair. `src-sync.exclude` is the exception — both repos must already agree on it before a sync
+runs. `package.json`, `tsup.config.ts`, `tsconfig.json`, workflows and READMEs differ by design.
 
 Conventions inside shared files:
 
@@ -57,6 +59,10 @@ rebase, never squash**, so the trailers below survive into the default branch.
 
 Edits to `src-sync.exclude` happen in both repos in the same change; `sync:check` refuses to
 run while the two manifests differ.
+
+`sync:src` also refuses to run while the paths it would rewrite carry uncommitted changes, or
+while anything unrelated is staged: the commit it writes records the whole index, and it may
+carry only what it synced.
 
 ## Online: the "Sync from pro" workflow
 
