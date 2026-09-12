@@ -58,7 +58,9 @@ describe("resolveConfigDynamicTemplateTie", () => {
 
   it("ignores a return value that is not one of the candidates", async () => {
     resetActiveChaiBuilderConfigForTests({
-      resolveDynamicTemplateTie: async () => ({ slug: "/elsewhere", pageType: "page" }),
+      // Deliberately outside the candidate set — that is what this case exercises, so the
+      // handler cannot satisfy the generic candidate return type.
+      resolveDynamicTemplateTie: (async () => ({ slug: "/elsewhere", pageType: "page" })) as any,
     });
 
     expect(await resolveConfigDynamicTemplateTie(candidates, "/auto-usage/vus-moins-de-17000")).toBe(candidates[0]);

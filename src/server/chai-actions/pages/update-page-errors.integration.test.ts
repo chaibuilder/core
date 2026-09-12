@@ -61,15 +61,15 @@ describe("UpdatePageAction - Errors Integration", () => {
   // This action declares `pages:update`, which is far more widely granted, so without
   // a server-side check the permission is decorative and the one-way rule unenforced.
   describe("folder page type transitions", () => {
-    const CHANGE_TYPE = { userAccess: { permissions: ["pages:change_type", "pages:update"] } };
+    const CHANGE_TYPE = { userAccess: { role: "editor", permissions: ["pages:change_type", "pages:update"] } };
 
     it("rejects converting a folder to a page without pages:change_type", async () => {
       await withTestDB(async ({ db, seed, action }) => {
         const folder = await seed("appPages", fake.appPages({ slug: "/company", pageType: "_folder" }));
 
-        await expect(
-          action(UpdatePageAction).run({ id: folder.id, pageType: "page" }),
-        ).rejects.toThrow("Missing permission: pages:change_type");
+        await expect(action(UpdatePageAction).run({ id: folder.id, pageType: "page" })).rejects.toThrow(
+          "Missing permission: pages:change_type",
+        );
 
         const unchanged = await getPageById(db, folder.id);
         expect(unchanged?.pageType).toBe("_folder");
@@ -91,9 +91,9 @@ describe("UpdatePageAction - Errors Integration", () => {
       await withTestDB(async ({ db, seed, action }) => {
         const page = await seed("appPages", fake.appPages({ slug: "/company", pageType: "page" }));
 
-        await expect(
-          action(UpdatePageAction, CHANGE_TYPE).run({ id: page.id, pageType: "_folder" }),
-        ).rejects.toThrow("A page cannot be converted to a folder");
+        await expect(action(UpdatePageAction, CHANGE_TYPE).run({ id: page.id, pageType: "_folder" })).rejects.toThrow(
+          "A page cannot be converted to a folder",
+        );
 
         const unchanged = await getPageById(db, page.id);
         expect(unchanged?.pageType).toBe("page");
@@ -104,9 +104,9 @@ describe("UpdatePageAction - Errors Integration", () => {
       await withTestDB(async ({ seed, action }) => {
         const folder = await seed("appPages", fake.appPages({ slug: "/company", pageType: "_folder" }));
 
-        await expect(
-          action(UpdatePageAction).run({ id: folder.id, dynamic: true }),
-        ).rejects.toThrow("Folder cannot be dynamic");
+        await expect(action(UpdatePageAction).run({ id: folder.id, dynamic: true })).rejects.toThrow(
+          "Folder cannot be dynamic",
+        );
       });
     });
 

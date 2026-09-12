@@ -20,7 +20,7 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - uses: googleapis/release-please-action@v4
+      - uses: googleapis/release-please-action@v5
         with:
           # GITHUB_TOKEN cannot trigger other workflows, so the release pull request opens
           # with no CI checks on it. Swap in a fine-grained PAT (contents + pull-requests
