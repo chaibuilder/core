@@ -82,7 +82,9 @@ describe("ChaiBaseAIAction error streaming", () => {
             };
             yield { type: "finish", finishReason: "stop" };
           })(),
-        } as Awaited<ReturnType<typeof this.streamText>>;
+          // Only `fullStream` is consumed by the encoder; the rest of StreamTextResult is not
+          // worth stubbing, so go through `unknown`.
+        } as unknown as Awaited<ReturnType<typeof this.streamText>>;
 
         return this.createFullStreamMixedEncoder(mockResult);
       }

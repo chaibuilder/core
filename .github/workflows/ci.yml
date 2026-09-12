@@ -56,12 +56,6 @@ jobs:
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
-    # Advisory, not blocking. `tsc --noEmit` reports 19 pre-existing errors on main (two in
-    # src/builder from untyped dependencies, the rest in test files), so a required check
-    # here would fail every pull request for reasons unrelated to the change. Read the log
-    # and confirm your change added nothing new. Clear the backlog, then delete this line
-    # and add "Typecheck" to the required checks on the main ruleset.
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
