@@ -1,0 +1,118 @@
+name: Sync from pro
+
+# Opens a pull request that brings chaibuilder/pro's shared src/ tree into this repo, using the
+# same scripts/sync-src.mjs a developer runs locally (see SYNC.md), so the sync commit carries the
+# usual Sync-* trailers. Run it from the Actions tab (or on the weekly schedule); review and merge
+# the pull request with a merge commit or rebase — never squash, which would drop the trailers.
+#
+# Secrets (repository settings):
+#   PRO_READ_TOKEN  read-only token for the private chaibuilder/pro repo (fine-grained PAT or a
+#                   GitHub App installation token) — GITHUB_TOKEN cannot read it.
+#   SYNC_PR_TOKEN   token used to push the branch and open the pull request. GITHUB_TOKEN would
+#                   work but pull requests it opens do not trigger CI, so use a PAT / App token.
+# Secrets are never exposed to workflows triggered from forks; this one only runs on dispatch and
+# schedule from this repository.
+
+on:
+  workflow_dispatch:
+    inputs:
+      pro_ref:
+        description: Branch, tag or commit of chaibuilder/pro to sync from
+        required: false
+        default: dev
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-from-pro
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync src/ from chaibuilder/pro
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout core
+        uses: actions/checkout@v7
+        with:
+          path: core
+          fetch-depth: 0
+
+      - name: Checkout pro
+        uses: actions/checkout@v7
+        with:
+          repository: chaibuilder/pro
+          ref: ${{ github.event.inputs.pro_ref || 'dev' }}
+          token: ${{ secrets.PRO_READ_TOKEN }}
+          path: pro
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Configure git identity
+        working-directory: core
+        run: |
+          git config user.name "chaibuilder-sync[bot]"
+          git config user.email "sync@chaibuilder.com"
+
+      - name: Preview
+        id: preview
+        working-directory: core
+        run: |
+          node scripts/sync-src.mjs --from=../pro --dry-run | tee preview.txt
+          {
+            echo 'preview<<PREVIEW_EOF'
+            cat preview.txt
+            echo 'PREVIEW_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Apply sync
+        id: apply
+        working-directory: core
+        run: |
+          BEFORE=$(git rev-parse HEAD)
+          node scripts/sync-src.mjs --from=../pro
+          if [ "$(git rev-parse HEAD)" = "$BEFORE" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "subject=$(git log -1 --format=%s)" >> "$GITHUB_OUTPUT"
+            echo "short=$(git -C ../pro rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+            git log -1 --format=%b > body.txt
+          fi
+
+      - name: Push branch and open pull request
+        if: steps.apply.outputs.changed == 'true'
+        working-directory: core
+        env:
+          GH_TOKEN: ${{ secrets.SYNC_PR_TOKEN }}
+        run: |
+          BRANCH="sync/pro-${{ steps.apply.outputs.short }}"
+          git checkout -b "$BRANCH"
+          git push --force-with-lease "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BRANCH"
+          {
+            echo "Automated sync of \`src/\` from chaibuilder/pro (${{ github.event.inputs.pro_ref || 'dev' }})."
+            echo
+            echo "Review this as \"core now equals pro\"; the content was reviewed where it was written."
+            echo "Merge with a merge commit or rebase, not squash, so the sync trailers survive."
+            echo
+            echo '```'
+            cat body.txt
+            echo '```'
+          } > pr-body.md
+          if gh pr view "$BRANCH" --json number >/dev/null 2>&1; then
+            gh pr edit "$BRANCH" --title "${{ steps.apply.outputs.subject }}" --body-file pr-body.md
+          else
+            gh pr create --base "${{ github.event.repository.default_branch }}" --head "$BRANCH" \
+              --title "${{ steps.apply.outputs.subject }}" --body-file pr-body.md
+          fi
+
+      - name: Nothing to sync
+        if: steps.apply.outputs.changed != 'true'
+        run: echo "src/ already matches chaibuilder/pro at the requested ref."
