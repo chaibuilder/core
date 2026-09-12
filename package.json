@@ -272,7 +272,7 @@
     "i18next": "25.5.2",
     "jotai": "2.14.0",
     "lodash-es": "4.18.1",
-    "lucide-react": "0.562.0",
+    "lucide-react": "1.43.0",
     "motion": "13.2.0",
     "nanoid": "5.1.16",
     "penpal": "^7.0.6",
