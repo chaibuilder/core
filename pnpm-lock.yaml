@@ -210,8 +210,8 @@ importers:
         specifier: 6.1.1
         version: 6.1.1(react@19.2.7)
       react-filerobot-image-editor:
-        specifier: 4.9.1
-        version: 4.9.1(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+        specifier: 5.0.1
+        version: 5.0.1(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       react-hotkeys-hook:
         specifier: 5.2.1
         version: 5.2.1(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
@@ -453,6 +453,10 @@ packages:
 
   '@babel/runtime@7.29.2':
     resolution: {integrity: sha512-JiDShH45zKHWyGe4ZNVRrCjBz8Nh9TMmZG1kh4QTK8hCBTWBi8Da+i7s1fJw7/lYpM4ccepSNfqzZ/QvABBi5g==}
+    engines: {node: '>=6.9.0'}
+
+  '@babel/runtime@7.29.7':
+    resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
     engines: {node: '>=6.9.0'}
 
   '@babel/template@7.29.7':
@@ -2755,24 +2759,24 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@scaleflex/icons@2.10.27':
-    resolution: {integrity: sha512-3E/tqXQrsuFIeGwDHE/ANEdDCPCYrt3ETk3/Q83M5ZZaFWdFWJG3bMeVBwNP2Nuul5OMr70LH3ce3krEObz98g==}
+  '@scaleflex/icons@2.6.3':
+    resolution: {integrity: sha512-xtcsQ04BlPKd0CwqYi7Y6uuAh2n/JDPVQZkRppYQrM1Mo+kMu9Djk81l6W+6EDCrAVf9fyoTcoe26QxD9SpjEg==}
     engines: {node: '>=12'}
     peerDependencies:
-      '@types/react': '>=16.0.0'
-      '@types/react-dom': '>=16.0.0'
-      react: '>=16.0.0'
-      react-dom: '>=16.0.0'
+      '@types/react': ^16.0.0 || ^17.0.0 || ^18.0.0
+      '@types/react-dom': ^16.0.0 || ^17.0.0 || ^18.0.0
+      react: ^16.0.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0
 
-  '@scaleflex/ui@2.10.27':
-    resolution: {integrity: sha512-Id9EJjS4NWGn9V0pZRCk8YpM2PVEK8/a/BtTbgEW5L7wPI/APmZ9vGtCTM3HyTEBrfnvWmDlb0T5CfpozywKyA==}
+  '@scaleflex/ui@2.7.0':
+    resolution: {integrity: sha512-46Hw+mvyFferRC2HDmpN3fXPtgZZQMdWunT2/EtYqK8utXrEyc41ZiiKW4X+2S3Fq/Gplg/rnd4dHQdME8etMw==}
     engines: {node: '>=12'}
     peerDependencies:
-      '@types/react': '>=16.0.0'
-      '@types/react-dom': '>=16.0.0'
-      react: '>=16.0.0'
-      react-dom: '>=16.0.0'
-      styled-components: '>=5.0.0'
+      '@types/react': ^16.0.0 || ^17.0.0 || ^18.0.0
+      '@types/react-dom': ^16.0.0 || ^17.0.0 || ^18.0.0
+      react: ^16.0.0 || ^17.0.0 || ^18.0.0
+      react-dom: ^16.0.0 || ^17.0.0 || ^18.0.0
+      styled-components: ^5.1.0
 
   '@shikijs/engine-oniguruma@3.23.0':
     resolution: {integrity: sha512-1nWINwKXxKKLqPibT5f4pAFLej9oZzQTsby8942OTlsJzOBZ0MWKiwzMsd+jhzu8YPCHAswGnnN1YtQfirL35g==}
@@ -3287,9 +3291,6 @@ packages:
 
   '@types/lodash-es@4.17.12':
     resolution: {integrity: sha512-0NgftHUcV4v34VhXm8QBSftKVXtbkBG3ViCjs6+eJ5a6y6Mi/jiFGPc1sC7QK+9BFhWrURE3EOggmWaSxL9OzQ==}
-
-  '@types/lodash.merge@4.6.9':
-    resolution: {integrity: sha512-23sHDPmzd59kUgWyKGiOMO2Qb9YtqRO/x4IhkgNUiPQ1+5MUVqi6bCZeq9nBJ17msjIMbEIO5u+XW4Kz6aGUhQ==}
 
   '@types/lodash@4.17.24':
     resolution: {integrity: sha512-gIW7lQLZbue7lRSWEFql49QJJWThrTFFeIMJdp3eH4tKoxm1OvEPg02rm4wCCSHS0cL3/Fizimb35b7k8atwsQ==}
@@ -5510,8 +5511,8 @@ packages:
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
 
-  react-filerobot-image-editor@4.9.1:
-    resolution: {integrity: sha512-O9xFySHT6MKuNXAKJMVGG2wyMeaV9NxHIVyBWzhysdbaxx7fZO0r4aQsBFkYt7+0B3Se5/33Sv90r8t3274Q+w==}
+  react-filerobot-image-editor@5.0.1:
+    resolution: {integrity: sha512-wYwHAKUSzMgXpWo2jcdmSD4PH3o3/in7ZmONMRQ4XVquXlWmgjDo90Y5Sq7waJkc3utUIX18FlepANvh6awJ9A==}
     peerDependencies:
       react: '>=17.0.0'
       react-dom: '>=17.0.0'
@@ -6518,6 +6519,8 @@ snapshots:
       '@babel/types': 7.29.7
 
   '@babel/runtime@7.29.2': {}
+
+  '@babel/runtime@7.29.7': {}
 
   '@babel/template@7.29.7':
     dependencies:
@@ -8402,23 +8405,22 @@ snapshots:
   '@rollup/rollup-win32-x64-msvc@4.60.4':
     optional: true
 
-  '@scaleflex/icons@2.10.27(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@scaleflex/icons@2.6.3(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@types/react': 19.2.7
       '@types/react-dom': 19.2.3(@types/react@19.2.7)
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
-  '@scaleflex/ui@2.10.27(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
+  '@scaleflex/ui@2.7.0(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)':
     dependencies:
       '@popperjs/core': 2.11.8
-      '@scaleflex/icons': 2.10.27(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@scaleflex/icons': 2.6.3(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       '@tippyjs/react': 4.2.6(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@types/lodash.merge': 4.6.9
       '@types/react': 19.2.7
       '@types/react-dom': 19.2.3(@types/react@19.2.7)
       lodash.merge: 4.6.2
-      prop-types: 15.7.2
+      prop-types: 15.8.1
       react: 19.2.7
       react-dom: 19.2.7(react@19.2.7)
 
@@ -8963,10 +8965,6 @@ snapshots:
   '@types/linkify-it@5.0.0': {}
 
   '@types/lodash-es@4.17.12':
-    dependencies:
-      '@types/lodash': 4.17.24
-
-  '@types/lodash.merge@4.6.9':
     dependencies:
       '@types/lodash': 4.17.24
 
@@ -11455,11 +11453,11 @@ snapshots:
     dependencies:
       react: 19.2.7
 
-  react-filerobot-image-editor@4.9.1(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
+  react-filerobot-image-editor@5.0.1(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7):
     dependencies:
-      '@babel/runtime': 7.29.2
-      '@scaleflex/icons': 2.10.27(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
-      '@scaleflex/ui': 2.10.27(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@babel/runtime': 7.29.7
+      '@scaleflex/icons': 2.6.3(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@scaleflex/ui': 2.7.0(@types/react-dom@19.2.3(@types/react@19.2.7))(@types/react@19.2.7)(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
       konva: 9.3.6
       prop-types: 15.7.2
       react: 19.2.7
