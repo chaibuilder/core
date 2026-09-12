@@ -16,12 +16,13 @@ happens to be vendored into.
 `chaicore` and `chaipro` (the commercial edition, core plus plugins) share one
 `src/` tree. Every file under `src/` is byte-identical in both repos except the
 paths in `src-sync.exclude` — `src/edition/` (each repo's own copy: package
-identity, always-on plugins, plugin barrels, test harness) and the pro-only plugin
-directories. Changes travel between the repos as one `chore(sync): …` commit made
-by `pnpm sync:src`; `pnpm sync:check` proves the trees match. Read `SYNC.md`
-before touching anything that names the package, a plugin, or the edition:
-runtime strings use `CHAI_PACKAGE_NAME` from `~/edition/identity`, comments and
-JSDoc write subpaths as `<pkg>/…`, and shared code never imports a plugin.
+identity, always-on plugins, plugin barrels, test harness) and the pro-only trees
+(`src/payload/` and the pro plugin directories). Changes travel between the repos
+as one `chore(sync): …` commit made by `pnpm sync:src`; `pnpm sync:check` proves
+the trees match. Read `SYNC.md` before touching anything that names the package,
+a plugin, or the edition: runtime strings use `CHAI_PACKAGE_NAME` from
+`~/edition/identity`, comments and JSDoc write subpaths as `<pkg>/…`, and shared
+code never imports a plugin.
 
 ## Layout (`src/`)
 
@@ -39,9 +40,10 @@ JSDoc write subpaths as `<pkg>/…`, and shared code never imports a plugin.
   `plugins/client.ts` and `plugins/server.ts` are shells that forward the
   edition's barrels (`src/edition/*-plugins-barrel.ts`). Nothing registers
   automatically — the host names the plugins it wants.
-- `edition/` — the only directory that differs between `chaicore` and
-  `chaipro` (never synced): identity, always-on plugin lists, plugin barrels,
-  integration-test schema and harness. See `src/edition/README.md`.
+- `edition/` — the only directory both editions have and keep different (never
+  synced): identity, always-on plugin lists, plugin barrels, integration-test
+  schema and harness. See `src/edition/README.md`. The rest of the exceptions in
+  `src-sync.exclude` exist only in `chaipro`: `src/payload/` and its plugins.
 - `db/` — adapters: libsql, d1, better-sqlite3.
 - `drizzle/` — core schema/relations (`schema.sqlite.ts`, `relations.sqlite.ts`)
   plus `seed/`. The Postgres twin of the core schema lives in the pro edition only.

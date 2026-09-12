@@ -98,11 +98,12 @@ The reasoning lives in the comments in `eslint.config.mjs`.
 ### Two editions, one `src/`
 
 `chaicore` shares its `src/` tree with the commercial `chaipro` package; every file under
-`src/` is byte-identical in both except `src/edition/` and the pro-only plugin directories
-listed in `src-sync.exclude`. Two habits keep that true: never write the package name in a
-shared file (runtime strings use `CHAI_PACKAGE_NAME` from `~/edition/identity`, comments write
-`<pkg>/…`), and never name a specific plugin from shared code. [SYNC.md](SYNC.md) explains how
-changes travel between the two repos.
+`src/` is byte-identical in both except `src/edition/` and the pro-only trees listed in
+`src-sync.exclude` (`src/payload/` and the pro plugin directories, none of which exist here).
+Two habits keep that true: never write the package name in a shared file (runtime strings use
+`CHAI_PACKAGE_NAME` from `~/edition/identity`, comments write `<pkg>/…`), and never name a
+specific plugin from shared code. [SYNC.md](SYNC.md) explains how changes travel between the
+two repos.
 
 ## Testing
 
