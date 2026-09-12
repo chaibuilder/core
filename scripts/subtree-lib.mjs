@@ -5,22 +5,22 @@
  * through a normal fork-and-PR on chaibuilder/core instead, so nothing here deals with
  * splitting host commits back upstream. Workflow: see RUNBOOK.md in this directory.
  */
-import { execFileSync } from 'child_process';
+import { execFileSync } from "child_process";
 
-export const DEFAULT_REMOTE = 'git@github.com:chaibuilder/core.git';
-export const DEFAULT_BRANCH = 'dev';
+export const DEFAULT_REMOTE = "git@github.com:chaibuilder/core.git";
+export const DEFAULT_BRANCH = "main";
 
 // Full-history log reads exceed Node's 1 MB default maxBuffer.
 const MAX_BUFFER = 256 * 1024 * 1024;
 
 export function readGit(args) {
-  return execFileSync('git', args, { encoding: 'utf8', maxBuffer: MAX_BUFFER });
+  return execFileSync("git", args, { encoding: "utf8", maxBuffer: MAX_BUFFER });
 }
 
 /** readGit that returns null instead of throwing (quiet on stderr). */
 export function tryReadGit(args) {
   try {
-    return execFileSync('git', args, { encoding: 'utf8', maxBuffer: MAX_BUFFER, stdio: ['ignore', 'pipe', 'ignore'] });
+    return execFileSync("git", args, { encoding: "utf8", maxBuffer: MAX_BUFFER, stdio: ["ignore", "pipe", "ignore"] });
   } catch {
     return null;
   }
@@ -33,23 +33,25 @@ export function shortSha(sha) {
 /** Fetches <remote> <branch> and returns the upstream tip sha. Exits with guidance on failure. */
 export function fetchUpstream(remote, branch) {
   try {
-    runGit(['fetch', remote, branch]);
+    runGit(["fetch", remote, branch]);
   } catch {
     console.error(`Error: could not fetch ${remote} ${branch}.`);
-    console.error('Check network access and that your SSH key can read the core repo.');
+    console.error("Check network access and that your SSH key can read the core repo.");
     process.exit(1);
   }
-  return readGit(['rev-parse', 'FETCH_HEAD']).trim();
+  return readGit(["rev-parse", "FETCH_HEAD"]).trim();
 }
 
 export function mergeInProgress() {
-  return tryReadGit(['rev-parse', '-q', '--verify', 'MERGE_HEAD']) !== null;
+  return tryReadGit(["rev-parse", "-q", "--verify", "MERGE_HEAD"]) !== null;
 }
 
 export function assertNoMergeInProgress() {
   if (!mergeInProgress()) return;
-  console.error('Error: a merge is already in progress.');
-  console.error('Finish it (resolve conflicts, `git add -A`, `git commit`) or abort it (`git merge --abort`), then retry.');
+  console.error("Error: a merge is already in progress.");
+  console.error(
+    "Finish it (resolve conflicts, `git add -A`, `git commit`) or abort it (`git merge --abort`), then retry.",
+  );
   process.exit(1);
 }
 
@@ -58,16 +60,16 @@ export function assertNoMergeInProgress() {
  * (git merge protects any file it would actually touch).
  */
 export function assertCleanPrefix(prefix) {
-  const dirtyPrefix = readGit(['status', '--porcelain=v1', '--untracked-files=no', '--', prefix]).trim();
+  const dirtyPrefix = readGit(["status", "--porcelain=v1", "--untracked-files=no", "--", prefix]).trim();
   if (dirtyPrefix) {
     console.error(`Error: ${prefix} has uncommitted changes:`);
     console.error(dirtyPrefix);
-    console.error('Commit or stash those changes, then retry.');
+    console.error("Commit or stash those changes, then retry.");
     process.exit(1);
   }
-  const dirtyElsewhere = readGit(['status', '--porcelain=v1', '--untracked-files=no']).trim();
+  const dirtyElsewhere = readGit(["status", "--porcelain=v1", "--untracked-files=no"]).trim();
   if (dirtyElsewhere) {
-    console.warn('Warning: tracked changes outside the prefix; git will refuse the merge if it would touch them.');
+    console.warn("Warning: tracked changes outside the prefix; git will refuse the merge if it would touch them.");
   }
 }
 
@@ -80,10 +82,10 @@ export function assertCleanPrefix(prefix) {
  * only replace the prefix wholesale — which is exactly what this check exists to prevent.
  */
 export function isNonSquash(upstreamTip) {
-  const bases = tryReadGit(['merge-base', '--all', 'HEAD', upstreamTip]);
+  const bases = tryReadGit(["merge-base", "--all", "HEAD", upstreamTip]);
   if (!bases || !bases.trim()) return false;
-  for (const base of bases.trim().split('\n')) {
-    const body = readGit(['log', '-1', '--format=%B', base.trim()]);
+  for (const base of bases.trim().split("\n")) {
+    const body = readGit(["log", "-1", "--format=%B", base.trim()]);
     if (!/^git-subtree-dir:/m.test(body) && !/^Squashed '/m.test(body)) return true;
   }
   return false;
@@ -97,18 +99,18 @@ export function refuseSquashed(prefix) {
 
 /** Upstream commits not yet merged into HEAD. */
 export function behindCount(upstreamTip) {
-  return Number(readGit(['rev-list', '--count', `HEAD..${upstreamTip}`]).trim());
+  return Number(readGit(["rev-list", "--count", `HEAD..${upstreamTip}`]).trim());
 }
 
 /** Local non-merge commits touching <prefix> that upstream does not have. */
 export function localPrefixCommits(upstreamTip, prefix) {
-  const local = readGit(['log', '--format=%h %s', '--no-merges', `${upstreamTip}..HEAD`, '--', prefix]).trim();
-  return local ? local.split('\n') : [];
+  const local = readGit(["log", "--format=%h %s", "--no-merges", `${upstreamTip}..HEAD`, "--", prefix]).trim();
+  return local ? local.split("\n") : [];
 }
 
 /** True when the prefix content is byte-identical to the upstream tip. */
 export function treesInSync(upstreamTip, prefix) {
-  const prefixTree = readGit(['rev-parse', `HEAD:${prefix}`]).trim();
-  const upstreamTree = readGit(['rev-parse', `${upstreamTip}^{tree}`]).trim();
+  const prefixTree = readGit(["rev-parse", `HEAD:${prefix}`]).trim();
+  const upstreamTree = readGit(["rev-parse", `${upstreamTip}^{tree}`]).trim();
   return prefixTree === upstreamTree;
 }

@@ -1,0 +1,47 @@
+name: PR title
+
+# Pull requests are squash-merged, so the title becomes the commit subject on main and the
+# changelog line release-please reads. A non-conventional title silently drops the change
+# out of the changelog, which is why this is its own required check.
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  pull-requests: read
+
+concurrency:
+  group: pr-title-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  lint-title:
+    name: Conventional commit title
+    runs-on: ubuntu-latest
+    steps:
+      - uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          # Keep in step with @commitlint/config-conventional, which gates the commits
+          # themselves in ci.yml.
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          requireScope: false
+          subjectPattern: ^(?![A-Z])(?!.*\.$).+$
+          subjectPatternError: |
+            The subject "{subject}" is not formatted correctly. Start it with a lowercase
+            letter and leave off the trailing period, for example:
+
+              feat(builder): add outline insertion placeholder

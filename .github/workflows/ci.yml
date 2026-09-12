@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A new push to the same branch cancels the previous run. main is excluded so every
+# commit that could be released keeps a complete, attributable CI record.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm lint
+
+  format:
+    name: Format
+    runs-on: ubuntu-latest
+    # Only the files this pull request touches. 298 files on main predate Prettier being
+    # enforced, and reformatting them in one sweep would conflict with every host repo
+    # that vendors src/ as a subtree and carries local edits. So contributors are held to
+    # the standard for their own changes, and the backlog is cleared separately.
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: ./.github/actions/setup
+
+      - name: Check formatting of changed files
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD \
+            | grep -E '\.(js|jsx|mjs|ts|tsx|json|css|scss|md|ya?ml)$' || true)
+
+          if [ -z "$FILES" ]; then
+            echo "No formattable files changed."
+            exit 0
+          fi
+
+          echo "Checking:"
+          echo "$FILES"
+          echo "$FILES" | xargs pnpm exec prettier --check --ignore-unknown
+
+  typecheck:
+    name: Typecheck
+    runs-on: ubuntu-latest
+    # Advisory, not blocking. `tsc --noEmit` reports 19 pre-existing errors on main (two in
+    # src/builder from untyped dependencies, the rest in test files), so a required check
+    # here would fail every pull request for reasons unrelated to the change. Read the log
+    # and confirm your change added nothing new. Clear the backlog, then delete this line
+    # and add "Typecheck" to the required checks on the main ruleset.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm typecheck
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+      - run: pnpm test
+
+  integration:
+    name: Integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      # .env.test is gitignored — recreate it for the dotenv loaders in vitest and drizzle.
+      - name: Write .env.test
+        run: echo 'TEST_DATABASE_URL=file:./.tmp/chaibuilder_test.sqlite' > .env.test
+
+      - name: Generate SQLite migrations
+        run: pnpm db:test:generate
+
+      - name: Run integration tests
+        env:
+          NODE_ENV: test
+        run: pnpm test:integration
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+
+      - run: pnpm build
+
+      # Catches exports/types mistakes that only surface at install time in a consumer app.
+      - name: Validate package
+        run: pnpm dlx publint@latest
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+          retention-days: 1
+
+  commitlint:
+    name: Commit messages
+    # Only pull requests have a base and head to compare. Direct pushes to main are
+    # squash-merge subjects, already checked by the PR title job.
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - name: Validate commit messages
+        run: |
+          pnpm exec commitlint \
+            --from ${{ github.event.pull_request.base.sha }} \
+            --to ${{ github.event.pull_request.head.sha }} \
+            --verbose

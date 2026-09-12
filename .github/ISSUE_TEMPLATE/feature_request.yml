@@ -1,0 +1,86 @@
+name: Feature request
+description: Suggest a capability or an API change
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Good feature requests start from a problem, not a solution. Tell us what you were trying
+        to do and where `chaicore` got in the way.
+
+        If you want to discuss an idea before it is fully formed, open a
+        [discussion](https://github.com/chaibuilder/core/discussions/categories/ideas) instead.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched existing issues and discussions for the same idea
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to build, and what stops you today?
+      placeholder: >
+        I need per-block visibility rules driven by the logged-in user's role, but data providers
+        only receive the request locale and draft flag.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: What you would like to happen
+      description: Sketch the API if you have one in mind. Code samples welcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including workarounds you are using now, and why they fall short.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Editor UI (builder)
+        - Rendering (RSC / SSR)
+        - Server runtime, config, or actions
+        - Database adapter or schema
+        - Blocks / block registry
+        - Data bindings and pipes
+        - AI features
+        - Next.js integration / build
+        - Types
+        - Documentation
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: breaking
+    attributes:
+      label: Would this break existing apps?
+      options:
+        - "No, purely additive"
+        - "Yes, it changes existing behaviour or types"
+        - "Not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you be willing to open a pull request for this?
+      options:
+        - "Yes, with some guidance"
+        - "Yes"
+        - "No"
+    validations:
+      required: true

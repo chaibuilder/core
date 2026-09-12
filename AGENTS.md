@@ -139,9 +139,27 @@ comments there before working around any of them.
 
 ## CI and commits
 
-- `.github/workflows/` (`pr-checks.yml`, `release-package.yaml`) runs **only in
-  this standalone repo**. In a host checkout GitHub reads the host's root
-  `.github/workflows`, so these are inert there.
+- `main` is the only long-lived branch. There is no `dev`.
+- `.github/workflows/` runs **only in this standalone repo**. In a host checkout
+  GitHub reads the host's root `.github/workflows`, so these are inert there.
+  - `ci.yml` — lint, format, typecheck, unit tests, integration tests, build +
+    `publint`, and commitlint on pull requests. Two caveats, both pre-existing
+    backlogs on `main`: typecheck is `continue-on-error` (19 errors), and the
+    format job checks only the files a pull request touches (298 files are
+    unformatted). A tree-wide `pnpm format` would conflict with every subtree
+    host carrying local edits, so do not run one casually. The `pre-commit` hook
+    formats staged files so the backlog stops growing.
+  - `pr-title.yml` — pull requests are squash-merged, so the title becomes the
+    commit subject and the changelog line. It must be a conventional commit.
+  - `release-please.yml` — maintains the standing release PR from the commits on
+    `main`; merging it bumps `package.json`, writes `CHANGELOG.md`, and tags.
+  - `publish.yml` — fires on the published GitHub release and runs
+    `npm publish --provenance`. Never publish or tag by hand.
+  - `labeler.yml`, `stale.yml` — repository housekeeping.
+- Shared Node + pnpm setup lives in `.github/actions/setup`. Add steps there, not
+  in each job.
+- pnpm is the only supported package manager; the version comes from
+  `packageManager` in `package.json`.
 - Likewise `.husky/` hooks (commitlint, ESLint on staged files) fire only when
   committing in this repo.
 - Commit subjects become the `chaicore` changelog and are enforced by commitlint

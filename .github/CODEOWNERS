@@ -1,0 +1,12 @@
+# Every change needs a maintainer review.
+# Syntax: https://docs.github.com/articles/about-code-owners
+
+* @surajair
+
+# Release, CI and publishing paths — extra care, same owner for now.
+/.github/                       @surajair
+/scripts/                       @surajair
+/package.json                   @surajair
+/tsup.config.ts                 @surajair
+/release-please-config.json     @surajair
+/.release-please-manifest.json  @surajair

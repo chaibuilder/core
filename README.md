@@ -2,9 +2,15 @@
 
 **AI-enabled visual website builder for Next.js.**
 
+[![npm](https://img.shields.io/npm/v/chaicore.svg)](https://www.npmjs.com/package/chaicore)
+[![CI](https://github.com/chaibuilder/core/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chaibuilder/core/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
+[![Discussions](https://img.shields.io/github/discussions/chaibuilder/core)](https://github.com/chaibuilder/core/discussions)
+
 Build, edit, and render websites with a block-based editor, custom React blocks, server-side data providers, and first-class App Router support.
 
 - **Site:** [chaibuilder.com](https://chaibuilder.com)
+- **Docs:** [docs.chaibuilder.com](https://docs.chaibuilder.com)
 - **Package:** `chaicore`
 - **Requires:** Next.js ≥ 15.3 · React ≥ 19 · Tailwind CSS 4
 
@@ -12,14 +18,14 @@ Build, edit, and render websites with a block-based editor, custom React blocks,
 
 ## Why ChaiBuilder Core
 
-| Capability    | What you get                                                            |
-| ------------- | ----------------------------------------------------------------------- |
-| Visual editor | Drag-and-drop canvas with Tailwind styling, media, SEO, and AI assist   |
+| Capability    | What you get                                                             |
+| ------------- | ------------------------------------------------------------------------ |
+| Visual editor | Drag-and-drop canvas with Tailwind styling, media, SEO, and AI assist    |
 | Custom blocks | Register React components with typed props schemas (`chaicore/registry`) |
-| Server config | Request-scoped `getChaiBuilder`, actions, collections, page types       |
-| RSC rendering | `RenderChaiBlocks`, `ChaiPageCSS`, JSON-LD, draft preview               |
-| Extensibility | Slots, sidebar panels, hooks, feature flags, libraries                  |
-| Databases     | LibSQL, D1, better-sqlite3 adapters                                     |
+| Server config | Request-scoped `getChaiBuilder`, actions, collections, page types        |
+| RSC rendering | `RenderChaiBlocks`, `ChaiPageCSS`, JSON-LD, draft preview                |
+| Extensibility | Slots, sidebar panels, hooks, feature flags, libraries                   |
+| Databases     | LibSQL, D1, better-sqlite3 adapters                                      |
 
 ---
 
@@ -40,8 +46,8 @@ path to pull upstream changes in:
 
 ```bash
 git remote add chaicore git@github.com:chaibuilder/core.git
-git fetch chaicore dev
-git subtree add --prefix=src/chai chaicore dev
+git fetch chaicore main
+git subtree add --prefix=src/chai chaicore main
 ```
 
 No `--squash` — the pull script needs real commits in your graph, so that later pulls are
@@ -69,8 +75,8 @@ Vendor ChaiBuilder into this Next.js project as a git subtree, then wire it up.
    a squashed subtree, because without real merge bases a pull can only replace
    the directory and would silently discard local edits:
        git remote add chaicore git@github.com:chaibuilder/core.git
-       git fetch chaicore dev
-       git subtree add --prefix=src/chai chaicore dev
+       git fetch chaicore main
+       git subtree add --prefix=src/chai chaicore main
 3. Read src/chai/scripts/HOST-SETUP.md and do what it says. In short:
    - add "pull:chai" and "status:chai" to package.json, pointing at
      src/chai/scripts/subtree-{pull,status}.mjs with --prefix=src/chai
@@ -233,43 +239,21 @@ export default function EditorPage() {
 
 ## Package entry points
 
-| Import             | Use for                                                              |
-| ------------------ | -------------------------------------------------------------------- |
-| `chaicore`          | Editor UI — `ChaiWebsiteBuilder`, slots, hooks, panels (client-only) |
-| `chaicore/registry` | `registerChaiBlock`, props helpers                                   |
-| `chaicore/types`    | Shared TypeScript types                                              |
-| `chaicore/utils`    | Binding analysis, block conversion, and other framework utilities    |
-| `chaicore/next`     | `withChaiBuilder` for `next.config`                                  |
-| `chaicore/server`   | Config, context, actions, `getChaiBuilder` (server-only)             |
-| `chaicore/render`   | `RenderChaiBlocks`, `ChaiPageCSS`, styles helpers                    |
-| `chaicore/styles`   | Builder CSS                                                          |
-| `chaicore/db/*`     | Database adapters and the drizzle schema barrel                      |
-| `chaicore/plugins/*` | Bundled client plugins (`empty-page-starter`, `page-errors`)        |
-| `chaicore/ai/*`     | AI provider plugins that import their SDK statically                 |
+| Import               | Use for                                                              |
+| -------------------- | -------------------------------------------------------------------- |
+| `chaicore`           | Editor UI — `ChaiWebsiteBuilder`, slots, hooks, panels (client-only) |
+| `chaicore/registry`  | `registerChaiBlock`, props helpers                                   |
+| `chaicore/types`     | Shared TypeScript types                                              |
+| `chaicore/utils`     | Binding analysis, block conversion, and other framework utilities    |
+| `chaicore/next`      | `withChaiBuilder` for `next.config`                                  |
+| `chaicore/server`    | Config, context, actions, `getChaiBuilder` (server-only)             |
+| `chaicore/render`    | `RenderChaiBlocks`, `ChaiPageCSS`, styles helpers                    |
+| `chaicore/styles`    | Builder CSS                                                          |
+| `chaicore/db/*`      | Database adapters and the drizzle schema barrel                      |
+| `chaicore/plugins/*` | Bundled client plugins (`empty-page-starter`, `page-errors`)         |
+| `chaicore/ai/*`      | AI provider plugins that import their SDK statically                 |
 
 Never import `chaicore` (the editor entry) from Server Components — it throws. Use `/server` and `/render` on the server.
-
----
-
-## AI providers
-
-Requests go through the Vercel AI Gateway by default (`AI_GATEWAY_API_KEY`), and nothing below is needed to use it.
-
-To route them elsewhere, install the provider SDK, set its env vars, and register the matching plugin:
-
-```ts
-// chaibuilder.config.ts
-import { openRouterPlugin } from "chaicore/ai/openrouter"; // OPENROUTER_API_KEY
-// import { openAICompatiblePlugin } from "chaicore/ai/openai-compatible"; // OPENAI_COMPATIBLE_BASE_URL
-
-buildChaiBuilderConfig({
-  ai: { providers: [openRouterPlugin], models: [...] },
-});
-```
-
-Each plugin activates only when its own env vars are set, so an unconfigured one still leaves the gateway in charge.
-
-ChaiBuilder also detects these providers without registration, by importing the SDK at runtime — convenient in development, but that import is invisible to bundlers, so Next's output file tracing drops the package from a production build and the AI panel reports "configured but could not be loaded". Registering the plugin from `chaicore/ai/*` is a static import, which is why it survives the build. Import it only when the SDK is installed.
 
 ---
 
@@ -407,6 +391,24 @@ gateway. Nothing configured means the built-in **Vercel AI Gateway** (set `AI_GA
 Some providers ship as ready-made adapters that auto-activate from an env var. Install the
 provider's SDK package (an optional peer dependency) and set the env — no code changes.
 
+Register the plugin explicitly in production:
+
+```ts
+// chaibuilder.config.ts
+import { openRouterPlugin } from "chaicore/ai/openrouter"; // OPENROUTER_API_KEY
+// import { openAICompatiblePlugin } from "chaicore/ai/openai-compatible"; // OPENAI_COMPATIBLE_BASE_URL
+
+buildChaiBuilderConfig({
+  ai: { providers: [openRouterPlugin], models: [...] },
+});
+```
+
+ChaiBuilder also detects these providers without registration, by importing the SDK at runtime —
+convenient in development, but that import is invisible to bundlers, so Next's output file tracing
+drops the package from a production build and the AI panel reports "configured but could not be
+loaded". Registering the plugin from `chaicore/ai/*` is a static import, which is why it survives
+the build. Import it only when the SDK is installed.
+
 **OpenRouter** — install `@openrouter/ai-sdk-provider`:
 
 ```bash
@@ -543,24 +545,32 @@ migrate`.
 
 ---
 
-## Developing this repo
+## Contributing
 
-This repository builds and publishes the `chaicore` package.
+Contributions are welcome — bug reports, reproductions, docs, and code.
 
 ```bash
+git clone https://github.com/chaibuilder/core.git
+cd core
 pnpm install
 pnpm dev          # watch build (tsup)
-pnpm build        # production build
-pnpm test         # unit tests
-pnpm test:integration
-pnpm lint
-pnpm format
 ```
 
-AI edit behavior is defined by the shared contracts and executors in
-[`src/server/chai-actions/ai/ask-ai/`](src/server/chai-actions/ai/ask-ai/).
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request. The short version:
+Node 22+ and pnpm, `main` is the only long-lived branch, and pull request titles must be
+[conventional commits](https://www.conventionalcommits.org/) because they are squash-merged into
+the changelog.
 
-### Used as a subtree
+- [Code of Conduct](CODE_OF_CONDUCT.md)
+- [Security policy](SECURITY.md) — report vulnerabilities privately, never as an issue
+- [Discussions](https://github.com/chaibuilder/core/discussions) for questions and ideas
+- [Good first issues](https://github.com/chaibuilder/core/labels/good%20first%20issue)
+
+### Repository notes
+
+AI edit behavior is defined by the shared contracts and executors in
+[`src/server/chai-actions/ai/ask-ai/`](src/server/chai-actions/ai/ask-ai/), with the tool contract
+in `ai-edit-tool-contract.ts`. [AGENTS.md](AGENTS.md) maps the rest of the tree.
 
 Besides being published to npm, this repo is vendored into host applications as a **git
 subtree**, so code in `src/` must build standalone — never import from a host app
@@ -570,20 +580,11 @@ alias. ESLint enforces this.
 Sync is one-way: hosts pull, and contribute back by PR here. Host-side workflow:
 [`scripts/RUNBOOK.md`](scripts/RUNBOOK.md), [`scripts/HOST-SETUP.md`](scripts/HOST-SETUP.md).
 
-### Commit messages
+### Releases
 
-Commit history here is the changelog for the `chaicore` package, so subjects must be
-[conventional commits](https://www.conventionalcommits.org/):
-
-```
-<type>[(scope)][!]: <description>
-
-feat(builder): add outline insertion placeholder
-fix: correct site url resolution
-```
-
-Enforced by a `commit-msg` hook (installed by `pnpm install` via husky) and re-checked on
-every pull request in CI.
+Automated with [release-please](https://github.com/googleapis/release-please). Merging the
+standing release pull request tags the version and publishes `chaicore` to npm with provenance.
+Nothing is published by hand.
 
 ---
 
@@ -596,5 +597,6 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 ## Links
 
 - [chaibuilder.com](https://chaibuilder.com)
+- [docs.chaibuilder.com](https://docs.chaibuilder.com)
 - [GitHub](https://github.com/chaibuilder/core)
-- AI edit tool contract: `src/server/chai-actions/ai/ask-ai/ai-edit-tool-contract.ts`
+- [Changelog](CHANGELOG.md)

@@ -28,13 +28,13 @@ Substitute it literally.
 
 ```sh
 git remote add chaicore git@github.com:chaibuilder/core.git
-git fetch chaicore dev
-git subtree add --prefix=src/chai chaicore dev
+git fetch chaicore main
+git subtree add --prefix=src/chai chaicore main
 ```
 
 **No `--squash`.** The pull script requires real commits in your graph — that is what
 makes later pulls ordinary 3-way merges. A squashed add has no merge bases, so a pull can
-only *replace* the prefix: your local edits are silently overwritten instead of surfacing
+only _replace_ the prefix: your local edits are silently overwritten instead of surfacing
 as conflicts. `pull:chai` refuses to run on a squashed subtree rather than do that.
 
 ## 2. package.json scripts
@@ -101,8 +101,8 @@ worth knowing:
 
 ## Failure modes
 
-| Symptom | Meaning | Fix |
-| --- | --- | --- |
-| `pull:chai` refuses: "legacy --squash flow" | Subtree was added with `--squash`, or a PR was squash-merged | Re-add without `--squash` (§1) |
-| Pull stops with conflicts | Your prefix edits vs upstream's — working as intended | Resolve, `git add -A`, `git commit` |
-| Lint fails on a host alias under the prefix | Prefix code reached into your app | Move the dependency behind a prop, a plugin, or a public surface (§4) |
+| Symptom                                     | Meaning                                                      | Fix                                                                   |
+| ------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `pull:chai` refuses: "legacy --squash flow" | Subtree was added with `--squash`, or a PR was squash-merged | Re-add without `--squash` (§1)                                        |
+| Pull stops with conflicts                   | Your prefix edits vs upstream's — working as intended        | Resolve, `git add -A`, `git commit`                                   |
+| Lint fails on a host alias under the prefix | Prefix code reached into your app                            | Move the dependency behind a prop, a plugin, or a public surface (§4) |

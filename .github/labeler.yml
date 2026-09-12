@@ -1,0 +1,84 @@
+# Auto-labels pull requests by the paths they touch (actions/labeler v5 syntax).
+
+"area: builder":
+  - changed-files:
+      - any-glob-to-any-file: "src/builder/**"
+
+"area: render":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/render/**"
+          - "src/tailwind/**"
+
+"area: server":
+  - changed-files:
+      - any-glob-to-any-file: "src/server/**"
+
+"area: db":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/db/**"
+          - "src/drizzle/**"
+          - "drizzle.config.test.ts"
+
+"area: blocks":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/web-blocks/**"
+          - "src/registry/**"
+
+"area: ai":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/ai/**"
+          - "src/server/chai-actions/ai/**"
+
+"area: nextjs":
+  - changed-files:
+      - any-glob-to-any-file: "src/nextjs/**"
+
+"area: plugins":
+  - changed-files:
+      - any-glob-to-any-file: "src/plugins/**"
+
+"area: types":
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/types/**"
+          - "declaration.d.ts"
+
+ci:
+  - changed-files:
+      - any-glob-to-any-file:
+          - ".github/**"
+          - ".husky/**"
+          - "commitlint.config.mjs"
+          - "release-please-config.json"
+          - ".release-please-manifest.json"
+
+build:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "tsup.config.ts"
+          - "tsconfig.json"
+          - "eslint.config.mjs"
+          - "postcss.config.mjs"
+          - "scripts/**"
+          - "package.json"
+          - "pnpm-lock.yaml"
+
+documentation:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "**/*.md"
+          - ".agents/**"
+
+tests:
+  - changed-files:
+      - any-glob-to-any-file:
+          - "src/tests/**"
+          - "**/*.test.ts"
+          - "**/*.test.tsx"
+          - "**/*.integration.test.ts"
+          - "vitest.config.ts"
+          - "vitest.config.integration.ts"
