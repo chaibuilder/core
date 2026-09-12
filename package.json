@@ -313,7 +313,7 @@
     "typedoc": "0.28.19",
     "typescript": "5.9.3",
     "typescript-eslint": "8.59.3",
-    "vitest": "4.1.6",
+    "vitest": "4.1.11",
     "workers-ai-provider": "3.3.1"
   }
 }
