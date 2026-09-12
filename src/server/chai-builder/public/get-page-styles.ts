@@ -37,13 +37,13 @@ export async function fetchPageStylesUncached(blocks: ChaiBlock[]): Promise<stri
 
 export const getPageStyles = async (pageId: string, blocks: ChaiBlock[]) => {
   const state = getInitializedState();
-  // Persisted caches outlive deployments, so the key carries the Tailwind generation (v3 output
-  // only works with a v3 base stylesheet, same for v4), the global stylesheet fingerprint
-  // (duplicates are filtered against the global CSS, so cached page styles must not outlive it),
-  // and the partial-merge version: the compiled CSS is a function of the *merged* blocks passed
-  // in, and nothing else in the key hashes them — so when the merge output changes (deeper
-  // partial expansion inlining new blocks), the styles must recompile too or the new blocks
-  // render with stale CSS.
+  // Persisted caches outlive deployments, so the key carries the compiler version (bumped when
+  // the compiler's output changes, see above), the global stylesheet fingerprint (duplicates are
+  // filtered against the global CSS, so cached page styles must not outlive it), and the
+  // partial-merge version: the compiled CSS is a function of the *merged* blocks passed in, and
+  // nothing else in the key hashes them — so when the merge output changes (deeper partial
+  // expansion inlining new blocks), the styles must recompile too or the new blocks render with
+  // stale CSS.
   const globalFingerprint = await getGlobalStylesFingerprint();
   return await withChaiCache(
     fetchPageStylesUncached,
