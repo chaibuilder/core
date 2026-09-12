@@ -259,7 +259,7 @@
     "@tiptap/extension-underline": "2.27.1",
     "@tiptap/pm": "2.27.1",
     "@tiptap/react": "2.27.1",
-    "@tiptap/starter-kit": "2.27.1",
+    "@tiptap/starter-kit": "3.31.3",
     "@tiptap/suggestion": "2.27.1",
     "class-variance-authority": "0.7.1",
     "cmdk": "1.1.1",
