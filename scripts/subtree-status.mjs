@@ -7,7 +7,7 @@
  * Options:
  *   --prefix=<path>   Required. Subtree prefix in the host repo (e.g. src/chai, chai, vendor/chai).
  *   --remote=<url>    Remote URL or name. Default: git@github.com:chaibuilder/core.git
- *   --branch=<name>   Upstream branch. Default: dev
+ *   --branch=<name>   Upstream branch. Default: main
  *   --no-fetch        Reuse the last FETCH_HEAD instead of fetching (may be stale or from
  *                     another remote — offline convenience only).
  *   --check           Exit 2 when any action is needed (CI / hook friendly).

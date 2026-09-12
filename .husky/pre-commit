@@ -15,7 +15,7 @@ else
     echo "$STAGED_FILES"
 
     # Run ESLint on staged files
-    npx eslint $STAGED_FILES
+    pnpm exec eslint $STAGED_FILES
 
     # Check exit code
     if [ $? -ne 0 ]; then
@@ -56,7 +56,7 @@ if [ -n "$STAGED_FILES" ]; then
     
     if [ -n "$TEST_FILES" ]; then
         echo "Running tests for: $TEST_FILES"
-        npx vitest run $TEST_FILES --passWithNoTests
+        pnpm exec vitest run $TEST_FILES --passWithNoTests
         
         if [ $? -ne 0 ]; then
             echo "Unit tests failed. Commit aborted."

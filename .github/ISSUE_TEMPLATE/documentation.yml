@@ -1,0 +1,39 @@
+name: Documentation
+description: Something in the docs is wrong, missing, or confusing
+labels: ["documentation", "needs-triage"]
+body:
+  - type: input
+    id: location
+    attributes:
+      label: Where
+      description: URL on docs.chaibuilder.com, or a path in this repository.
+      placeholder: https://docs.chaibuilder.com/blocks/registering or README.md#custom-blocks
+    validations:
+      required: true
+
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem
+      options:
+        - Wrong — the docs say something untrue
+        - Outdated — it described an older version
+        - Missing — there are no docs for this
+        - Confusing — technically correct but hard to follow
+        - Broken example — the code sample does not run
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is wrong
+      description: Quote the passage where you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested fix
+      description: Even a rough sentence helps. Pull requests welcome.

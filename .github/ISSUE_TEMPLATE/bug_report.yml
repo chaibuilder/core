@@ -1,0 +1,154 @@
+name: Bug report
+description: Something in chaicore behaves incorrectly
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file this. A reproduction is the single thing that decides
+        whether a bug gets fixed quickly, so please do not skip that field.
+
+        For questions and "how do I…", use
+        [Discussions](https://github.com/chaibuilder/core/discussions) instead.
+        For security vulnerabilities, follow
+        [SECURITY.md](https://github.com/chaibuilder/core/blob/main/SECURITY.md) — never this form.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Before you start
+      options:
+        - label: I searched [existing issues](https://github.com/chaibuilder/core/issues?q=is%3Aissue) and this is not a duplicate
+          required: true
+        - label: I reproduced this on the latest version of `chaicore`
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you see? Be specific about the wrong behaviour.
+      placeholder: The editor drops the current selection after the second undo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: input
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: >
+        Link to a minimal repository, a StackBlitz, or a gist. Strip it down to the smallest
+        thing that still shows the bug. Issues without a reproduction are usually closed as
+        not actionable.
+      placeholder: https://github.com/your-name/chaicore-bug-1234
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps against the reproduction above.
+      placeholder: |
+        1. Run `pnpm dev`
+        2. Open /editor
+        3. Add a Heading block, type text, press Cmd+Z twice
+        4. Selection is gone
+    validations:
+      required: true
+
+  - type: input
+    id: chaicore-version
+    attributes:
+      label: chaicore version
+      placeholder: 0.1.0
+    validations:
+      required: true
+
+  - type: input
+    id: next-version
+    attributes:
+      label: Next.js version
+      placeholder: 15.3.0
+    validations:
+      required: true
+
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js version
+      placeholder: 22.14.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Where does this go wrong? Pick the closest.
+      options:
+        - Editor UI (builder)
+        - Rendering (RSC / SSR)
+        - Server runtime, config, or actions
+        - Database adapter or schema
+        - Blocks / block registry
+        - Data bindings and pipes
+        - AI features
+        - Next.js integration / build
+        - Types
+        - Not sure
+    validations:
+      required: true
+
+  - type: dropdown
+    id: db-adapter
+    attributes:
+      label: Database adapter
+      options:
+        - libsql
+        - better-sqlite3
+        - D1
+        - Not relevant
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Where it happens
+      multiple: true
+      options:
+        - Local dev server
+        - Production build
+        - Vercel
+        - Cloudflare Workers
+        - Other host
+    validations:
+      required: true
+
+  - type: input
+    id: browser
+    attributes:
+      label: Browser
+      description: Only for editor UI bugs.
+      placeholder: Chrome 141 on macOS
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and stack traces
+      description: Paste the error output. This is rendered as a code block, no backticks needed.
+      render: shell
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Anything else
+      description: Workarounds you found, when it started, related issues.

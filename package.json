@@ -10,6 +10,24 @@
     "type": "git",
     "url": "git+https://github.com/chaibuilder/core.git"
   },
+  "bugs": {
+    "url": "https://github.com/chaibuilder/core/issues"
+  },
+  "keywords": [
+    "website-builder",
+    "page-builder",
+    "visual-editor",
+    "nextjs",
+    "react",
+    "tailwindcss",
+    "cms",
+    "low-code",
+    "ai"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.20.0",
   "files": [
     "dist",
     "scripts/generate-styles.mjs"

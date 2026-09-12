@@ -1,7 +1,7 @@
 echo "Running ESLint before push..."
 
 # Run full lint check
-npm run lint
+pnpm lint
 
 # Check exit code
 if [ $? -ne 0 ]; then

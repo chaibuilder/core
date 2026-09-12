@@ -28,8 +28,8 @@ Substitute it literally.
 
 ```sh
 git remote add chaicore git@github.com:chaibuilder/core.git
-git fetch chaicore dev
-git subtree add --prefix=src/chai chaicore dev
+git fetch chaicore main
+git subtree add --prefix=src/chai chaicore main
 ```
 
 **No `--squash`.** The pull script requires real commits in your graph — that is what

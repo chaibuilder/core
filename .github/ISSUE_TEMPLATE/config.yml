@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or troubleshooting
+    url: https://github.com/chaibuilder/core/discussions/categories/q-a
+    about: Ask in Discussions. Issues are for confirmed bugs and feature requests.
+  - name: Idea or proposal
+    url: https://github.com/chaibuilder/core/discussions/categories/ideas
+    about: Talk through a rough idea before it becomes a feature request.
+  - name: Documentation
+    url: https://docs.chaibuilder.com/
+    about: Full documentation for ChaiBuilder.
+  - name: Report a security vulnerability
+    url: https://github.com/chaibuilder/core/security/advisories/new
+    about: Report privately. Never open a public issue for a vulnerability.

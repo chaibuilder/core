@@ -8,7 +8,7 @@
 import { execFileSync } from 'child_process';
 
 export const DEFAULT_REMOTE = 'git@github.com:chaibuilder/core.git';
-export const DEFAULT_BRANCH = 'dev';
+export const DEFAULT_BRANCH = 'main';
 
 // Full-history log reads exceed Node's 1 MB default maxBuffer.
 const MAX_BUFFER = 256 * 1024 * 1024;

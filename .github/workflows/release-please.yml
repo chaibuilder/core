@@ -1,0 +1,30 @@
+name: Release please
+
+# Keeps a standing release pull request up to date from the conventional commits on main.
+# Merging it bumps package.json, writes CHANGELOG.md, tags, and creates a GitHub release —
+# which is what triggers publish.yml. Nothing here publishes to npm directly.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: release-please
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: googleapis/release-please-action@v4
+        with:
+          # GITHUB_TOKEN cannot trigger other workflows, so the release pull request opens
+          # with no CI checks on it. Swap in a fine-grained PAT (contents + pull-requests
+          # write) as RELEASE_PLEASE_TOKEN to get checks on the release PR too.
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN || secrets.GITHUB_TOKEN }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json

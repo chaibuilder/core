@@ -1,0 +1,58 @@
+name: Publish
+
+# Runs when release-please publishes a GitHub release. The version in package.json was
+# already bumped and committed by the release pull request, so nothing here edits it —
+# tsup reads package.json at build time and inlines it as __CHAI_CORE_VERSION__.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish-npm:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/chaicore
+    permissions:
+      contents: read
+      # Required for npm provenance — the attestation is signed with this OIDC token.
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.ref }}
+
+      - uses: ./.github/actions/setup
+        with:
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify the tag matches package.json
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          if [ -z "$TAG" ]; then
+            echo "Manual run, skipping tag check."
+            exit 0
+          fi
+          PKG=$(node -p "require('./package.json').version")
+          if [ "${TAG#v}" != "$PKG" ]; then
+            echo "Tag $TAG does not match package.json version $PKG. Refusing to publish."
+            exit 1
+          fi
+
+      - run: pnpm test
+
+      - run: pnpm build
+
+      - name: Validate package
+        run: pnpm dlx publint@latest
+
+      - name: Publish
+        run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

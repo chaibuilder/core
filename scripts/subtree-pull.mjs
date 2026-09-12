@@ -7,7 +7,7 @@
  * Options:
  *   --prefix=<path>   Required. Subtree prefix in the host repo (e.g. src/chai, chai, vendor/chai).
  *   --remote=<url>    Remote URL or name. Default: git@github.com:chaibuilder/core.git
- *   --branch=<name>   Upstream branch. Default: dev
+ *   --branch=<name>   Upstream branch. Default: main
  *
  * Performs a real merge (`git merge -X subtree=<prefix>`), so local subtree work is never
  * overwritten: concurrent edits surface as ordinary merge conflicts to resolve and commit.
