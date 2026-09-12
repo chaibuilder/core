@@ -57,7 +57,7 @@ describe("buildChaiBuilderConfig", () => {
     class CustomCreatePageAction extends ChaiBaseAction<{ name: string }, { id: string }> {
       name = "CUSTOM_CREATE_PAGE";
 
-      execute() {
+      async execute() {
         return { id: "custom" };
       }
     }
@@ -76,7 +76,7 @@ describe("buildChaiBuilderConfig", () => {
 
   it("merges deprecated builderActions overrides into the active config", () => {
     class CustomCreatePageAction extends ChaiBaseAction<{ name: string }, { id: string }> {
-      execute() {
+      async execute() {
         return { id: "legacy" };
       }
     }
