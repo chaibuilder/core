@@ -143,8 +143,12 @@ comments there before working around any of them.
 - `.github/workflows/` runs **only in this standalone repo**. In a host checkout
   GitHub reads the host's root `.github/workflows`, so these are inert there.
   - `ci.yml` — lint, format, typecheck, unit tests, integration tests, build +
-    `publint`, and commitlint on pull requests. Typecheck is `continue-on-error`
-    until the pre-existing `tsc` errors are cleared.
+    `publint`, and commitlint on pull requests. Two caveats, both pre-existing
+    backlogs on `main`: typecheck is `continue-on-error` (19 errors), and the
+    format job checks only the files a pull request touches (298 files are
+    unformatted). A tree-wide `pnpm format` would conflict with every subtree
+    host carrying local edits, so do not run one casually. The `pre-commit` hook
+    formats staged files so the backlog stops growing.
   - `pr-title.yml` — pull requests are squash-merged, so the title becomes the
     commit subject and the changelog line. It must be a conventional commit.
   - `release-please.yml` — maintains the standing release PR from the commits on

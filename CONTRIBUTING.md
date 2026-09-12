@@ -54,11 +54,24 @@ real app, build here and link into a Next.js project, or vendor the repo as a su
 | `pnpm build`            | Production build, then type declarations |
 | `pnpm typecheck`        | `tsc --noEmit` — the real typecheck      |
 | `pnpm lint`             | ESLint over `src/`                       |
-| `pnpm format`           | Prettier write                           |
-| `pnpm format:check`     | Prettier check, same as CI               |
+| `pnpm format`           | Prettier write over all of `src/`        |
+| `pnpm format:check`     | Prettier check over all of `src/`        |
 | `pnpm test`             | Unit tests (vitest)                      |
 | `pnpm test:integration` | Integration tests — needs setup below    |
 | `pnpm db:test:generate` | Generate the SQLite test migrations      |
+
+### Two checks are red on `main`, and that is expected
+
+`pnpm format:check` reports about 298 files and `pnpm typecheck` reports 19 errors. Both predate
+these checks being enforced. Neither is your fault and neither blocks your pull request.
+
+**Do not run `pnpm format` to fix it.** A tree-wide reformat would conflict with every host repo
+that vendors `src/` as a git subtree and carries local edits. Clearing that backlog is a
+coordinated change, not a drive-by.
+
+What CI actually enforces is formatting on **the files your pull request touches**. The
+`pre-commit` hook formats your staged files automatically, so in practice this takes care of
+itself.
 
 ## Project layout
 
@@ -125,9 +138,10 @@ This is checked by a local `commit-msg` hook and again in CI.
 3. **The pull request title must be a conventional commit.** Pull requests are squash-merged, so
    the title becomes the commit subject and the changelog line. A CI check enforces this.
 4. Fill in the template: what changed, why, and how you verified it.
-5. Make sure `pnpm lint`, `pnpm typecheck`, `pnpm test` and `pnpm build` pass locally.
-6. Push and open the pull request against `main`. CI runs lint, format, typecheck, unit tests,
-   integration tests, and a build.
+5. Make sure `pnpm lint`, `pnpm test` and `pnpm build` pass locally, and that `pnpm typecheck`
+   reports nothing new for the files you touched.
+6. Push and open the pull request against `main`. CI runs lint, formatting of your changed
+   files, typecheck, unit tests, integration tests, and a build.
 7. Address review comments with new commits — do not force-push mid-review, it discards the
    review history. The squash merge cleans it all up anyway.
 

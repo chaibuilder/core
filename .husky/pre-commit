@@ -1,9 +1,28 @@
-echo "Running ESLint..."
-
 if [ -f .env.test ]; then
     export $(grep -v '^#' .env.test | xargs)
     export NODE_ENV=test
 fi
+
+# Format staged files before anything else looks at them. CI checks formatting on the files a
+# pull request touches, not the whole tree — main still carries a large pre-Prettier backlog
+# that cannot be swept in one commit without conflicting with every subtree host. Formatting
+# on the way in is what stops that backlog from growing.
+STAGED_FORMATTABLE=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(js|jsx|mjs|ts|tsx|json|css|scss|md|ya?ml)$' || true)
+
+if [ -n "$STAGED_FORMATTABLE" ]; then
+    echo "Formatting staged files..."
+    echo "$STAGED_FORMATTABLE" | xargs pnpm exec prettier --write --ignore-unknown
+
+    if [ $? -ne 0 ]; then
+        echo "Prettier failed. Commit aborted."
+        exit 1
+    fi
+
+    # Re-stage whatever Prettier rewrote, so the commit matches what was checked.
+    echo "$STAGED_FORMATTABLE" | xargs git add
+fi
+
+echo "Running ESLint..."
 
 # Get list of staged JS/TS/TSX files
 STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep -E '\.(js|jsx|ts|tsx)$' || true)

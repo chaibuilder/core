@@ -26,17 +26,40 @@ jobs:
   format:
     name: Format
     runs-on: ubuntu-latest
+    # Only the files this pull request touches. 298 files on main predate Prettier being
+    # enforced, and reformatting them in one sweep would conflict with every host repo
+    # that vendors src/ as a subtree and carries local edits. So contributors are held to
+    # the standard for their own changes, and the backlog is cleared separately.
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - uses: ./.github/actions/setup
-      - run: pnpm format:check
+
+      - name: Check formatting of changed files
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD \
+            | grep -E '\.(js|jsx|mjs|ts|tsx|json|css|scss|md|ya?ml)$' || true)
+
+          if [ -z "$FILES" ]; then
+            echo "No formattable files changed."
+            exit 0
+          fi
+
+          echo "Checking:"
+          echo "$FILES"
+          echo "$FILES" | xargs pnpm exec prettier --check --ignore-unknown
 
   typecheck:
     name: Typecheck
     runs-on: ubuntu-latest
     # Advisory, not blocking. `tsc --noEmit` reports 19 pre-existing errors on main (two in
-    # src/builder, the rest in test files), so a required check here would fail every pull
-    # request for reasons unrelated to the change. Clear the backlog, then delete this line
+    # src/builder from untyped dependencies, the rest in test files), so a required check
+    # here would fail every pull request for reasons unrelated to the change. Read the log
+    # and confirm your change added nothing new. Clear the backlog, then delete this line
     # and add "Typecheck" to the required checks on the main ruleset.
     continue-on-error: true
     steps:
