@@ -11,6 +11,18 @@ Tailwind 4.
 **It must build and test standalone.** Nothing here may depend on the host app it
 happens to be vendored into.
 
+## Two editions, one `src/`
+
+`chaicore` and `chaipro` (the commercial edition, core plus plugins) share one
+`src/` tree. Every file under `src/` is byte-identical in both repos except the
+paths in `src-sync.exclude` — `src/edition/` (each repo's own copy: package
+identity, always-on plugins, plugin barrels, test harness) and the pro-only plugin
+directories. Changes travel between the repos as one `chore(sync): …` commit made
+by `pnpm sync:src`; `pnpm sync:check` proves the trees match. Read `SYNC.md`
+before touching anything that names the package, a plugin, or the edition:
+runtime strings use `CHAI_PACKAGE_NAME` from `~/edition/identity`, comments and
+JSDoc write subpaths as `<pkg>/…`, and shared code never imports a plugin.
+
 ## Layout (`src/`)
 
 - `registry/` — block registration API (`registerChaiBlockProps`, `stylesProp`,
@@ -24,11 +36,15 @@ happens to be vendored into.
   `repeater-data/`, `only-server.ts` (browser guard).
 - `plugins/` — one directory per feature (`empty-page-starter`, `page-errors`).
   Each has `client/`, optionally `server/`, `schema/`, `permissions.ts`.
-  `plugins/client.ts` is the barrel. Nothing registers automatically — the host
-  names the plugins it wants.
+  `plugins/client.ts` and `plugins/server.ts` are shells that forward the
+  edition's barrels (`src/edition/*-plugins-barrel.ts`). Nothing registers
+  automatically — the host names the plugins it wants.
+- `edition/` — the only directory that differs between `chaicore` and
+  `chaipro` (never synced): identity, always-on plugin lists, plugin barrels,
+  integration-test schema and harness. See `src/edition/README.md`.
 - `db/` — adapters: libsql, d1, better-sqlite3.
-- `drizzle/` — core schema/relations (`schema.sqlite.ts`, `relations.sqlite.ts`,
-  `table-factory.ts`) plus `seed/`.
+- `drizzle/` — core schema/relations (`schema.sqlite.ts`, `relations.sqlite.ts`)
+  plus `seed/`. The Postgres twin of the core schema lives in the pro edition only.
 - `tailwind/` — runtime page-CSS compiler (`v4.ts`). Tailwind v4 only.
 - `nextjs/` — `withChaiBuilder`, server/render/render-client entries.
 - `ai/` — statically-imported provider adapters (`openrouter`, `openai-compatible`).
@@ -76,10 +92,11 @@ comments there before working around any of them.
    anywhere in `src/`. This repo's own alias is `~/` → `./src`. Code that reaches
    into the host compiles in the host and breaks when the package is built or
    published alone.
-2. **Plugin boundary (error)** — core code (everything outside `src/plugins`)
-   must not import a plugin. Dependencies point one way: plugins consume core,
-   never the reverse. Invert via `~/server/plugin-api` or the builder
-   register-apis instead.
+2. **Plugin boundary (error)** — shared core code (everything outside
+   `src/plugins`, `src/payload` and `src/edition`) must not import a plugin.
+   Dependencies point one way: plugins consume core, never the reverse. Invert
+   via `~/server/plugin-api` or the builder register-apis, or wire an
+   edition-specific plugin in through `src/edition/`.
 3. **Plugin discipline (warn)** — plugins consume core through public surfaces
    (`~/builder/register-apis`, `~/server/plugin-api`, `~/server/chai-actions/*`,
    `~/types`, `~/components/ui`, `~/constants`), not deep internals like
@@ -103,8 +120,9 @@ comments there before working around any of them.
 1. `src/plugins/<name>/` with `client/` (and `server/` if it has a server half),
    plus `schema/` and `permissions.ts` when it owns tables or permission keys.
    Copy the shape of `src/plugins/page-errors/`.
-2. Export the plugin from `src/plugins/client.ts` (and `server.ts` if you add
-   one — there is no server barrel today).
+2. Export the plugin from `src/edition/client-plugins-barrel.ts` (and
+   `server-plugins-barrel.ts` for a server half) — the `src/plugins/*.ts`
+   barrels only forward those.
 3. Add `./plugins/<name>/client` (and `/server`) to `package.json` `exports` and
    the matching entries to `tsup.config.ts`.
 4. A plugin that owns tables contributes them as a schema fragment; core's
