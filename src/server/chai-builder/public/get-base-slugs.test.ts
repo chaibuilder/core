@@ -3,9 +3,11 @@ import { buildDynamicItemPath } from "./build-dynamic-item-path";
 import { pickDynamicBaseSlugsForLang } from "./get-base-slugs";
 
 test("buildDynamicItemPath normalizes paths", () => {
-  expect(buildDynamicItemPath({ slug: "/blog" }, "my-post")).toBe("/blog/my-post");
-  expect(buildDynamicItemPath({ slug: "/blog/" }, "/my-post")).toBe("/blog/my-post");
-  expect(buildDynamicItemPath({ slug: "/blog", dynamicSlugCustom: "/preview" }, "my-post")).toBe("/blog/my-post/preview");
+  expect(buildDynamicItemPath({ slug: "/blog", dynamicSlugCustom: null }, "my-post")).toBe("/blog/my-post");
+  expect(buildDynamicItemPath({ slug: "/blog/", dynamicSlugCustom: null }, "/my-post")).toBe("/blog/my-post");
+  expect(buildDynamicItemPath({ slug: "/blog", dynamicSlugCustom: "/preview" }, "my-post")).toBe(
+    "/blog/my-post/preview",
+  );
 });
 
 describe("pickDynamicBaseSlugsForLang", () => {
