@@ -90,9 +90,19 @@ ESLint enforces three rules that are easy to trip over:
 1. **No host-app aliases** (`@/…`, `~~/…`, `#/…`) anywhere in `src/`. This repo is vendored into
    host apps as a subtree, so it must build standalone. Use this repo's own `~/` alias.
 2. **Core must not import a plugin.** Dependencies point one way: plugins consume core.
+   `src/edition/` is the one place that may wire edition-specific plugins in.
 3. **Plugins consume core through public surfaces** only, not deep internals.
 
 The reasoning lives in the comments in `eslint.config.mjs`.
+
+### Two editions, one `src/`
+
+`chaicore` shares its `src/` tree with the commercial `chaipro` package; every file under
+`src/` is byte-identical in both except `src/edition/` and the pro-only plugin directories
+listed in `src-sync.exclude`. Two habits keep that true: never write the package name in a
+shared file (runtime strings use `CHAI_PACKAGE_NAME` from `~/edition/identity`, comments write
+`<pkg>/…`), and never name a specific plugin from shared code. [SYNC.md](SYNC.md) explains how
+changes travel between the two repos.
 
 ## Testing
 
