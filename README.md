@@ -10,7 +10,7 @@
 Build, edit, and render websites with a block-based editor, custom React blocks, server-side data providers, and first-class App Router support.
 
 - **Site:** [chaibuilder.com](https://chaibuilder.com)
-- **Docs:** [docs.chaibuilder.com](https://docs.chaibuilder.com)
+- **Docs:** [chaibuilder.com/docs](https://chaibuilder.com/docs)
 - **Package:** `chaicore`
 - **Requires:** Next.js ≥ 15.3 · React ≥ 19 · Tailwind CSS 4
 
