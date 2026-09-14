@@ -171,8 +171,8 @@ importers:
         specifier: 25.5.2
         version: 25.5.2(typescript@5.9.3)
       jotai:
-        specifier: 2.14.0
-        version: 2.14.0(@babel/template@7.29.7)(@types/react@19.2.7)(react@19.2.7)
+        specifier: 3.0.0
+        version: 3.0.0(@types/react@19.2.7)(react@19.2.7)
       lodash-es:
         specifier: 4.18.1
         version: 4.18.1
@@ -4486,19 +4486,13 @@ packages:
   jose@5.10.0:
     resolution: {integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==}
 
-  jotai@2.14.0:
-    resolution: {integrity: sha512-JQkNkTnqjk1BlSUjHfXi+pGG/573bVN104gp6CymhrWDseZGDReTNniWrLhJ+zXbM6pH+82+UNJ2vwYQUkQMWQ==}
-    engines: {node: '>=12.20.0'}
+  jotai@3.0.0:
+    resolution: {integrity: sha512-KxhbmsJUp/tmrv6aZgO+nzB3H9K8C0xmk5i3aGkwy/EANg73DVBkggv3zVHaAi5PlNlQgTgP4uiVepo+JC+wSA==}
+    engines: {node: '>=22.12.0'}
     peerDependencies:
-      '@babel/core': '>=7.0.0'
-      '@babel/template': '>=7.0.0'
-      '@types/react': '>=17.0.0'
-      react: '>=17.0.0'
+      '@types/react': '>=18.0.0'
+      react: '>=18.0.0'
     peerDependenciesMeta:
-      '@babel/core':
-        optional: true
-      '@babel/template':
-        optional: true
       '@types/react':
         optional: true
       react:
@@ -10195,9 +10189,8 @@ snapshots:
 
   jose@5.10.0: {}
 
-  jotai@2.14.0(@babel/template@7.29.7)(@types/react@19.2.7)(react@19.2.7):
+  jotai@3.0.0(@types/react@19.2.7)(react@19.2.7):
     optionalDependencies:
-      '@babel/template': 7.29.7
       '@types/react': 19.2.7
       react: 19.2.7
 
