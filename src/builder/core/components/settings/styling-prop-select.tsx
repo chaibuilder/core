@@ -30,7 +30,7 @@ export const StylingPropSelect = ({ value, options, onValueChange }: StylingProp
           <ChevronDownIcon className="ml-2 h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
         <Command>
           <CommandInput placeholder={t("Search element...")} className="h-7 border-0 shadow-none" />
           <CommandList>

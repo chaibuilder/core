@@ -6,8 +6,6 @@ import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { ChaiBlock } from "~/types/common";
 import { ChaiDesignTokens } from "~/types/types";
 import { useFetch } from "./use-fetch";
-import { usePagesProps } from './use-pages-props';
-import { get } from 'lodash-es';
 
 export const usePagesSavePage = () => {
   const apiUrl = useApiUrl();
@@ -15,8 +13,6 @@ export const usePagesSavePage = () => {
   const [, setPageEditInfo] = usePageEditInfo();
   const queryClient = useQueryClient();
   const { handleQuerySync } = useQuerySync();
-  const [pagesProps] = usePagesProps();
-  const draftsInRevisions = get(pagesProps, "flags.revisions.drafts", false);
 
   const onSave = async ({
     page,
@@ -36,7 +32,10 @@ export const usePagesSavePage = () => {
     try {
       const response = await fetchAPI(apiUrl, {
         action: "UPDATE_PAGE",
-        data: { id: page, blocks, needTranslations, partialIds, linkPageIds, designTokens,  addInRevision: draftsInRevisions },
+        // Whether this save snapshots a draft revision is decided server-side
+        // from `features.revisions.drafts`, so every UPDATE_PAGE client (the
+        // MCP tools included) writes the same history.
+        data: { id: page, blocks, needTranslations, partialIds, linkPageIds, designTokens },
       });
       // if response has code and value is PAGE_LOCKED, throw an error
       if ((response as any).code === "PAGE_LOCKED") {

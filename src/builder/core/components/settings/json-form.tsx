@@ -56,6 +56,7 @@ const useJsonFormElements = () => {
       slider: SliderField,
       sources: SourcesField,
       images: MultiImagesField,
+      galleryImages: MultiImagesField,
       repeaterFilters: RepeaterFiltersField,
       repeaterSort: RepeaterSortField,
       hiddenField: HiddenField,

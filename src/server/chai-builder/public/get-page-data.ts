@@ -1,5 +1,6 @@
 import { COLLECTION_ITEM_TYPE } from "~/constants/BLOCK_TYPES";
 import { fetchConfigGlobalData, getResolvedPageType } from "~/server/defaults";
+import { getFrameworkAdapter } from "~/server/framework-adapter";
 import { blockFiltersHaveBindings } from "~/server/repeater-data/build-repeater-query";
 import { fetchRepeaterItems } from "~/server/repeater-data/fetch-repeater-items";
 import type { ChaiBlock, ChaiPageProps } from "~/types";
@@ -67,7 +68,19 @@ export const getDataByPageType = async (args: {
     pageProps,
   );
   await registerCacheTags([`page-type-data`, `page-type-data-${appId}`, `page-type-data-${appId}-${pageType}`]);
-  return await consumeProviderTags(data ?? {}, true);
+  const pageTypeData = await consumeProviderTags(data ?? {}, true);
+
+  // A dynamic template matches a URL by its segment pattern, so routing alone
+  // cannot tell a real item from a URL shaped like one. `$notFound` is the
+  // provider answering that question: 404 instead of rendering the template
+  // with nothing bound to it, which is an empty page served as 200. Thrown
+  // after the tags above are registered, so publishing the item later still
+  // regenerates this route.
+  if (data?.$notFound) {
+    getFrameworkAdapter().pageNotFound();
+  }
+
+  return pageTypeData;
 };
 
 // Stable function reference for caching - defined once at module level

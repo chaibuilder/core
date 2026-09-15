@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { cloneDeep, get } from "lodash-es";
+import { cloneDeep, get, isPlainObject } from "lodash-es";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { ChaiBuilderEditor } from "~/builder/core/main";
@@ -24,7 +24,7 @@ import { registerChaiClientPlugins } from "~/builder/register-apis/register-chai
 import { Button } from "~/components/ui/button";
 import { Loading } from "~/components/ui/loader";
 import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
-import { ChaiWebsiteBuilderProps } from "~/types/common";
+import { ChaiBlock, ChaiWebsiteBuilderProps } from "~/types/common";
 import { loadWebBlocks } from "~/web-blocks";
 import { BlurContainer, FullscreenLoader } from "../../components/ui/loader";
 import { previewUrlAtom } from "./atom/preview-url";
@@ -37,6 +37,7 @@ import { useGetBlockAysncProps } from "./hooks/use-chai-collections";
 import { useGotoPage } from "./hooks/use-goto-page";
 import { useSiteWideUsage } from "./hooks/use-site-wide-usage";
 import { useWebsiteData } from "./hooks/use-website-data";
+import { buildPageBindingData } from "~/utils/page-binding-data";
 import { aiPanelId } from "./panels/ai-panel/ai-panel";
 
 const DigitalAssetManager = lazy(() => import("~/builder/pages/digital-asset-manager/digital-asset-manager"));
@@ -56,6 +57,10 @@ const DEFAULT_ROLES_AND_PERMISSIONS = {
   role: "admin",
   permissions: null,
 };
+
+// Stable identity for the fetching state — a fresh [] per render would refire the
+// editor's blocks watcher on every render and stack redundant store resets.
+const EMPTY_BLOCKS: ChaiBlock[] = [];
 
 /**
  *
@@ -181,7 +186,7 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
     editorProps.pageExternalData = {
       ...(builderPageData ?? {}),
       global: globalData ?? {},
-      page: pageProps,
+      page: { ...(isPlainObject(get(builderPageData, "page")) ? get(builderPageData, "page") : {}), ...buildPageBindingData(pageProps) },
     };
     return editorProps;
   }, [roleAndPermissions, builderPageData, globalData, pageProps]);
@@ -233,7 +238,7 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
         onError={props.onError || console.error}
         getPartialBlockBlocks={getPartialBlockBlocks}
         getPartialBlocks={getPartialBlocks}
-        blocks={isFetchingPageAllData ? [] : blocks}
+        blocks={isFetchingPageAllData ? EMPTY_BLOCKS : blocks}
         theme={cloneDeep(currentTheme)}
         pageTypes={pageTypes}
         searchPageTypeItems={searchPages}

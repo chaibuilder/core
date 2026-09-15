@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { PageTreeBuilder } from "~/server/chai-actions/utils/page-tree-builder";
+import { getFallbackLang } from "../internal/init";
 import { getInitializedState } from "../state";
 import { withChaiCache } from "./cache-utils";
 import { breadcrumbCacheKey, type PageRoutingMetadata } from "./page-routing-cache";
@@ -32,8 +33,8 @@ function buildBreadcrumbsFromPages(
   page: PageRoutingMetadata,
   pages: PageRoutingMetadata[],
   appId: string,
+  fallbackLang: string,
 ): BreadcrumbPage[] {
-  const state = getInitializedState();
   const treeBuilder = new PageTreeBuilder(appId);
   const primaryPages = pages.filter((p) => !p.primaryPage);
   const languagePages = pages.filter((p) => p.primaryPage);
@@ -61,11 +62,11 @@ function buildBreadcrumbsFromPages(
       id: node.id,
       name: node.name,
       slug: node.slug,
-      lang: node.lang || page.lang || state.fallbackLang,
+      lang: node.lang || page.lang || fallbackLang,
     }));
   }
 
-  return [{ id: page.id, name: page.name, slug: page.slug, lang: page.lang || state.fallbackLang }];
+  return [{ id: page.id, name: page.name, slug: page.slug, lang: page.lang || fallbackLang }];
 }
 
 async function fetchBreadcrumbQuery(appId: string, draftMode: boolean, pageId: string): Promise<BreadcrumbPage[]> {
@@ -75,7 +76,7 @@ async function fetchBreadcrumbQuery(appId: string, draftMode: boolean, pageId: s
     throw new Error("PAGE_NOT_FOUND");
   }
 
-  return buildBreadcrumbsFromPages(page, pages, appId);
+  return buildBreadcrumbsFromPages(page, pages, appId, await getFallbackLang());
 }
 
 export async function getBreadcrumb(pageId: string): Promise<BreadcrumbPage[]> {

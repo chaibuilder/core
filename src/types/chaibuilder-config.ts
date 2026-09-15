@@ -237,13 +237,27 @@ export type { ChaiRepeaterDataEntry } from "~/types/repeater-data";
  * convention: tags returned under `$cacheTags` are registered on the consuming
  * route during live render only (never in the builder, never in draft) and are
  * always stripped from the page data. Tags must be tenant-scoped.
+ *
+ * A dynamic template matches a URL by its segment pattern alone, so the item
+ * behind that URL may not exist. Return `$notFound: true` to say so: the live
+ * route then 404s instead of rendering the template with unresolved bindings
+ * (an empty page under a 200). Like `$cacheTags` the key is always stripped
+ * from the page data, and it is ignored in the builder, where the template
+ * must stay editable with no item selected.
+ *
+ * The not-found answer is a separate branch of the result union rather than an
+ * optional key on `T`: a provider typed `ChaiPageTypeDataProvider<{ doc: Doc }>`
+ * has no `doc` to return when there is no item, so intersecting the two would
+ * force every such provider to either widen `T` or cast.
  */
+export type ChaiPageTypeNotFound = { $notFound: true; $cacheTags?: string[] };
+
 export type ChaiPageTypeDataProvider<T = Record<string, any>> = (ctx: {
   lang: string;
   draft: boolean;
   inBuilder: boolean;
   pageProps: ChaiPageProps;
-}) => Promise<T & { $cacheTags?: string[] }>;
+}) => Promise<(T & { $cacheTags?: string[]; $notFound?: false }) | ChaiPageTypeNotFound>;
 
 /**
  * Block data provider function

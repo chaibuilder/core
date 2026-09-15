@@ -4,6 +4,9 @@ import { getBlocksFromHTML } from "~/utils/import-html/html-to-json";
 // Mock the runtime module
 vi.mock("~/registry", () => ({
   syncBlocksWithDefaultProps: vi.fn((blocks) => blocks),
+  // getBlocksFromHTML now also calls restoreBlockPropTypes -> getRegisteredChaiBlock;
+  // returning undefined makes restore a no-op, leaving these assertions intact.
+  getRegisteredChaiBlock: vi.fn(() => undefined),
 }));
 
 describe("ImportHTML - syncBlocksWithDefaultProps integration", () => {

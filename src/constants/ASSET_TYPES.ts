@@ -128,9 +128,13 @@ export const MIME_PREFIXES_BY_CATEGORY: Record<ChaiAssetCategory, string[]> = {
 
 /** Lowercased extension without the dot, or `""` when the name has none. */
 export const extensionOf = (name: string): string => {
-  const base = name.split(/[?#]/)[0];
-  const parts = base.split(".");
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+  // URL-style names carry `?`/`#` after the extension; local names may carry
+  // `#` before the dot (`Capture #3.png`). Prefer the last dot before a suffix,
+  // else any dot, and read the extension up to the next suffix character.
+  const suffixAt = name.search(/[?#]/);
+  const beforeSuffix = suffixAt === -1 ? -1 : name.lastIndexOf(".", suffixAt);
+  const dot = beforeSuffix !== -1 ? beforeSuffix : name.lastIndexOf(".");
+  return dot === -1 ? "" : name.slice(dot + 1).split(/[?#]/)[0].toLowerCase();
 };
 
 /** Category owning an extension, or `undefined` when not on the whitelist. */
