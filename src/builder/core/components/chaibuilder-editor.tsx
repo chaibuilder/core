@@ -13,24 +13,18 @@ import { ChaiFeatureFlagsWidget } from "~/builder/core/flags/flags-widget";
 import { setDebugLogs } from "~/builder/core/functions/logging";
 import i18n from "~/builder/core/locales/load";
 import { ScreenTooSmall } from "~/builder/core/screen-too-small";
-import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useBlockSelectionQuerySync } from "~/builder/hooks/use-block-selection-query-sync";
-import { useBroadcastChannel, useUnmountBroadcastChannel } from "~/builder/hooks/use-broadcast-channel";
-import { useBuilderReset } from "~/builder/hooks/use-builder-reset";
-import { useCheckStructure } from "~/builder/hooks/use-check-structure";
+import { useUnmountBroadcastChannel } from "~/builder/hooks/use-broadcast-channel";
 import { useExpandTree } from "~/builder/hooks/use-expand-tree";
-import { isPageLoadedAtom } from "~/builder/hooks/use-is-page-loaded";
 import { useKeyEventWatcher } from "~/builder/hooks/use-key-event-watcher";
 import { useWatchPartialBlocks } from "~/builder/hooks/use-partial-blocks-store";
 import { builderSaveStateAtom } from "~/builder/hooks/use-save-page";
+import { useWatchPageBlocks } from "~/builder/hooks/use-watch-page-blocks";
 import { CHAI_SLOT_IDS, ChaiSlot } from "~/builder/register-apis";
-import { syncBlocksWithDefaultProps } from "~/registry";
 import { ChaiBuilderEditorProps } from "~/types";
 import { ProRootLayout } from "./layout/pro-root-layout";
 
 const ChaiWatchers = (props: ChaiBuilderEditorProps) => {
-  const [, setAllBlocks] = useBlocksStore();
-  const reset = useBuilderReset();
   const [saveState] = useAtom(builderSaveStateAtom);
   useAtom(selectedLibraryAtom);
   useKeyEventWatcher();
@@ -39,9 +33,6 @@ const ChaiWatchers = (props: ChaiBuilderEditorProps) => {
   useAutoSave();
   useWatchPartialBlocks();
   useUnmountBroadcastChannel();
-  const { postMessage } = useBroadcastChannel();
-  const [, setIsPageLoaded] = useAtom(isPageLoadedAtom);
-  const runValidation = useCheckStructure();
 
   useEffect(() => {
     builderStore.set(chaiBuilderPropsAtom, omit(props, ["blocks", "translations", "pageExternalData", "globalStyles"]));
@@ -55,20 +46,9 @@ const ChaiWatchers = (props: ChaiBuilderEditorProps) => {
     builderStore.set(chaiDesignTokensAtom, props.designTokens || {});
   }, [props.designTokens]);
 
-  useEffect(() => {
-    setIsPageLoaded(false);
-    // Added delay to allow the pageId to be set
-    setTimeout(() => {
-      const withDefaults = syncBlocksWithDefaultProps(props.blocks || []);
-      setAllBlocks(withDefaults);
-      if (withDefaults && withDefaults.length > 0) {
-        postMessage({ type: "blocks-updated", blocks: withDefaults });
-      }
-      reset();
-      setIsPageLoaded(true);
-      runValidation();
-    }, 400);
-  }, [props.blocks]);
+  // Registered after the props-atom effect above so the pageId is already in the
+  // store when the blocks apply (effects run in declaration order per commit).
+  useWatchPageBlocks(props.blocks);
 
   useEffect(() => {
     i18n.changeLanguage(props.locale || "en");

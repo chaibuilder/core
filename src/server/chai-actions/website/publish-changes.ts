@@ -3,6 +3,7 @@ import { flattenDeep, isEmpty, uniq } from "lodash-es";
 import { z } from "zod";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { pruneRevisions } from "~/server/chai-actions/revisions/prune-revisions";
+import { resolveEditSource } from "~/server/chai-actions/utils/edit-source";
 import { LAYOUTS_INDEX_TAG } from "~/server/chai-builder/public/get-layout-id-by-name";
 import { pageSlugTag, slugTag } from "~/server/chai-builder/public/page-routing-cache";
 import { ActionError } from "../action-error";
@@ -409,6 +410,9 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
         .values({
           ...pageData,
           currentEditor: this.context?.userId,
+          // `createRevision` copies this row wholesale on the next publish, so
+          // recording it here also attributes the published revision snapshot.
+          source: resolveEditSource(this.context),
         })
         .returning(),
     );

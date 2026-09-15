@@ -5,11 +5,14 @@ import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { hasPermission } from "~/server/rbac/permissions";
 import { pruneRevisions } from "~/server/chai-actions/revisions/prune-revisions";
+import { resolveEditSource } from "~/server/chai-actions/utils/edit-source";
 import { PageTreeBuilder } from "~/server/chai-actions/utils/page-tree-builder";
+import { getConfigFeature } from "~/server/defaults/config-registry";
 import { pageDetailsTagsForMutation } from "~/server/chai-builder/public/page-details-cache";
 import { routingTagsForMutation, type RoutingSlugUpdate } from "~/server/chai-builder/public/page-routing-cache";
 import { computePartialIdsClosure } from "~/server/chai-builder/public/partial-merge-utils";
 import { ChaiBlock } from "~/types/common";
+import { derivePageRefs } from "~/utils/derive-page-refs";
 import { ActionError } from "../action-error";
 import { ChaiBaseAction } from "../base-action";
 import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
@@ -51,10 +54,14 @@ export type UpdatePageActionData = {
   metadata?: Record<string, unknown>;
   links?: string;
   partialBlocks?: string;
+  /** @deprecated Ignored — the closure is recomputed from `blocks` server-side. */
   partialIds?: string[];
+  /** @deprecated Ignored — derived from `blocks` server-side (see `derivePageRefs`). */
   linkPageIds?: string[];
+  /** @deprecated Ignored — derived from `blocks` server-side (see `derivePageRefs`). */
   designTokens?: Record<string, Record<string, string>>;
   tracking?: Record<string, any>;
+  /** @deprecated Ignored — decided server-side from `features.revisions.drafts`. */
   addInRevision?: boolean;
 };
 
@@ -97,10 +104,12 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       needTranslations: z.boolean().optional(),
       description: z.string().optional(),
       tags: z.array(z.string().min(1).max(50)).optional(),
+      tracking: z.record(z.string(), z.any()).optional(),
+      // Accepted but ignored — now derived/decided server-side. Kept so
+      // existing clients that still send them don't fail validation.
       partialIds: z.array(z.string()).optional(),
       linkPageIds: z.array(z.string()).optional(),
       designTokens: z.record(z.string(), z.record(z.string(), z.string())).optional(),
-      tracking: z.record(z.string(), z.any()).optional(),
       addInRevision: z.boolean().optional(),
     });
   }
@@ -120,14 +129,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
         // primary page's blocks. Skip the write so we never deposit dead/stale
         // blocks on them (#2842).
         if (!(await this.isLanguagePage(data.id))) {
-          await this.updateBlocks(
-            data.id,
-            data.blocks!,
-            data.linkPageIds || [],
-            data.partialIds || [],
-            data.designTokens || {},
-            data?.addInRevision
-          );
+          await this.updateBlocks(data.id, data.blocks!);
         }
         return await this.buildResponse(data.id, data);
       }
@@ -194,7 +196,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
         await this.handleSlugChangeWithHandler(data.id, filteredData);
       } else {
         // Simple update without slug or parent change
-        await this.updatePageInDatabase(data.id, filteredData, data?.addInRevision);
+        await this.updatePageInDatabase(data.id, filteredData);
       }
 
       // The slug handlers cascade the promoted page's own children but not its
@@ -229,18 +231,14 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     }
   }
 
-  async updateBlocks(
-    pageId: string,
-    blocks: ChaiBlock[],
-    linkPageIds: string[],
-    partialIds: string[],
-    designTokens: Record<string, Record<string, string>>,
-    addInRevision?: boolean
-  ) {
-    // The client-sent partialIds closure is only as complete as the partials
-    // it happened to have loaded — recompute it from the database so the
-    // denormalized column stays correct when nested partials change.
-    let partialBlocks = partialIds.join("|");
+  async updateBlocks(pageId: string, blocks: ChaiBlock[]) {
+    // Every denormalized column below is a pure function of `blocks`, so it is
+    // derived here rather than taken from the request: a client that omits them
+    // (the MCP tools send `{ id, blocks }`) would otherwise blank the columns,
+    // and a client that sends them can only be as correct as the state it
+    // happened to have loaded.
+    const { linkPageIds, designTokens } = derivePageRefs(blocks);
+    let partialBlocks: string | undefined;
     let reindexConsumers = false;
     try {
       const { data: currentRow } = await safeQuery(() =>
@@ -258,14 +256,17 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       const row = currentRow?.[0];
       reindexConsumers = !!row && isEmpty(row.slug) && ((row.partialBlocks as string) ?? "") !== partialBlocks;
     } catch (error) {
-      console.error("Failed to recompute partial ids closure, using client-provided ids:", { pageId, error });
+      // Leave the stored closure alone rather than writing a wrong one — a
+      // stale value still resolves the partials this page had, an empty one
+      // would drop the page out of every usage lookup.
+      console.error("Failed to recompute partial ids closure, leaving the stored value unchanged:", { pageId, error });
     }
     await this.updatePageInDatabase(pageId, {
       blocks,
       links: linkPageIds.join("|"),
-      partialBlocks,
+      ...(partialBlocks !== undefined ? { partialBlocks } : {}),
       designTokens,
-    }, addInRevision);
+    });
 
     if (reindexConsumers) {
       await this.reindexPartialConsumers(pageId, new Set([pageId]));
@@ -637,7 +638,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       );
       
       const { data: lastDraftResult } = await safeQuery(() =>
-        db.select({ uid: schema.appPagesRevisions.uid, type: schema.appPagesRevisions.type, currentEditor: schema.appPagesRevisions.currentEditor, createdAt: schema.appPagesRevisions.createdAt })
+        db.select({ uid: schema.appPagesRevisions.uid, type: schema.appPagesRevisions.type, currentEditor: schema.appPagesRevisions.currentEditor, source: schema.appPagesRevisions.source, createdAt: schema.appPagesRevisions.createdAt })
           .from(schema.appPagesRevisions)
           .where(and(eq(schema.appPagesRevisions.id, pageId), eq(schema.appPagesRevisions.app, this.appId)))
           .orderBy(desc(schema.appPagesRevisions.createdAt))
@@ -646,11 +647,16 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
 
       const published = lastPublishedResult?.[0];
       const draft = lastDraftResult?.[0];
+      const source = resolveEditSource(this.context);
 
+      // `source` joins the coalesce key: an MCP token carries the uid of the
+      // person who created it, so without it an agent edit would silently merge
+      // into that person's own last draft and inherit its attribution.
       let shouldUpdateLastDraftEntry =
         draft &&
         draft.type === 'draft' &&
-        draft.currentEditor === this.context?.userId;
+        draft.currentEditor === this.context?.userId &&
+        draft.source === source;
 
       if (
         published &&
@@ -689,6 +695,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
               blocks: page.blocks || [],
               type: 'draft',
               currentEditor: this.context?.userId,
+              source,
               name: page.name || "",
               slug: page.slug || "",
               pageType: page.pageType,
@@ -716,7 +723,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
   /**
    * Update the page in the database (simple update without slug change)
    */
-  private async updatePageInDatabase(pageId: string, filteredData: Partial<UpdatePageActionData>, addInRevision?: boolean): Promise<void> {
+  private async updatePageInDatabase(pageId: string, filteredData: Partial<UpdatePageActionData>): Promise<void> {
     const changes = this.determineChangeTypes(filteredData);
     const { error, data: updatedPageData } = await safeQuery(() =>
       db
@@ -755,7 +762,17 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       }
     }
 
-    if (addInRevision && updatedPageData?.[0]) {
+    // Whether a save snapshots a draft revision is a property of the site, not
+    // of the caller: the builder, the MCP tools and every other UPDATE_PAGE
+    // client must produce the same history.
+    //
+    // Both flags are required. `drafts` only narrows a feature that is already
+    // on — `{ enabled: false, drafts: true }` is a disabled feature, not an
+    // opt-in, and writing revisions for it would fill a table the UI never
+    // shows. `getConfigFeature` returns undefined when the revisions plugin is
+    // not registered (the OSS builder), which is the correct "off".
+    const revisions = getConfigFeature("revisions");
+    if (revisions?.enabled === true && revisions.drafts === true && updatedPageData?.[0]) {
       await this.addSaveEntryInRevision(pageId, updatedPageData[0]);
     }
   }

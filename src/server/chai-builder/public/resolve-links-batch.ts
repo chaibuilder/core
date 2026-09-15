@@ -2,6 +2,7 @@ import { startsWith } from "lodash-es";
 import { cache } from "react";
 import { getResolvedPageType } from "~/server/defaults";
 import type { ChaiBlock } from "~/types";
+import { getFallbackLang } from "../internal/init";
 import { getInitializedState } from "../state";
 import { withRequestCache } from "./cache-utils";
 import { resolvePageSlugs } from "./get-page-slug-by-id";
@@ -12,14 +13,25 @@ type LinkRef = {
   href: string;
 };
 
-function extractLinksFromBlocks(blocks: ChaiBlock[]): LinkRef[] {
+type ExtractedLinks = {
+  linkRefs: LinkRef[];
+  /** Indexes of blocks containing any `pageType:` string — the only blocks the transform pass can change. */
+  linkBlockIndexes: Set<number>;
+};
+
+function extractLinksFromBlocks(blocks: ChaiBlock[]): ExtractedLinks {
   const linkRefs: LinkRef[] = [];
   const seen = new Set<string>();
+  const linkBlockIndexes = new Set<number>();
+  let blockHasLink = false;
 
   function processValue(value: any) {
     if (!value) return;
 
     if (typeof value === "string" && startsWith(value, "pageType:")) {
+      // Flag on ANY `pageType:` string, not only well-formed refs: the transform's
+      // `pageId` backfill fires on href shape alone, so malformed refs still matter.
+      blockHasLink = true;
       const parts = value.split(":");
       if (parts.length === 3 && parts[1] && parts[2]) {
         const href = value;
@@ -41,8 +53,12 @@ function extractLinksFromBlocks(blocks: ChaiBlock[]): LinkRef[] {
     }
   }
 
-  blocks.forEach((block) => processValue(block));
-  return linkRefs;
+  blocks.forEach((block, index) => {
+    blockHasLink = false;
+    processValue(block);
+    if (blockHasLink) linkBlockIndexes.add(index);
+  });
+  return { linkRefs, linkBlockIndexes };
 }
 
 // Stable function reference for caching - defined once at module level
@@ -53,7 +69,7 @@ async function resolveLinksData(
   pageId: string,
   blocks: ChaiBlock[],
 ): Promise<ChaiBlock[]> {
-  const linkRefs = extractLinksFromBlocks(blocks);
+  const { linkRefs, linkBlockIndexes } = extractLinksFromBlocks(blocks);
   if (linkRefs.length === 0) {
     return blocks;
   }
@@ -133,13 +149,14 @@ async function resolveLinksData(
     return value;
   }
 
-  return blocks.map((block) => transformValue(block) as ChaiBlock);
+  // Copy-on-write: only blocks containing links are re-built; link-less blocks keep identity.
+  return blocks.map((block, index) => (linkBlockIndexes.has(index) ? (transformValue(block) as ChaiBlock) : block));
 }
 
 export const resolveLinksInPageBlocks = cache(
   async (page: { id: string; blocks: ChaiBlock[]; lang?: string }, lang?: string): Promise<ChaiBlock[]> => {
     const state = getInitializedState();
-    const resolvedLang = lang || state.lang || state.fallbackLang;
+    const resolvedLang = lang || state.lang || (await getFallbackLang());
 
     return await withRequestCache(resolveLinksData, "resolveLinksData")(
       state.appId!,

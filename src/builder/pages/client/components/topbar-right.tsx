@@ -222,7 +222,6 @@ const PublishButton = () => {
   const [isPageLoaded] = useIsPageLoaded();
   const { mutate: publishPage, isPending } = usePublishPages();
   const { needTranslations } = useSavePage();
-  const needTranslation = needTranslations();
   // The blocks store is empty until the page has finished loading, so the pre-publish
   // checks (unpublished partials, missing translations, structure validation) would all
   // pass vacuously. Keep publishing unavailable until the page is loaded.
@@ -261,12 +260,14 @@ const PublishButton = () => {
   );
 
   const proceedToPublish = useCallback(() => {
-    if (needTranslation) {
+    // Evaluated at publish time: needTranslations() clones and scans every block,
+    // which is too heavy to run on each render
+    if (needTranslations()) {
       setShowTranslationWarning(true);
       return;
     }
     checkAndPublish([activePage?.id, activePage?.primaryPage]);
-  }, [needTranslation, checkAndPublish, activePage]);
+  }, [needTranslations, checkAndPublish, activePage]);
 
   const handlePublishCurrentPage = async () => {
     if ((hasValidationErrors || hasValidationWarnings) && !isValidationSnoozed()) {

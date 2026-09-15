@@ -73,6 +73,52 @@ describe("UpdatePageAction - Blocks Integration", () => {
     });
   });
 
+  // The MCP tools send `{ id, blocks }` and nothing else. Before these columns
+  // were derived server-side, that blanked `links` (publish revalidation) and
+  // `designTokens` (token usage lookups) on every agent edit.
+  it("derives links and designTokens from blocks when the caller sends neither", async () => {
+    await withTestDB(async ({ db, seed, action }) => {
+      const page = await seed("appPages", fake.appPages());
+
+      const result = await action(UpdatePageAction).run({
+        id: page.id,
+        blocks: [
+          {
+            _id: "block1",
+            _type: "Button",
+            _name: "CTA",
+            link: "pageType:about:123e4567-e89b-12d3-a456-426614174000",
+            styles: "dt#brandPrimary",
+          },
+        ] as any,
+      });
+
+      expect(result.success).toBe(true);
+      const updatedPage = await getPageById(db, page.id);
+      expect(updatedPage?.links).toBe("123e4567-e89b-12d3-a456-426614174000");
+      expect((updatedPage?.designTokens as any)["dt#brandPrimary"]["block1"]).toBe("CTA");
+    });
+  });
+
+  // Client-sent values are advisory at best — the sender only knows the blocks
+  // it had loaded. The blocks are the single source of truth.
+  it("ignores client-sent links and designTokens that disagree with the blocks", async () => {
+    await withTestDB(async ({ db, seed, action }) => {
+      const page = await seed("appPages", fake.appPages());
+
+      await action(UpdatePageAction).run({
+        id: page.id,
+        blocks: [{ _id: "block1", _type: "Heading", content: "no refs at all" }] as any,
+        linkPageIds: ["123e4567-e89b-12d3-a456-426614174000"],
+        designTokens: { "dt#ghost": { block1: "Heading" } },
+      });
+
+      const updatedPage = await getPageById(db, page.id);
+      expect(updatedPage?.links).toBe("");
+      expect(updatedPage?.designTokens).toEqual({});
+    });
+  });
+
   it("recomputes the transitive partial closure server-side, ignoring stale client partialIds", async () => {
     await withTestDB(async ({ db, seed, action }) => {
       // 1. Arrange — nested chain: page -> outer partial -> inner partial

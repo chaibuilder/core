@@ -1,7 +1,9 @@
 import { compact, filter, find, get, isEmpty, uniq } from "lodash-es";
 import { useCallback } from "react";
-import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
+import { presentBlocksAtom } from "~/builder/atoms/blocks";
+import { builderStore } from "~/builder/atoms/store";
 import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { ChaiBlock } from "~/types/common";
 
 export type PartialBlockStatus = "unpublished" | "unpublished_changes";
 
@@ -12,7 +14,6 @@ export interface PartialBlockInfo {
 }
 
 export const useGetUnpublishedPartialBlocks = () => {
-  const [blocksStore] = useBlocksStore();
   const { data: websitePages } = useWebsitePrimaryPages();
 
   const getUnpublishedPartialBlocks = useCallback(() => {
@@ -21,6 +22,10 @@ export const useGetUnpublishedPartialBlocks = () => {
       return { ids: [], names: [], partialBlocksInfo: [] };
     }
 
+    // Blocks are read at call time instead of subscribed at render time: this hook feeds
+    // the publish flow only, and a live subscription would re-render the topbar on every
+    // block commit.
+    const blocksStore = builderStore.get(presentBlocksAtom) as ChaiBlock[];
     // Get all blocks with _type === 'PartialBlock'
     const partialBlocks = filter(blocksStore, (block) => block._type === "PartialBlock");
     // Extract unique partialBlockId values
@@ -52,7 +57,7 @@ export const useGetUnpublishedPartialBlocks = () => {
     const ids = partialBlocksInfo.map((info) => info.id);
     const names = partialBlocksInfo.map((info) => info.name);
     return { ids, names, partialBlocksInfo };
-  }, [blocksStore, websitePages]);
+  }, [websitePages]);
 
   return getUnpublishedPartialBlocks;
 };

@@ -173,3 +173,43 @@ describe("getDataByPageType cache tags", () => {
     expect(registered).toEqual([["page-type-data", "page-type-data-app-1", "page-type-data-app-1-page"]]);
   });
 });
+
+describe("getDataByPageType $notFound", () => {
+  it("404s the route when the provider reports no item behind the URL", async () => {
+    const pageNotFound = vi.fn(() => {
+      throw new Error("NEXT_NOT_FOUND");
+    });
+    setFrameworkAdapter({ pageNotFound: pageNotFound as any });
+    mocks.getResolvedPageType.mockReturnValue({ dataProvider: vi.fn(async () => ({ $notFound: true })) });
+
+    await expect(getDataByPageType({ pageType: "docs", pageProps, lang: "en" })).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(pageNotFound).toHaveBeenCalled();
+  });
+
+  it("registers the provider's own $cacheTags before 404ing, so publishing the item regenerates the route", async () => {
+    // setFrameworkAdapter merges over the noop adapter, not over the previous
+    // one, so the tag spy and pageNotFound must be installed together; the noop
+    // pageNotFound already throws, which is all this test needs.
+    const registered = spyRegisteredTags();
+    mocks.getResolvedPageType.mockReturnValue({
+      dataProvider: vi.fn(async () => ({ $notFound: true, $cacheTags: ["docs-app-1-missing"] })),
+    });
+
+    await expect(getDataByPageType({ pageType: "docs", pageProps, lang: "en" })).rejects.toThrow("Page not found");
+    expect(registered).toEqual([
+      ["page-type-data", "page-type-data-app-1", "page-type-data-app-1-docs"],
+      ["docs-app-1-missing"],
+    ]);
+  });
+
+  it("keeps the envelope key out of the page data when the item exists", async () => {
+    spyRegisteredTags();
+    mocks.getResolvedPageType.mockReturnValue({
+      dataProvider: vi.fn(async () => ({ doc: { title: "Overview" }, $notFound: false })),
+    });
+
+    const result = await getDataByPageType({ pageType: "docs", pageProps, lang: "en" });
+
+    expect(result).toEqual({ doc: { title: "Overview" } });
+  });
+});

@@ -10,7 +10,8 @@ export type RequestState = {
   /** Host-supplied permission grants; null means "resolve membership from app_users". */
   permissions: string[] | null;
   draftMode: boolean;
-  fallbackLang: string;
+  /** Site default language. `null` until seeded from site settings — see `getFallbackLang`. */
+  fallbackLang: string | null;
   lang: string | null;
   initialized: boolean;
   siteUrl: string | null;
@@ -34,7 +35,7 @@ const createDefaultState = (): RequestState => ({
   role: null,
   permissions: null,
   draftMode: false,
-  fallbackLang: "en",
+  fallbackLang: null,
   lang: null,
   initialized: false,
   siteUrl: null,
