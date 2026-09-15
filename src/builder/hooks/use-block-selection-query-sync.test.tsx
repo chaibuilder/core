@@ -1,9 +1,8 @@
 /**
  * @vitest-environment happy-dom
  */
-import { act, renderHook } from "@testing-library/react";
-import { Provider, WritableAtom } from "jotai";
-import { useHydrateAtoms } from "jotai/utils";
+import { act, renderHook, waitFor } from "@testing-library/react";
+import { createStore, Provider, WritableAtom } from "jotai";
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
@@ -13,21 +12,18 @@ import {
   useBlockSelectionQuerySync,
 } from "~/builder/hooks/use-block-selection-query-sync";
 import { isPageLoadedAtom } from "~/builder/hooks/use-is-page-loaded";
-import { selectedBlockIdsAtom, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
+import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
 import { ChaiBlock } from "~/types/common";
 
 type AtomTuple = [WritableAtom<any, any[], any>, any];
 
-const HydrateAtoms = ({ initialValues, children }: { initialValues: AtomTuple[]; children: React.ReactNode }) => {
-  useHydrateAtoms(initialValues);
-  return children;
+const createTestStore = (initialValues: AtomTuple[]) => {
+  const store = createStore();
+  initialValues.forEach(([atom, value]) => {
+    store.set(atom, value);
+  });
+  return store;
 };
-
-const TestProvider = ({ initialValues, children }: { initialValues: AtomTuple[]; children: React.ReactNode }) => (
-  <Provider>
-    <HydrateAtoms initialValues={initialValues}>{children}</HydrateAtoms>
-  </Provider>
-);
 
 const blocks: ChaiBlock[] = [
   { _id: "block-1", _type: "Box" },
@@ -89,136 +85,89 @@ describe("useBlockSelectionQuerySync", () => {
     replaceStateSpy.mockRestore();
   });
 
-  it("should preselect block from URL on page load", () => {
+  it("should preselect block from URL on page load", async () => {
     window.history.replaceState({}, "", "/?bid=block-2");
+    const store = createTestStore([
+      [presentBlocksAtom, blocks],
+      [isPageLoadedAtom, true],
+    ]);
 
-    const { result } = renderHook(
-      () => {
-        useBlockSelectionQuerySync();
-        return useSelectedBlockIds();
-      },
-      {
-        wrapper: ({ children }) => (
-          <TestProvider
-            initialValues={[
-              [presentBlocksAtom, blocks],
-              [selectedBlockIdsAtom, []],
-              [isPageLoadedAtom, true],
-            ]}>
-            {children}
-          </TestProvider>
-        ),
-      },
-    );
+    renderHook(() => useBlockSelectionQuerySync(), {
+      wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+    });
 
-    expect(result.current[0]).toEqual(["block-2"]);
+    await waitFor(() => {
+      expect(store.get(selectedBlockIdsAtom)).toEqual(["block-2"]);
+    });
   });
 
   it("should clear stale block param if block does not exist", () => {
     window.history.replaceState({}, "", "/?bid=non-existent");
+    const store = createTestStore([
+      [presentBlocksAtom, blocks],
+      [isPageLoadedAtom, true],
+    ]);
 
-    renderHook(
-      () => {
-        useBlockSelectionQuerySync();
-        return useSelectedBlockIds();
-      },
-      {
-        wrapper: ({ children }) => (
-          <TestProvider
-            initialValues={[
-              [presentBlocksAtom, blocks],
-              [selectedBlockIdsAtom, []],
-              [isPageLoadedAtom, true],
-            ]}>
-            {children}
-          </TestProvider>
-        ),
-      },
-    );
+    renderHook(() => useBlockSelectionQuerySync(), {
+      wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+    });
 
     expect(new URLSearchParams(window.location.search).has("bid")).toBe(false);
   });
 
   it("should not preselect block when page is not loaded", () => {
     window.history.replaceState({}, "", "/?bid=block-1");
+    const store = createTestStore([
+      [presentBlocksAtom, blocks],
+      [selectedBlockIdsAtom, []],
+      [isPageLoadedAtom, false],
+    ]);
 
-    const { result } = renderHook(
-      () => {
-        useBlockSelectionQuerySync();
-        return useSelectedBlockIds();
-      },
-      {
-        wrapper: ({ children }) => (
-          <TestProvider
-            initialValues={[
-              [presentBlocksAtom, blocks],
-              [selectedBlockIdsAtom, []],
-              [isPageLoadedAtom, false],
-            ]}>
-            {children}
-          </TestProvider>
-        ),
-      },
-    );
+    renderHook(() => useBlockSelectionQuerySync(), {
+      wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+    });
 
-    expect(result.current[0]).toEqual([]);
+    expect(store.get(selectedBlockIdsAtom)).toEqual([]);
   });
 
   it("should update URL when block selection changes", () => {
-    const { result } = renderHook(
-      () => {
-        useBlockSelectionQuerySync();
-        return useSelectedBlockIds();
-      },
-      {
-        wrapper: ({ children }) => (
-          <TestProvider
-            initialValues={[
-              [presentBlocksAtom, blocks],
-              [selectedBlockIdsAtom, []],
-              [isPageLoadedAtom, true],
-            ]}>
-            {children}
-          </TestProvider>
-        ),
-      },
-    );
+    const store = createTestStore([
+      [presentBlocksAtom, blocks],
+      [selectedBlockIdsAtom, []],
+      [isPageLoadedAtom, true],
+    ]);
+
+    renderHook(() => useBlockSelectionQuerySync(), {
+      wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+    });
 
     act(() => {
-      result.current[1](["block-3"]);
+      store.set(selectedBlockIdsAtom, ["block-3"]);
     });
 
     expect(new URLSearchParams(window.location.search).get("bid")).toBe("block-3");
   });
 
-  it("should remove block param from URL when selection is cleared", () => {
+  it("should remove block param from URL when selection is cleared", async () => {
     window.history.replaceState({}, "", "/?bid=block-1");
+    const store = createTestStore([
+      [presentBlocksAtom, blocks],
+      [selectedBlockIdsAtom, []],
+      [isPageLoadedAtom, true],
+    ]);
 
-    const { result } = renderHook(
-      () => {
-        useBlockSelectionQuerySync();
-        return useSelectedBlockIds();
-      },
-      {
-        wrapper: ({ children }) => (
-          <TestProvider
-            initialValues={[
-              [presentBlocksAtom, blocks],
-              [selectedBlockIdsAtom, []],
-              [isPageLoadedAtom, true],
-            ]}>
-            {children}
-          </TestProvider>
-        ),
-      },
-    );
+    renderHook(() => useBlockSelectionQuerySync(), {
+      wrapper: ({ children }) => <Provider store={store}>{children}</Provider>,
+    });
 
     // First it restores block-1 from URL
-    expect(result.current[0]).toEqual(["block-1"]);
+    await waitFor(() => {
+      expect(store.get(selectedBlockIdsAtom)).toEqual(["block-1"]);
+    });
 
     // Now clear selection
     act(() => {
-      result.current[1]([]);
+      store.set(selectedBlockIdsAtom, []);
     });
 
     expect(new URLSearchParams(window.location.search).has("bid")).toBe(false);
