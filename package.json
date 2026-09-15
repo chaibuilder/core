@@ -219,7 +219,7 @@
     }
   },
   "dependencies": {
-    "@ai-sdk/react": "3.0.221",
+    "@ai-sdk/react": "4.0.100",
     "@floating-ui/dom": "1.7.4",
     "@floating-ui/react-dom": "2.1.6",
     "@iconify-json/lucide": "1.2.82",
