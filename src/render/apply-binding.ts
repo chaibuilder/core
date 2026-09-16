@@ -1,8 +1,10 @@
-import { cloneDeep, forEach, get, isArray, isEmpty, isString, keys, startsWith } from "lodash-es";
+import { forEach, get, isArray, isEmpty, isString, keys, startsWith } from "lodash-es";
 import { COLLECTION_PREFIX } from "~/constants/STRINGS";
 import { resolveStringBinding } from "~/render/binding-engine";
 import { ChaiBlock } from "~/types/common";
 
+// Copy-on-write: returns the input identity untouched when no binding resolves anywhere
+// inside it, and rebuilds only the branches that actually changed. Never mutates its input.
 const applyBindingToValue = (
   value: any,
   pageExternalData: Record<string, any>,
@@ -10,30 +12,34 @@ const applyBindingToValue = (
   propertyKey?: string,
 ): any => {
   if (isString(value)) {
+    // resolveStringBinding returns the input string as-is when it has no {{...}} placeholder.
     return resolveStringBinding(value, pageExternalData, index, repeaterKey, propertyKey, locale, itemKey ?? "");
   }
 
   if (isArray(value)) {
-    return value.map((item) =>
-      applyBindingToValue(item, pageExternalData, { index, key: repeaterKey, locale, itemKey }, propertyKey),
-    );
+    let changed = false;
+    const result = value.map((item) => {
+      const next = applyBindingToValue(item, pageExternalData, { index, key: repeaterKey, locale, itemKey }, propertyKey);
+      if (next !== item) changed = true;
+      return next;
+    });
+    return changed ? result : value;
   }
 
   if (value && typeof value === "object") {
+    let changed = false;
     const result: Record<string, any> = {};
     forEach(keys(value), (key) => {
+      const current = (value as Record<string, any>)[key];
       if (!startsWith(key, "_") && key !== "$repeaterItemsKey") {
-        result[key] = applyBindingToValue(
-          (value as Record<string, any>)[key],
-          pageExternalData,
-          { index, key: repeaterKey, locale, itemKey },
-          key,
-        );
+        const next = applyBindingToValue(current, pageExternalData, { index, key: repeaterKey, locale, itemKey }, key);
+        if (next !== current) changed = true;
+        result[key] = next;
       } else {
-        result[key] = (value as Record<string, any>)[key];
+        result[key] = current;
       }
     });
-    return result;
+    return changed ? result : value;
   }
 
   return value;
@@ -44,22 +50,24 @@ export const applyBindingToBlockProps = (
   pageExternalData: Record<string, any>,
   { index, key: repeaterKey, locale, itemKey }: { index: number; key: string; locale?: string; itemKey?: string },
 ) => {
-  const clonedBlock = cloneDeep(blockChai);
-  if (clonedBlock.repeaterItems) {
-    const originalRepeaterItemsBinding = clonedBlock.repeaterItems;
-    clonedBlock.$repeaterItemsKey = clonedBlock.repeaterItems;
-    if (startsWith(clonedBlock.repeaterItems, `{{${COLLECTION_PREFIX}`)) {
-      clonedBlock.$repeaterItemsKey =
-        clonedBlock.repeaterItems = `${clonedBlock.repeaterItems.replace("}}", `/${clonedBlock._id}}}`)}`;
+  // applyBindingToValue is copy-on-write and never mutates, so the only mutation shield
+  // needed is a shallow copy for the top-level repeaterItems rewrites below.
+  let block = blockChai;
+  if (block.repeaterItems) {
+    block = { ...blockChai };
+    const originalRepeaterItemsBinding = block.repeaterItems;
+    block.$repeaterItemsKey = block.repeaterItems;
+    if (startsWith(block.repeaterItems, `{{${COLLECTION_PREFIX}`)) {
+      block.$repeaterItemsKey = block.repeaterItems = `${block.repeaterItems.replace("}}", `/${block._id}}}`)}`;
     }
-    if (!isEmpty(clonedBlock.repeaterItems) && clonedBlock.pagination) {
-      const totalItemsBinding = `${originalRepeaterItemsBinding.replace("}}", `/${clonedBlock._id}/totalItems}}`)}`;
+    if (!isEmpty(block.repeaterItems) && block.pagination) {
+      const totalItemsBinding = `${originalRepeaterItemsBinding.replace("}}", `/${block._id}/totalItems}}`)}`;
       const resolvedTotalItems = get(pageExternalData, totalItemsBinding.slice(2, -2));
-      clonedBlock.repeaterTotalItems = resolvedTotalItems;
-      clonedBlock.totalItems = resolvedTotalItems;
+      block.repeaterTotalItems = resolvedTotalItems;
+      block.totalItems = resolvedTotalItems;
     }
   }
-  return applyBindingToValue(clonedBlock, pageExternalData, {
+  return applyBindingToValue(block, pageExternalData, {
     index,
     key: repeaterKey,
     locale,
@@ -400,6 +408,54 @@ if (import.meta.vitest) {
         itemKey: "#agents/blk1.0",
       });
       expect(result.content).toBe("Ann: Second");
+    });
+
+    it("should return the exact input identity when the block has no bindings", () => {
+      const block: ChaiBlock = {
+        _id: "static-block",
+        _type: "text",
+        content: "Hello world",
+        style: { color: "blue" },
+        items: ["a", "b"],
+      };
+      const result = applyBindingToBlockProps(block, { user: { name: "John" } }, { index: -1, key: "" });
+      expect(result).toBe(block);
+      expect(result.style).toBe(block.style);
+      expect(result.items).toBe(block.items);
+    });
+
+    it("should not mutate the input block and keep unbound sub-object identities when bindings resolve", () => {
+      const style = { color: "blue" };
+      const block: ChaiBlock = {
+        _id: "test-block",
+        _type: "text",
+        content: "Hello {{user.name}}",
+        style,
+      };
+      const snapshot = JSON.parse(JSON.stringify(block));
+      const result = applyBindingToBlockProps(block, { user: { name: "John" } }, { index: -1, key: "" });
+      expect(result).not.toBe(block);
+      expect(result.content).toBe("Hello John");
+      expect(result.style).toBe(style);
+      expect(block).toEqual(snapshot);
+    });
+
+    it("should not mutate the input block when rewriting repeaterItems", () => {
+      const block: ChaiBlock = {
+        _id: "test-block",
+        _type: "repeater",
+        repeaterItems: "{{#articles}}",
+        pagination: true,
+      };
+      const snapshot = JSON.parse(JSON.stringify(block));
+      const result = applyBindingToBlockProps(
+        block,
+        { "#articles/test-block": [{ title: "Hello" }], "#articles/test-block/totalItems": 42 },
+        { index: -1, key: "" },
+      );
+      expect(result).not.toBe(block);
+      expect(result.repeaterItems).toEqual([{ title: "Hello" }]);
+      expect(block).toEqual(snapshot);
     });
 
     it("should leave missing paginated collection totalItems undefined for renderer fallback", () => {

@@ -1,5 +1,4 @@
 import { has } from "lodash-es";
-import { getFrameworkAdapter } from "~/server/framework-adapter";
 import {
   isStreamingChaiAction,
   toActionErrorPayload,
@@ -12,9 +11,9 @@ import {
   formatStreamingError,
   isMissingTextStream,
 } from "~/server/chai-actions/streaming-error-handlers";
-import { warmPublishedPagesCache } from "~/server/chai-builder/public/warm-published-pages-cache";
-import { getInitializedStateWithUser } from "~/server/chai-builder/state";
+import { applyChaiActionCacheEffects, DEFAULT_CATCH_ALL_ROUTE } from "~/server/chai-builder/action-cache-effects";
 import { runChaiResponseDecorators } from "~/server/plugin-api/response-decorator";
+import { getFrameworkAdapter } from '../framework-adapter';
 
 export type HttpChaiActionBody = {
   action: string;
@@ -120,7 +119,7 @@ export async function handleHttpAction(
   body: HttpChaiActionBody,
   options: HandleHttpChaiActionOptions = {},
 ): Promise<Response> {
-  const { catchAllRoute = ["/(public)/[[...slug]]"] } = options;
+  const { catchAllRoute = DEFAULT_CATCH_ALL_ROUTE } = options;
   const { action, data } = body;
 
   // Plugin response decorators. Resolved concurrently with the action so their occasional inline work
@@ -173,21 +172,7 @@ export async function handleHttpAction(
       });
     }
 
-    await handleCacheRevalidation(result, catchAllRoute);
-
-    const revalidationTags = collectRevalidationTags(result);
-    const revalidationPaths = collectRevalidationPaths(result);
-    if (action === "PUBLISH_CHANGES" && (revalidationTags.length > 0 || revalidationPaths.length > 0)) {
-      const { appId, siteUrl } = getInitializedStateWithUser();
-      getFrameworkAdapter().runAfterResponse(() =>
-        warmPublishedPagesCache({
-          appId,
-          siteUrl,
-          tags: revalidationTags,
-          paths: revalidationPaths,
-        }),
-      );
-    }
+    await applyChaiActionCacheEffects(action, result, { catchAllRoute });
 
     return httpActionSuccessResponse(result, await extrasPromise);
   } catch (error) {

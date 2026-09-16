@@ -1,6 +1,7 @@
 import { compact, get, map, memoize, omit } from "lodash-es";
 import { useCallback } from "react";
-import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
+import { presentBlocksAtom } from "~/builder/atoms/blocks";
+import { builderStore } from "~/builder/atoms/store";
 import { useCurrentPage } from "~/builder/hooks/use-current-page";
 import { getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlock } from "~/types/common";
@@ -22,9 +23,12 @@ const getBlockBuilderProps = memoize((type: string) => {
 
 export const useGetPageData = () => {
   const { currentPage } = useCurrentPage();
-  const [presentBlocks] = useBlocksStore();
 
   return useCallback(() => {
+    // Blocks are read at call time instead of subscribed at render time: they are only
+    // consumed inside this callback, and a live subscription would re-render every
+    // useSavePage consumer on each store commit.
+    const presentBlocks = builderStore.get(presentBlocksAtom) as ChaiBlock[];
     // omit the builder props from the blocks as they are not needed for the page data
     // and only used inside the builder
     const blocks = map<ChaiBlock>(presentBlocks, (block: ChaiBlock) => {
@@ -34,5 +38,5 @@ export const useGetPageData = () => {
       currentPage,
       blocks,
     };
-  }, [currentPage, presentBlocks]);
+  }, [currentPage]);
 };

@@ -18,6 +18,7 @@ const { registeredBlocks } = vi.hoisted(() => ({
 
 vi.mock("~/registry", () => ({
   getRegisteredChaiBlock: (type: string) => registeredBlocks[type],
+  getBlockSchema: (config: any) => config?.props?.schema,
   resolveChaiBlockComponent: (registeredBlock: any) => registeredBlock?.component ?? null,
   syncBlocksWithDefaultProps: (blocks: any[]) => blocks,
 }));

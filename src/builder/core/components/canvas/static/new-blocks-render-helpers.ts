@@ -3,7 +3,7 @@ import { twMerge } from "cnfast";
 import { getSplitChaiClasses } from "~/builder/hooks/get-split-classes";
 import { CHAI_BUILT_IN_DESIGN_TOKENS } from "~/constants/BUILTIN_TOKENS";
 import { DESIGN_TOKEN_PREFIX, STYLES_KEY } from "~/constants/STRINGS";
-import { getRegisteredChaiBlock } from "~/registry";
+import { getBlockSchema, getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlockConfig } from "~/types/blocks";
 import { ChaiBlock } from "~/types/common";
 import { ChaiDesignTokens } from "~/types/types";
@@ -88,12 +88,18 @@ const resolveTokenValue = (value: string | undefined, designTokens: ChaiDesignTo
     .join(" ");
 };
 
-const getMergedDesignTokens = memoize(
-  (designTokens: ChaiDesignTokens): ChaiDesignTokens => ({
-    ...CHAI_BUILT_IN_DESIGN_TOKENS,
-    ...designTokens,
-  }),
-);
+// WeakMap, not lodash memoize: render paths pass a fresh designTokens object per
+// request (and `getBlockTagAttributes` defaults to a fresh `{}` per call), so a
+// strong identity-keyed cache never hits and grows unbounded on warm instances.
+const mergedDesignTokensCache = new WeakMap<ChaiDesignTokens, ChaiDesignTokens>();
+const getMergedDesignTokens = (designTokens: ChaiDesignTokens): ChaiDesignTokens => {
+  let merged = mergedDesignTokensCache.get(designTokens);
+  if (!merged) {
+    merged = { ...CHAI_BUILT_IN_DESIGN_TOKENS, ...designTokens };
+    mergedDesignTokensCache.set(designTokens, merged);
+  }
+  return merged;
+};
 
 const classNamesCache = new WeakMap<ChaiDesignTokens, Map<string, string>>();
 const blockTagAttributesCache = new WeakMap<
@@ -199,8 +205,11 @@ export function getBlockTagAttributes(
 
 export const getBlockRuntimeProps: (blockType: string) => Record<string, unknown> = memoize((blockType: string) => {
   const chaiBlock = getRegisteredChaiBlock(blockType) as any;
-  const schema = chaiBlock?.props?.schema ?? {};
-  const props = get(schema, "properties", {});
+  // Route the block-schema lookup through the shared `getBlockSchema` helper
+  // (`~/registry`, here `props?.schema`) so it lives in one place. Guard with
+  // `?? {}` because `getBlockSchema` is not null-safe for an unregistered block
+  // type.
+  const props = get(getBlockSchema(chaiBlock ?? {}), "properties", {});
   // return key value with value has runtime: true
   return Object.fromEntries(Object.entries(props).filter(([, value]) => get(value, "runtime", false)));
 });

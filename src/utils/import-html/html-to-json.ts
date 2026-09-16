@@ -13,6 +13,7 @@ import {
   has,
   includes,
   isEmpty,
+  isEqual,
   kebabCase,
   map,
   set,
@@ -29,6 +30,7 @@ import { cn } from "~/lib/utils";
 import { syncBlocksWithDefaultProps } from "~/registry";
 import { ChaiBlock } from "~/types";
 import { getVideoURLFromHTML, hasVideoEmbed } from "./import-video";
+import { restoreBlockPropTypes } from "./restore-block-prop-types";
 
 const NAME_ATTRIBUTES = ["chai-name", "data-chai-name"];
 
@@ -802,6 +804,20 @@ export const mergeBlocksWithExisting = (importedBlocks: ChaiBlock[], existingBlo
       return b;
     });
 
+  // A `_bid`-matched block keeps the existing block's `_id` (below), so any
+  // child whose `_parent` points at the parent's fresh import-time `_id` must be
+  // repointed to that existing id too — otherwise restoring the parent's
+  // identity strands its children. (The MCP edit path remaps `_parent` before
+  // calling this, but generic callers e.g. `useHtmlToBlocks` do not.)
+  const idRemap = new Map<string, string>();
+  for (const block of importedBlocks) {
+    if (isEmpty(block._bid)) continue;
+    const existing = findBlockById(existingBlocks, block._bid);
+    if (existing) idRemap.set(block._id, existing._id);
+  }
+  const remapParent = (parent: string | null | undefined) =>
+    parent && idRemap.has(parent) ? (idRemap.get(parent) as string) : parent;
+
   return map(importedBlocks, (importedBlock) => {
     const existingBlock = !isEmpty(importedBlock._bid) ? findBlockById(existingBlocks, importedBlock._bid) : undefined;
 
@@ -810,14 +826,39 @@ export const mergeBlocksWithExisting = (importedBlocks: ChaiBlock[], existingBlo
       if (existingBlock._type === "Icon" && get(importedBlock, "icon", "").match(/chai-default-svg/)) {
         delete importedBlock.icon;
       }
-      // Merge imported block properties into existing block
-      const mergedBlock = { ...existingBlock, ...importedBlock };
+      // Merge imported block properties into existing block. `_bid` matched this
+      // imported block to `existingBlock`, so it IS that block: keep the existing
+      // identity (a fresh `_id` was seeded on import — overwriting it strands
+      // every stored `bid` reference; see #3240).
+      const mergedBlock = { ...existingBlock, ...importedBlock, _id: existingBlock._id };
       unset(mergedBlock, "_bid");
+      // Remap the RESULT's `_parent` (not `importedBlock._parent`): the edit
+      // target is often a root with no imported parent, and the spread has
+      // already kept `existingBlock._parent` for it — overwriting that with an
+      // absent imported parent would detach it. `remapParent` is a no-op on a
+      // real existing id and only rewrites a child pointing at a temp import id.
+      (mergedBlock as { _parent?: string | null })._parent = remapParent(
+        (mergedBlock as { _parent?: string | null })._parent,
+      );
+      // A prop the edit did not change round-trips back through AI-HTML, which
+      // can lossily re-encode it (JSON key order / number precision on objects
+      // and arrays). Restore the original's exact value for every prop the
+      // imported block reproduces unchanged, so only genuinely edited props
+      // differ from what was stored.
+      const merged = mergedBlock as Record<string, unknown>;
+      const original = existingBlock as Record<string, unknown>;
+      for (const key of Object.keys(original)) {
+        if (key in importedBlock && isEqual(merged[key], original[key])) {
+          merged[key] = original[key];
+        }
+      }
       return mergedBlock;
     }
 
-    // No existing block found, return imported block as is
+    // No existing block found, return imported block as is — but still repoint a
+    // `_parent` that referenced a re-identified parent.
     unset(importedBlock, "_bid");
+    importedBlock._parent = remapParent(importedBlock._parent);
     return importedBlock;
   });
 };
@@ -831,5 +872,8 @@ export const getBlocksFromHTML = async (html: string): Promise<ChaiBlock[]> => {
   const nodes: HimalayaNode[] = parse(getSanitizedHTML(html));
   if (isEmpty(html)) return [];
   const blocks = flatten(traverseNodes(nodes)) as ChaiBlock[];
-  return await resolveIconNames(syncBlocksWithDefaultProps(blocks));
+  // syncBlocksWithDefaultProps first so every block carries its registered
+  // schema-typed defaults; restoreBlockPropTypes then coerces any prop the
+  // AI-HTML round-trip turned into a string back to its schema type.
+  return await resolveIconNames(restoreBlockPropTypes(syncBlocksWithDefaultProps(blocks)));
 };

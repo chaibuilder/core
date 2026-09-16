@@ -1,6 +1,6 @@
 import { useThrottledCallback } from "@react-hookz/web";
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
-import { compact, has, isEmpty, noop } from "lodash-es";
+import { has, isEmpty, noop } from "lodash-es";
 import { useCallback } from "react";
 import {
   hasStructureErrorsAtom,
@@ -20,6 +20,7 @@ import { executeChaiHooks } from "~/builder/register-apis/register-chai-hooks";
 import { CHAI_HOOKS } from "~/constants/CHAI_HOOKS";
 import { getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlock } from "~/types/common";
+import { derivePageRefs, type PageRefs } from "~/utils/derive-page-refs";
 import { extractPartialIds, partialBlocksAtom } from "./partial-blocks";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 
@@ -86,12 +87,12 @@ export const useSavePage = () => {
   const setHasStructureErrors = useSetAtom(hasStructureErrorsAtom);
   const setHasStructureWarnings = useSetAtom(hasStructureWarningsAtom);
 
-  const needTranslations = () => {
-    const pageData = getPageData();
-    return !selectedLang || selectedLang === fallbackLang
-      ? false
-      : checkMissingTranslations(pageData.blocks || [], selectedLang);
-  };
+  const needTranslations = useCallback(() => {
+    // Short-circuit before getPageData(): the omit-clone over all blocks is wasted
+    // work when the selected language is the fallback language
+    if (!selectedLang || selectedLang === fallbackLang) return false;
+    return checkMissingTranslations(getPageData().blocks || [], selectedLang);
+  }, [getPageData, selectedLang, fallbackLang]);
 
   const getAllPartialIds = useCallback(
     (blocks: ChaiBlock[]): string[] => {
@@ -114,34 +115,11 @@ export const useSavePage = () => {
     [partialBlocksStore],
   );
 
-  // Extracts linked page ids and design tokens in a single serialization pass
-  // over the blocks (each block is stringified once instead of twice)
-  const getSaveMetadata = useCallback(
-    (blocks: ChaiBlock[]): { linkPageIds: string[]; designTokens: Record<string, Record<string, string>> } => {
-      const linkRegex = /pageType:[^:]+:([a-f0-9-]{36})/gi;
-      const tokenRegex = /dt#[^ "]+/g;
-      const uuids = new Set<string>();
-      const designTokens: Record<string, Record<string, string>> = {};
-      for (const block of blocks) {
-        const blockStr = JSON.stringify(block);
-        let match;
-        while ((match = linkRegex.exec(blockStr)) !== null) {
-          if (match[1]) uuids.add(match[1]);
-        }
-        while ((match = tokenRegex.exec(blockStr)) !== null) {
-          if (match[0]) {
-            const tokenId = match[0];
-            if (!designTokens[tokenId]) {
-              designTokens[tokenId] = {};
-            }
-            designTokens[tokenId][block._id] = block._name || block._type;
-          }
-        }
-      }
-      return { linkPageIds: compact([...uuids]), designTokens };
-    },
-    [],
-  );
+  // Extracts linked page ids and design tokens. The server derives these itself
+  // on save (see `derivePageRefs`), so this shares that implementation rather
+  // than keeping a second copy that could drift — it stays here because the
+  // builder also feeds them to the local sync/usage panels.
+  const getSaveMetadata = useCallback((blocks: ChaiBlock[]): PageRefs => derivePageRefs(blocks), []);
 
   const shouldSkipSave = useCallback(
     (force: boolean) => {

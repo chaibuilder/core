@@ -42,14 +42,19 @@ export async function registerCacheTags(tags: string[]): Promise<void> {
  * A provider may include `$cacheTags: string[]` in its result; the key is
  * always stripped before the data is used, and registered as route cache tags
  * only when `register` is true (live render — never in the builder).
+ *
+ * `$notFound` — the page-type provider's "the item behind this URL does not
+ * exist" signal — is stripped here too, so no envelope key ever reaches the
+ * bindings. Acting on it is the caller's job (`getDataByPageType`); the
+ * builder deliberately ignores it.
  */
 export async function consumeProviderTags<T extends Record<string, unknown>>(
   result: T,
   register: boolean,
-): Promise<Omit<T, "$cacheTags">> {
+): Promise<Omit<T, "$cacheTags" | "$notFound">> {
   const tags = result?.$cacheTags;
   if (register && isArray(tags)) {
     await registerCacheTags(tags as string[]);
   }
-  return omit(result, "$cacheTags");
+  return omit(result, ["$cacheTags", "$notFound"]);
 }

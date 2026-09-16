@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
+import { getFallbackLang } from "../internal/init";
 import { getInitializedState } from "../state";
 import { withChaiCache } from "./cache-utils";
 import { pageSlugCacheKey, pageSlugsBatchCacheKey, pageSlugTag, pageSlugTagsForPageIds } from "./page-routing-cache";
@@ -153,7 +154,7 @@ async function fetchPageSlugsBatchQuery(
 
 export async function resolvePageSlug(pageId: string, lang?: string): Promise<string | null> {
   const state = getInitializedState();
-  const langKey = normalizeLangKey(lang, state.fallbackLang);
+  const langKey = normalizeLangKey(lang, await getFallbackLang());
 
   try {
     return await withChaiCache(
@@ -173,7 +174,7 @@ export async function resolvePageSlug(pageId: string, lang?: string): Promise<st
 
 export async function resolvePageSlugs(pageIds: string[], lang?: string): Promise<Map<string, string>> {
   const state = getInitializedState();
-  const langKey = normalizeLangKey(lang, state.fallbackLang);
+  const langKey = normalizeLangKey(lang, await getFallbackLang());
   const uniqueIds = [...new Set(pageIds.filter(Boolean))];
   if (uniqueIds.length === 0) {
     return new Map();

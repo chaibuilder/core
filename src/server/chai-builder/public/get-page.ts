@@ -5,6 +5,7 @@ import { getFrameworkAdapter } from "~/server/framework-adapter";
 import { runChaiRequestMiddleware } from "~/server/plugin-api/request-middleware";
 import { ChaiBlock } from "~/types";
 import type { ChaiFullPage } from "~/types/pages";
+import { getFallbackLang } from "../internal/init";
 import { getInitializedState } from "../state";
 import { withRequestCache } from "./cache-utils";
 import { getAlternateLangPages } from "./get-alternate-lang-pages";
@@ -140,7 +141,8 @@ async function redirectOrNotFound(slug: string): Promise<never> {
   const adapter = getFrameworkAdapter();
   const state = getInitializedState();
 
-  const redirect = await runChaiRequestMiddleware({ slug, lang: state.lang || state.fallbackLang });
+  const lang = state.lang || (await getFallbackLang());
+  const redirect = await runChaiRequestMiddleware({ slug, lang });
   if (redirect && redirect.redirect !== slug) {
     return adapter.redirect(redirect.redirect, redirect.permanent);
   }
@@ -148,7 +150,7 @@ async function redirectOrNotFound(slug: string): Promise<never> {
   const handled = await resolveConfigPageNotFound({
     slug,
     appId: state.appId!,
-    lang: state.lang || state.fallbackLang,
+    lang,
     draft: state.draftMode,
   });
   if (handled) {
@@ -167,7 +169,7 @@ export const getPageForMetadata = cache(async (slug: string): Promise<ChaiFullPa
 
   try {
     const page = await resolvePageMatch(slug);
-    return await withRequestCache(fetchPageMetadata, "fetchPageMetadata")(page, state.fallbackLang);
+    return await withRequestCache(fetchPageMetadata, "fetchPageMetadata")(page, await getFallbackLang());
   } catch (error) {
     if (error instanceof Error && error.message === "PAGE_NOT_FOUND") {
       await redirectOrNotFound(slug);
@@ -185,7 +187,7 @@ export const getPage = cache(async (slug: string): Promise<ChaiFullPage> => {
 
   try {
     const page = await resolvePageMatch(slug);
-    return await withRequestCache(fetchPageData, "fetchPageData")(page, state.fallbackLang);
+    return await withRequestCache(fetchPageData, "fetchPageData")(page, await getFallbackLang());
   } catch (error) {
     if (error instanceof Error && error.message === "PAGE_NOT_FOUND") {
       await redirectOrNotFound(slug);

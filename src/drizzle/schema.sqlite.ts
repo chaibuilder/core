@@ -311,6 +311,8 @@ export const appPagesOnline = sqliteTable(
     deletedAt: text(),
     deletedBy: text(),
     tracking: text({ mode: "json" }).default({}),
+    /** How this publish was produced: "builder" or "mcp". Null on rows predating the column. */
+    source: text(),
   },
   (table) => [
     foreignKey({
