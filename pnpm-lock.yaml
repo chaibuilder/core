@@ -295,8 +295,8 @@ importers:
         specifier: 13.0.3
         version: 13.0.3
       dotenv:
-        specifier: 17.4.2
-        version: 17.4.2
+        specifier: 18.0.0
+        version: 18.0.0
       drizzle-kit:
         specifier: 0.31.10
         version: 0.31.10
@@ -3897,9 +3897,10 @@ packages:
   dompurify@3.4.5:
     resolution: {integrity: sha512-OrwIBKsdNSVEeubdJ1HBv/wNENRM9ytAVCv7YXt//A3vPdVMNuACRqK9mXCGCBW2ln7BT/A4X0jXHo2Gu89miA==}
 
-  dotenv@17.4.2:
-    resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
+  dotenv@18.0.0:
+    resolution: {integrity: sha512-16YSUvsKtKbwrTbESvtTSZzzJUug6jdFdqiBFg9Q6Bk1JY9r0hAtrtTiWxdI9YrsgOTmkjZRdgU0n3LnwGpECw==}
     engines: {node: '>=12'}
+    hasBin: true
 
   drizzle-kit@0.31.10:
     resolution: {integrity: sha512-7OZcmQUrdGI+DUNNsKBn1aW8qSoKuTH7d0mYgSP8bAzdFzKoovxEFnoGQp2dVs82EOJeYycqRtciopszwUf8bw==}
@@ -9507,7 +9508,7 @@ snapshots:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
 
-  dotenv@17.4.2: {}
+  dotenv@18.0.0: {}
 
   drizzle-kit@0.31.10:
     dependencies:
