@@ -315,7 +315,7 @@
     "@types/react-autosuggest": "^10.1.11",
     "@types/react-dom": "19.2.3",
     "ai": "6.0.180",
-    "better-sqlite3": "12.10.0",
+    "better-sqlite3": "13.0.3",
     "dotenv": "17.4.2",
     "drizzle-kit": "0.31.10",
     "drizzle-orm": "0.45.2",
