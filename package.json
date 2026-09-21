@@ -316,7 +316,7 @@
     "@types/react-dom": "19.2.3",
     "ai": "6.0.286",
     "better-sqlite3": "12.10.0",
-    "dotenv": "17.4.2",
+    "dotenv": "18.0.0",
     "drizzle-kit": "0.31.10",
     "drizzle-orm": "0.45.2",
     "eslint": "10.3.0",
