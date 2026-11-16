@@ -3,16 +3,24 @@
 import { find, isEmpty, pick, set } from "lodash-es";
 import { Info } from "lucide-react";
 import { startTransition, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { usePermissions } from "~/builder/hooks/use-permissions";
 import { DynamicSlugInput } from "~/builder/pages/client/components/dynamic-slug-input";
+import {
+  type AddPageMode,
+  AddPageModeTabs,
+  LinkUpstreamPageForm,
+} from "~/builder/pages/client/components/link-upstream-page-form";
 import { ParentPageSelector } from "~/builder/pages/client/components/parent-page-selector";
 import { SlugInput } from "~/builder/pages/client/components/slug-input";
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
 import { useCreatePage, useUpdatePage } from "~/builder/pages/hooks/pages/mutations";
 import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useUpstreamPagesEnabled } from "~/builder/pages/hooks/pages/use-upstream-pages";
 import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { useChangePage } from "~/builder/pages/hooks/use-change-page";
 import { useSiteTags } from "~/builder/hooks/use-site-tags";
@@ -56,9 +64,12 @@ interface PageCreatorProps {
 }
 
 export default function PageCreator({ addEditPage, close, closePanel }: PageCreatorProps) {
+  const { t } = useTranslation();
+  const { singular } = usePartialTypeLabel();
   const { data: _additionalPageTypes } = usePageTypes();
   const additionalPageTypes: any[] = useMemo(() => _additionalPageTypes ?? [], [_additionalPageTypes]);
   const layoutPagesEnabled = useBuilderProp("flags.layoutPages", false);
+  const chaiBrandingEnabled = useBuilderProp("flags.chaiBranding", false);
   const changePage = useChangePage();
   const isEdit = addEditPage?.id ? true : false;
   const { data: pages } = useWebsitePrimaryPages();
@@ -97,6 +108,10 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
 
   const [selectedTemplate, _setSelectedTemplate] = useState<string>("");
   const isPending = isCreating || isUpdating;
+
+  // With upstream pages on, a new page is either linked to another site's page or built from scratch.
+  const showModeTabs = useUpstreamPagesEnabled() && !isEdit;
+  const [mode, setMode] = useState<AddPageMode>("new");
 
   // Check if current page is published
   const currentPageData = useMemo(() => {
@@ -534,7 +549,9 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
-            placeholder="Describe what this partial is for. Used by AI to understand when to use it."
+            placeholder={t("Describe what this {{name}} is for. Used by AI to understand when to use it.", {
+              name: singular,
+            })}
           />
         </div>
 
@@ -550,9 +567,24 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
     );
   }
 
+  if (showModeTabs && mode === "upstream") {
+    return (
+      <div className="mx-auto w-full max-w-md space-y-4">
+        <AddPageModeTabs value={mode} onChange={setMode} />
+        <LinkUpstreamPageForm
+          onCreated={(pageId) => {
+            close();
+            changePage(pageId, closePanel);
+          }}
+        />
+      </div>
+    );
+  }
+
   // Return original form for other page types
   return (
     <form onSubmit={handleSubmit} className="mx-auto w-full max-w-md space-y-4">
+      {showModeTabs && <AddPageModeTabs value={mode} onChange={setMode} />}
       {showPageTypeSelection && (
         <div className="space-y-0.5">
           <div className="flex items-center gap-1">
@@ -569,14 +601,19 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
               <HoverCardContent side="right" className="w-80 max-w-xs p-3 text-xs leading-relaxed">
                 <span>
                   Page types define the structure and data each page uses, such as static pages, dynamic content pages,
-                  or reusable global blocks.{" "}
-                  <a
-                    href="https://www.chaibuilder.com/docs/developers/page-types"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="hover:text-primary underline underline-offset-2">
-                    Learn more
-                  </a>
+                  or reusable global blocks.
+                  {chaiBrandingEnabled && (
+                    <>
+                      {" "}
+                      <a
+                        href="https://www.chaibuilder.com/docs/developers/page-types"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="hover:text-primary underline underline-offset-2">
+                        Learn more
+                      </a>
+                    </>
+                  )}
                 </span>
               </HoverCardContent>
             </HoverCard>

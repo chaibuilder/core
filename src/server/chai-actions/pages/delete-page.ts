@@ -1,12 +1,17 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { ActionError } from "~/server/chai-actions/action-error";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
-import { db, safeQuery, schema } from "~/server/chai-actions/db";
+import { db, type DbInstance, getDbDialect, safeQuery, schema } from "~/server/chai-actions/db";
 import { apiError } from "~/server/chai-actions/lib";
 import type { PageTreeNode } from "~/server/chai-actions/utils/page-tree-builder";
 import { PageTreeBuilder } from "~/server/chai-actions/utils/page-tree-builder";
-import { routingTagsForPages } from "~/server/chai-builder/public/page-routing-cache";
+import { routingTagsForPages, upstreamSiteTag } from "~/server/chai-builder/public/page-routing-cache";
+import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
+
+// Trashing removed the online row, so a restored page is never live (pages trashed
+// before trash set `online: false` still carry `online: true`).
+const RESTORED_DRAFT = { deletedAt: null, deletedBy: null, online: false };
 
 /**
  * Data type for DeletePageAction
@@ -103,11 +108,11 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
 
     const isLanguagePage = pageInLanguageTree !== null;
 
-    if (isLanguagePage) {
-      return await this.deleteLanguagePageWithTree(id, pageInLanguageTree!, pagesTree);
-    } else {
-      return await this.deletePrimaryPageWithTree(id, pagesTree);
-    }
+    const result = isLanguagePage
+      ? await this.deleteLanguagePageWithTree(id, pageInLanguageTree!, pagesTree)
+      : await this.deletePrimaryPageWithTree(id, pagesTree);
+    // A linked page may hold a partial or a link match of the deleted page.
+    return { ...result, tags: [...result.tags, upstreamSiteTag(this.appId)] };
   }
 
   /**
@@ -147,39 +152,34 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
    */
   public async performDeletionWithIds(ids: string[]): Promise<any> {
     const reverseIds = [...ids].reverse();
+    const permanent = this.permanent;
+    const userId = this.userId;
 
-    // Delete from library_templates
-    if (this.permanent) {
-      const { error: libError } = await safeQuery(() =>
-        db.delete(schema.libraryTemplates).where(inArray(schema.libraryTemplates.pageId, reverseIds)),
-      );
-      if (libError) throw apiError("DELETE_FAILED", libError);
-    }
-
-    // Delete from app_pages_revisions
-    if (this.permanent) {
-      const { error: revError } = await safeQuery(() =>
-        db.delete(schema.appPagesRevisions).where(inArray(schema.appPagesRevisions.id, reverseIds)),
-      );
-      if (revError) throw apiError("DELETE_FAILED", revError);
-    }
-
-    // Delete from app_pages
-    const { error: pagesError } = await safeQuery(() =>
-      this.permanent
-        ? db.delete(schema.appPages).where(inArray(schema.appPages.id, reverseIds))
-        : db
+    const writes = async (q: DbInstance) => {
+      if (permanent) {
+        await q.delete(schema.libraryTemplates).where(inArray(schema.libraryTemplates.pageId, reverseIds));
+      }
+      await q.delete(schema.appPagesOnline).where(inArray(schema.appPagesOnline.id, reverseIds));
+      await (permanent
+        ? q.delete(schema.appPages).where(inArray(schema.appPages.id, reverseIds))
+        : q
             .update(schema.appPages)
-            .set({ deletedAt: new Date().toISOString(), deletedBy: this.userId })
-            .where(inArray(schema.appPages.id, reverseIds)),
-    );
-    if (pagesError) throw apiError("DELETE_FAILED", pagesError);
+            // The online row is gone, so the draft must stop claiming it is live.
+            .set({ deletedAt: new Date().toISOString(), deletedBy: userId, online: false })
+            .where(inArray(schema.appPages.id, reverseIds)));
+    };
 
-    // Delete from app_pages_online
-    const { error: onlineError } = await safeQuery(() =>
-      db.delete(schema.appPagesOnline).where(inArray(schema.appPagesOnline.id, reverseIds)),
+    // Postgres: one transaction, so a failed write never leaves a page trashed but
+    // still served, or offline with its menu cache tags lost. The sqlite adapters
+    // run the writes in sequence (better-sqlite3 transactions cannot await), online
+    // rows first, so a failure there leaves the page offline but not trashed.
+    const { error } = await safeQuery(() =>
+      getDbDialect() === "pg" ? db.transaction((tx) => writes(tx as unknown as DbInstance)) : writes(db),
     );
-    if (onlineError) throw apiError("DELETE_FAILED", onlineError);
+    if (error) throw apiError("DELETE_FAILED", error);
+
+    // Plugin-owned rows keyed by these pages (their history, for one) follow the delete.
+    await runChaiActionHooks("pages:deleted", { appId: this.appId, pageIds: reverseIds, permanent });
   }
 
   /**
@@ -272,9 +272,10 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
   }
 
   /**
-   * Restore a page and all its nested children and language pages
+   * Restore a page and all its nested children and language pages.
+   * Returns the routing tags of any live rows the restore removed.
    */
-  public async restorePage(id: string): Promise<void> {
+  public async restorePage(id: string): Promise<string[]> {
     if (!this.pageTreeBuilder) {
       this.pageTreeBuilder = new PageTreeBuilder(this.context!.appId);
     }
@@ -291,32 +292,70 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
     const isLanguagePage = pageInLanguageTree !== null;
 
     if (isLanguagePage) {
-      await this.restoreLanguagePageWithTree(id, pageInLanguageTree!, pagesTree);
+      return await this.restoreLanguagePageWithTree(id, pageInLanguageTree!, pagesTree);
     } else {
-      await this.restorePrimaryPageWithTree(id, pagesTree);
+      return await this.restorePrimaryPageWithTree(id, pagesTree);
     }
+  }
+
+  /**
+   * Restore the still-trashed rows among ids: drop any live row they still have
+   * (a page trashed while live, before trash cleared the online row), then flip
+   * the drafts back to unpublished. Returns the routing tags of the removed live rows.
+   */
+  private async restoreWithIds(ids: string[]): Promise<string[]> {
+    let removedRows: Array<{ id: string; slug: string | null; primaryPage: string | null }> = [];
+
+    const writes = async (q: DbInstance) => {
+      // Lock the still-trashed rows first (Postgres): a concurrent restore of the same
+      // rows waits here, and one that already committed leaves nothing to lock. Only
+      // the locked set is touched below, so a stale restore cannot delete a row that
+      // was restored and republished since it read the ids.
+      const trashedQuery = q
+        .select({ id: schema.appPages.id })
+        .from(schema.appPages)
+        .where(and(inArray(schema.appPages.id, ids), isNotNull(schema.appPages.deletedAt)));
+      const trashed = await (getDbDialect() === "pg" ? trashedQuery.for("update") : trashedQuery);
+
+      const trashedIds = trashed.map((row) => row.id);
+      if (trashedIds.length === 0) return;
+
+      removedRows = await q
+        .select({
+          id: schema.appPagesOnline.id,
+          slug: schema.appPagesOnline.slug,
+          primaryPage: schema.appPagesOnline.primaryPage,
+        })
+        .from(schema.appPagesOnline)
+        .where(inArray(schema.appPagesOnline.id, trashedIds));
+
+      await q.delete(schema.appPagesOnline).where(inArray(schema.appPagesOnline.id, trashedIds));
+      await q.update(schema.appPages).set(RESTORED_DRAFT).where(inArray(schema.appPages.id, trashedIds));
+    };
+
+    // Same transaction shape as performDeletionWithIds: on Postgres the lock, the
+    // live-row delete and the draft update commit together. sqlite runs the reads and
+    // writes in sequence, with no row lock, so a concurrent restore there can interleave.
+    const { error } = await safeQuery(() =>
+      getDbDialect() === "pg" ? db.transaction((tx) => writes(tx as unknown as DbInstance)) : writes(db),
+    );
+    if (error) throw apiError("RESTORE_FAILED", error);
+
+    return routingTagsForPages(removedRows);
   }
 
   /**
    * Restore a language page and its nested children
    */
-  private async restoreLanguagePageWithTree(id: string, langNode: any, _pagesTree: any): Promise<void> {
+  private async restoreLanguagePageWithTree(id: string, langNode: any, _pagesTree: any): Promise<string[]> {
     const allNestedLanguageIds = this.pageTreeBuilder!.collectNestedChildIds(langNode);
-    const allIds = [id, ...allNestedLanguageIds];
-
-    const { error } = await safeQuery(() =>
-      db.update(schema.appPages).set({ deletedAt: null, deletedBy: null }).where(inArray(schema.appPages.id, allIds)),
-    );
-
-    if (error) {
-      throw apiError("RESTORE_FAILED", error);
-    }
+    return this.restoreWithIds([id, ...allNestedLanguageIds]);
   }
 
   /**
    * Restore a primary page, its nested children, and all language variants
    */
-  private async restorePrimaryPageWithTree(id: string, pagesTree: any): Promise<void> {
+  private async restorePrimaryPageWithTree(id: string, pagesTree: any): Promise<string[]> {
     const primaryNode = this.pageTreeBuilder!.findPageInPrimaryTree(id, pagesTree.primaryTree);
 
     if (!primaryNode) {
@@ -334,14 +373,6 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
       languagePageIds.push(...nestedIds);
     });
 
-    const allIds = [id, ...nestedPrimaryChildIds, ...languagePageIds];
-
-    const { error } = await safeQuery(() =>
-      db.update(schema.appPages).set({ deletedAt: null, deletedBy: null }).where(inArray(schema.appPages.id, allIds)),
-    );
-
-    if (error) {
-      throw apiError("RESTORE_FAILED", error);
-    }
+    return this.restoreWithIds([id, ...nestedPrimaryChildIds, ...languagePageIds]);
   }
 }

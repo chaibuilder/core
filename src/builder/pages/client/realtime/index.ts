@@ -6,18 +6,26 @@
  */
 export {
   PAGE_STATUS,
+  aiPageEditLeaseAtom,
+  aiPageEditLeasePageIdAtom,
+  aiPageEditsAtom,
   pageLockMetaAtom,
   pageStatusAtom,
   pageUserMapAtom,
+  resolvePageStatus,
+  useAiPageEditLease,
+  useAiPageEdits,
   useCurrentPageOwner,
   usePageId,
   usePageLockMeta,
   usePageLockStatus,
   usePageToUser,
   useUserId,
+  type ChaiAiPageEditLease,
   type ChaiOnlineUser,
   type ChaiPageStatus,
 } from "./chai-realtime-state";
+export { formatClockTime, formatSince, isChaiAiPageEditActive } from "./ai-page-edit-time";
 export {
   enableChaiRealtime,
   isChaiRealtimeEnabled,

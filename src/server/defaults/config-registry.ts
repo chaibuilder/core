@@ -10,7 +10,7 @@ import type {
   ChaiRepeaterDataEntry,
   ChaiTrashEntry,
 } from "~/types/chaibuilder-config";
-import { DEFAULT_CHAI_BUILDER_SERVER_CONFIG } from "./default-server-config";
+import { CORE_DEFAULT_CHAI_BUILDER_SERVER_CONFIG } from "./core-default-server-config";
 import type {
   ChaiDefaultRoleGrants,
   ChaiMediaManagerConfig,
@@ -20,7 +20,22 @@ import type {
   ResolvedChaiBuilderServerConfig,
 } from "./types";
 
-let activeConfig: ResolvedChaiBuilderServerConfig = DEFAULT_CHAI_BUILDER_SERVER_CONFIG;
+let activeConfig: ResolvedChaiBuilderServerConfig = CORE_DEFAULT_CHAI_BUILDER_SERVER_CONFIG;
+
+/** Builtin actions, seeded by `default-server-config.ts` (importing them here would close a cycle). */
+let builtinActions: ResolvedChaiBuilderServerConfig["actions"] = {};
+
+/**
+ * @internal Seeds the builtin actions so lookups before `setActiveChaiBuilderConfig` (and after
+ * `resetActiveChaiBuilderConfigForTests`) still find them, as they did when the registry started
+ * from the full defaults.
+ */
+export function seedBuiltinChaiActions(actions: ResolvedChaiBuilderServerConfig["actions"]): void {
+  builtinActions = actions;
+  if (activeConfig === CORE_DEFAULT_CHAI_BUILDER_SERVER_CONFIG) {
+    activeConfig = { ...activeConfig, actions, builderActions: actions };
+  }
+}
 
 /** Set the active resolved config (called from buildChaiBuilderConfig and getChaiBuilder sync). */
 export function setActiveChaiBuilderConfig(config: ResolvedChaiBuilderServerConfig): void {
@@ -196,6 +211,10 @@ export async function resolveConfigDynamicTemplateTie<T extends ChaiDynamicTempl
   }
 }
 
+export function getConfigUpstreamPageSource(): ResolvedChaiBuilderServerConfig["upstreamPageSource"] {
+  return activeConfig.upstreamPageSource;
+}
+
 export function getConfigBlockDataProviders(): Readonly<Record<string, ChaiBlockDataProvider>> {
   return activeConfig.blockDataProviders;
 }
@@ -284,7 +303,9 @@ export function updateActiveBlockDataProviders(
 export function resetActiveChaiBuilderConfigForTests(overrides: Partial<ResolvedChaiBuilderServerConfig> = {}): void {
   resetDbForTests();
   activeConfig = {
-    ...DEFAULT_CHAI_BUILDER_SERVER_CONFIG,
+    ...CORE_DEFAULT_CHAI_BUILDER_SERVER_CONFIG,
+    actions: builtinActions,
+    builderActions: builtinActions,
     pageTypes: [],
     collections: [],
     chaiCollections: [],

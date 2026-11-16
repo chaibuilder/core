@@ -1,5 +1,3 @@
-import { has } from "lodash-es";
-import { getFrameworkAdapter } from "~/server/framework-adapter";
 import {
   isStreamingChaiAction,
   toActionErrorPayload,
@@ -12,8 +10,7 @@ import {
   formatStreamingError,
   isMissingTextStream,
 } from "~/server/chai-actions/streaming-error-handlers";
-import { warmPublishedPagesCache } from "~/server/chai-builder/public/warm-published-pages-cache";
-import { getInitializedStateWithUser } from "~/server/chai-builder/state";
+import { applyChaiActionCacheEffects, DEFAULT_CATCH_ALL_ROUTE } from "~/server/chai-builder/action-cache-effects";
 import { runChaiResponseDecorators } from "~/server/plugin-api/response-decorator";
 
 export type HttpChaiActionBody = {
@@ -24,65 +21,6 @@ export type HttpChaiActionBody = {
 export type HandleHttpChaiActionOptions = {
   catchAllRoute?: string[];
 };
-
-function collectRevalidationTags(response: unknown): string[] {
-  if (!response) return [];
-
-  if (Array.isArray(response)) {
-    return response.flatMap((item) =>
-      item && typeof item === "object" && "tags" in item && Array.isArray(item.tags) ? item.tags : [],
-    );
-  }
-
-  if (has(response, "tags")) {
-    const { tags } = response as { tags?: string[] };
-    return tags ?? [];
-  }
-
-  return [];
-}
-
-function collectRevalidationPaths(response: unknown): string[] {
-  if (!response || typeof response !== "object" || !("paths" in response)) {
-    return [];
-  }
-
-  const { paths } = response as { paths?: string[] };
-  return paths ?? [];
-}
-
-async function handleCacheRevalidation(response: unknown, catchAllRoute?: string[]): Promise<void> {
-  const { invalidatePath, invalidateTag } = getFrameworkAdapter();
-  const tags = collectRevalidationTags(response);
-  const paths = collectRevalidationPaths(response);
-
-  if (tags.length === 0 && !paths?.length) {
-    return;
-  }
-
-  const revalidateTagFn = (tag: string) => (invalidateTag.length >= 2 ? invalidateTag(tag, "max") : invalidateTag(tag));
-
-  const invalidations: Array<void | Promise<void>> = [];
-
-  if (tags.some((tag) => tag.startsWith("website-settings-"))) {
-    invalidations.push(
-      ...(catchAllRoute?.map((route) => invalidatePath(route, "layout")) ?? []),
-      revalidateTagFn("website-settings"),
-    );
-  }
-
-  if (tags.length) {
-    invalidations.push(...tags.map(revalidateTagFn));
-  }
-
-  if (paths?.length) {
-    invalidations.push(...paths.map((path) => invalidatePath(path)));
-  }
-
-  if (invalidations.length) {
-    await Promise.all(invalidations);
-  }
-}
 
 function jsonResponse(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), {
@@ -120,7 +58,7 @@ export async function handleHttpAction(
   body: HttpChaiActionBody,
   options: HandleHttpChaiActionOptions = {},
 ): Promise<Response> {
-  const { catchAllRoute = ["/(public)/[[...slug]]"] } = options;
+  const { catchAllRoute = DEFAULT_CATCH_ALL_ROUTE } = options;
   const { action, data } = body;
 
   // Plugin response decorators. Resolved concurrently with the action so their occasional inline work
@@ -173,21 +111,7 @@ export async function handleHttpAction(
       });
     }
 
-    await handleCacheRevalidation(result, catchAllRoute);
-
-    const revalidationTags = collectRevalidationTags(result);
-    const revalidationPaths = collectRevalidationPaths(result);
-    if (action === "PUBLISH_CHANGES" && (revalidationTags.length > 0 || revalidationPaths.length > 0)) {
-      const { appId, siteUrl } = getInitializedStateWithUser();
-      getFrameworkAdapter().runAfterResponse(() =>
-        warmPublishedPagesCache({
-          appId,
-          siteUrl,
-          tags: revalidationTags,
-          paths: revalidationPaths,
-        }),
-      );
-    }
+    await applyChaiActionCacheEffects(action, result, { catchAllRoute });
 
     return httpActionSuccessResponse(result, await extrasPromise);
   } catch (error) {

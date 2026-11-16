@@ -19,6 +19,7 @@ const TOOL_LABELS: Record<string, { active: string; done: string }> = {
   bind_prop: { active: "Connecting data…", done: "Connected data" },
   read_block_html: { active: "Reviewing the page…", done: "Reviewed the page" },
   get_partial_blocks: { active: "Checking shared sections…", done: "Checked shared sections" },
+  get_pages_list: { active: "Looking up site pages…", done: "Looked up site pages" },
 };
 
 const getToolNameFromPartType = (type: string) => type.replace(/^tool-/, "");

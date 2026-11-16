@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
-import { getConfigPageType, toChaiPageType } from "~/server/defaults";
+import { getConfigPageType, toChaiPageType } from "~/server/defaults/config-registry";
 
 export type GetDynamicPagesActionData = {
   pageType: string;
@@ -10,6 +10,8 @@ export type GetDynamicPagesActionData = {
   identifier?: string;
   /** @deprecated Use `identifier`. */
   slug?: string;
+  /** Slug of the builder page the picker is open on. */
+  pageSlug?: string;
 };
 
 type GetDynamicPagesActionResponse = any[] | { error: string };
@@ -26,6 +28,7 @@ export class GetDynamicPagesAction extends ChaiBaseAction<GetDynamicPagesActionD
       query: z.string().optional(),
       identifier: z.string().optional(),
       slug: z.string().optional(),
+      pageSlug: z.string().optional(),
     });
   }
 
@@ -46,6 +49,7 @@ export class GetDynamicPagesAction extends ChaiBaseAction<GetDynamicPagesActionD
           identifier: data.identifier ?? data.slug,
           slug: data.slug,
           lang: data.lang,
+          pageSlug: data.pageSlug,
         });
         return result;
       }

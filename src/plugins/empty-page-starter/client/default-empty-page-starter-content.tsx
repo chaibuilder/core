@@ -7,7 +7,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/comp
 import { TemplateWithLibrary } from "~/builder/pages/hooks/project/use-templates-with-libraries";
 import { EmptyPageStarterOption } from "./index";
 import { Textarea } from "~/components/ui/textarea";
-import UILibrariesPanel from "~/builder/core/components/sidepanels/panels/add-blocks/libraries-panel";
+import { UILibraries as UILibrariesPanel } from "~/builder/core/components";
 import { useSidebarActivePanel } from "~/builder/hooks/use-sidebar-active-panel";
 import { aiPanelId } from "~/builder/pages/panels/ai-panel/ai-panel";
 

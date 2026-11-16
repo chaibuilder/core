@@ -1,18 +1,7 @@
 "use client";
 
 import { find, first, map, merge, pick } from "lodash-es";
-import {
-  Archive,
-  Check,
-  File as FileIcon,
-  FileText,
-  Film,
-  ImageIcon,
-  Images,
-  MoreVertical,
-  Music,
-  RefreshCwIcon,
-} from "lucide-react";
+import { Archive, Check, ImageIcon, Images, MoreVertical, RefreshCwIcon } from "lucide-react";
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { useTranslation } from "react-i18next";
@@ -23,13 +12,10 @@ import { mergeClasses } from "~/builder/core/main";
 import type { ChaiMediaManagerMode } from "~/builder/dam/default-media-manager";
 import { dataUrlToBlob } from "~/builder/pages/utils/data-url";
 import { formatFileSize } from "~/builder/pages/utils/image-compression";
-import {
-  CHAI_ASSET_CATEGORIES,
-  CHAI_ASSET_TYPES,
-  type ChaiAssetCategory,
-  type ChaiAssetType,
-} from "~/constants/ASSET_TYPES";
+import { CHAI_ASSET_CATEGORIES, CHAI_ASSET_TYPES, type ChaiAssetCategory } from "~/constants/ASSET_TYPES";
 import Tooltip from "~/builder/pages/utils/tooltip";
+import { ASSET_TYPE_ICONS, AssetTypeThumbnail } from "./asset-type-thumbnail";
+import { useVideoPosterBackfill } from "./use-video-poster-backfill";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -74,30 +60,6 @@ export type MediaManagerProps = {
 
 const ITEMS_TO_PICK = ["id", "url", "width", "height", "description"];
 
-/** Grid/preview icon per asset category. Images render a thumbnail instead. */
-const ASSET_TYPE_ICONS: Record<ChaiAssetType, typeof FileIcon> = {
-  image: ImageIcon,
-  video: Film,
-  audio: Music,
-  document: FileText,
-  file: FileIcon,
-};
-
-/** Stand-in card art for assets with no image to show: type icon plus format. */
-const AssetTypeThumbnail = ({ type, format }: { type: ChaiAssetType; format?: string }) => {
-  const Icon = ASSET_TYPE_ICONS[type] ?? FileIcon;
-  return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-muted/30">
-      <Icon className="h-12 w-12 text-muted-foreground" />
-      {format ? (
-        <span className="rounded bg-accent px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">
-          {format}
-        </span>
-      ) : null}
-    </div>
-  );
-};
-
 export default function DigitalAssetManager({
   close,
   onSelect,
@@ -132,7 +94,8 @@ export default function DigitalAssetManager({
   const mediaManagerConfig = usePagesProp("mediaManager", {}) as {
     uploads?: { allowedTypes?: ChaiAssetCategory[]; maxSizes?: Partial<Record<ChaiAssetCategory, number>> };
   };
-  let extraTabs = useChaiMediaManagerTabs(mediaManagerConfig);
+  const features = usePagesProp("flags", {}) as Record<string, unknown>;
+  let extraTabs = useChaiMediaManagerTabs(mediaManagerConfig, features);
   if(mode !== 'image') extraTabs = []
   // The selected plugin tab can disappear (e.g. server config flips its
   // `enabled` predicate off); fall back to the built-in assets tab instead of
@@ -186,6 +149,7 @@ export default function DigitalAssetManager({
   });
 
   const assets = useMemo(() => (data?.assets || []) as Asset[], [data?.assets]);
+  useVideoPosterBackfill(assets);
 
   const totalItems = data?.total || 0;
   const totalPages = Math.ceil(totalItems / limit);
@@ -548,7 +512,7 @@ export default function DigitalAssetManager({
                                 alt={asset.name}
                                 className={`h-full min-h-full w-full object-contain duration-300 group-hover:scale-105 ${selectedAssets.some((a) => a.id === asset.id) ? "" : "group-hover:contrast-50"}`}
                               />
-                            ) : asset.type !== "video" && asset.thumbnailUrl ? (
+                            ) : asset.thumbnailUrl ? (
                               <ChaiImage
                                 src={`${asset.thumbnailUrl}`}
                                 alt={asset.name}

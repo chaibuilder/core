@@ -10,6 +10,12 @@ type ChaiBlock<T = Record<string, any>> = {
   _type: string;
   /** Name of the registered variant to render. Falls back to the default component. */
   _variant?: string;
+  /** Per-instance action rules. An explicit value overrides the block config's `canDelete`/`canMove`/`canDuplicate`. */
+  _canDelete?: boolean;
+  _canMove?: boolean;
+  _canDuplicate?: boolean;
+  /** Renders this block into the parent's prop of this name instead of its `children`. */
+  _slot?: string;
   partialBlockId?: string;
 } & T;
 
@@ -31,6 +37,14 @@ export type ChaiBlockPropsSchema = RJSFSchema & {
       }
     | undefined;
   enumNames?: (string | number)[];
+  /** Settings-panel group label, set by `groupProps`. */
+  group?: string;
+  /** Settings-panel subgroup label inside `group`, set by nesting `groupProps`. */
+  subgroup?: string;
+  /** False when `group` starts collapsed, set by `groupProps({ defaultOpen: false })`. */
+  groupDefaultOpen?: boolean;
+  /** False when `subgroup` starts collapsed, set by a nested `groupProps({ defaultOpen: false })`. */
+  subgroupDefaultOpen?: boolean;
 };
 export type ChaiBlockSchema = {
   properties?: Record<string, ChaiBlockPropsSchema>;
@@ -71,13 +85,18 @@ export type ChaiWebsiteBuilderProps = {
   | "htmlDir"
   | "tailwindCSS"
   | "canvasStyles"
+  | "internalLinkHosts"
   | "autoSave"
   | "autoSaveActionsCount"
   | "fallbackLang"
   | "languages"
   | "themePresets"
+  | "themeReadOnly"
+  | "themeReadOnlyReason"
   | "structureRules"
   | "labels"
+  | "libraryGroupMaxDepth"
+  | "panelWidth"
 >;
 
 export type ChaiPageProps<T = Record<string, any>> = {

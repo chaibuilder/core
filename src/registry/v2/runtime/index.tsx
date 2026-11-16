@@ -4,9 +4,11 @@ import {
   getBlockAIProps,
   getBlockDefaultProps,
   getBlockFormSchemas,
-  getChaiBlockStyleVariantProps,
+  getChaiBlockVariantProps,
   getRegisteredChaiBlock,
+  memoizeByRegisteredType,
   registerChaiBlock,
+  registerMemoizedBlockGetter,
   resolveChaiBlockComponent,
   setChaiBlockComponent,
   syncBlocksWithDefaultProps,
@@ -16,15 +18,19 @@ import {
 
 export * from "../../fonts";
 
+export type { MemoizedByRegisteredType } from "./core";
+
 export {
   closestBlockProp,
   getAllRegisteredChaiBlocks,
   getBlockAIProps,
   getBlockDefaultProps,
   getBlockFormSchemas,
-  getChaiBlockStyleVariantProps,
+  getChaiBlockVariantProps,
   getRegisteredChaiBlock,
+  memoizeByRegisteredType,
   registerChaiBlock,
+  registerMemoizedBlockGetter,
   resolveChaiBlockComponent,
   setChaiBlockComponent,
   syncBlocksWithDefaultProps,

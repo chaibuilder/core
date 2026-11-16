@@ -3,8 +3,8 @@ import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import { Extension, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { useEffect, useRef } from "react";
-import { ChaiBindingNode } from "./binding-node";
 import { parseMultiline, parseSingleLine, serializePlainDoc, toBindingString } from "./binding-doc";
+import { ChaiBindingNode } from "./binding-node";
 import { createBindingSuggestionExtension, isBindingSuggestionActive } from "./binding-suggestion";
 import type { BindingSuggestionItem } from "./use-binding-suggestion-items";
 
@@ -125,6 +125,8 @@ export const useBindingEditor = ({
   const bindingDataRef = useRef(bindingData);
   bindingDataRef.current = bindingData;
   const stringValue = toBindingString(value);
+  const valueRef = useRef(stringValue);
+  valueRef.current = stringValue;
 
   const serialize = (json: any): string => {
     const out = serializePlainDoc(json);
@@ -155,8 +157,8 @@ export const useBindingEditor = ({
           // rule (which would otherwise make every single-line input as tall as a textarea).
           // `[&_p]:m-0` neutralizes any global paragraph margin.
           class: multiline
-            ? `${minHeight ? "" : "!min-h-[60px] "}w-full min-w-0 max-w-full px-3 py-2 text-xs leading-normal outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 [&_p]:m-0`
-            : "!min-h-0 w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap px-3 py-1.5 text-xs leading-normal outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 [&_p]:m-0 [&_p]:whitespace-nowrap",
+            ? `${minHeight ? "" : "!min-h-[60px] "}w-full min-w-0 max-w-full px-3 py-2 text-xs leading-normal outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 [&_p]:m-0 bg-surface`
+            : "!min-h-0 w-full min-w-0 max-w-full overflow-hidden whitespace-nowrap px-3 py-1.5 text-xs leading-normal outline-none focus:outline-none focus-visible:outline-none focus:ring-0 focus-visible:ring-0 [&_p]:m-0 [&_p]:whitespace-nowrap bg-surface",
           // A caller-supplied height is dynamic (rows -> px), so it cannot be a Tailwind
           // class; the `!min-h-*` class above is dropped so this inline style is the winner.
           ...(multiline && minHeight ? { style: `min-height: ${minHeight}px` } : {}),
@@ -172,7 +174,13 @@ export const useBindingEditor = ({
           return true;
         },
       },
-      onUpdate: ({ editor }) => onChange(serialize(editor.getJSON())),
+      // Only report a real change: tiptap also fires on mount, and echoing the
+      // shown value back writes it to the block — an empty field would then save
+      // "" over the stored value (e.g. a form remounting on a language switch).
+      onUpdate: ({ editor }) => {
+        const next = serialize(editor.getJSON());
+        if (next !== valueRef.current) onChange(next);
+      },
       onBlur: ({ editor }) => onBlur?.(serialize(editor.getJSON())),
     },
     [blockId, id, locale, minHeight, indentWithTab],

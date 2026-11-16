@@ -1,4 +1,3 @@
-import { useDebouncedCallback } from "@react-hookz/web";
 import { useAtomValue, useSetAtom } from "jotai";
 import { isEqual } from "lodash-es";
 import { useCallback } from "react";
@@ -16,6 +15,9 @@ export interface UseCheckStructureOptions {
   enableAccessibilityRules?: boolean;
   customRules?: StructureRule[];
 }
+
+// One timer for every caller, so a pending check survives its caller unmounting (e.g. a deleted block's toolbar).
+let validationTimer: ReturnType<typeof setTimeout> | undefined;
 
 export const useCheckStructure = (options: UseCheckStructureOptions = {}) => {
   const validateStructure = useBuilderProp("flags.validateStructure", true);
@@ -84,19 +86,10 @@ export const useCheckStructure = (options: UseCheckStructureOptions = {}) => {
     setHasStructureWarnings,
   ]);
 
-  const runValidation = useDebouncedCallback(
-    validateImmediately,
-    [
-      validateStructure,
-      iframe,
-      options,
-      setStructureErrors,
-      setStructureValidationValid,
-      setHasStructureErrors,
-      setHasStructureWarnings,
-    ],
-    500, // Reduced from 1000ms for faster feedback
-  );
+  const runValidation = useCallback(() => {
+    clearTimeout(validationTimer);
+    validationTimer = setTimeout(validateImmediately, 500);
+  }, [validateImmediately]);
 
   return runValidation;
 };

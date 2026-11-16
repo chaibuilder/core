@@ -1,6 +1,6 @@
-import { ImageIcon, MoreVertical, Upload } from "lucide-react";
+import { ImageIcon, MoreVertical, Play, Upload } from "lucide-react";
 import React, { Suspense, useCallback, useEffect, useMemo, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { mergeClasses } from "~/builder/core/main";
@@ -26,27 +26,24 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { BlurContainer } from "~/components/ui/loader";
-import { compressImageIfNeeded } from "~/builder/pages/utils/image-compression";
 import Tooltip from "~/builder/pages/utils/tooltip";
 import { getTrashLabels } from "../constants/trash-config";
 import { useDeleteAsset, useStreamUploadAsset, useUpdateAsset, useUploadAsset } from "../digital-asset-manager/mutations";
 import { usePagesProp } from "../hooks/project/use-builder-prop";
 import { useAssets, type Asset } from "../digital-asset-manager/use-assets";
+import { categoryFromExtension, dropzoneAcceptForCategories, type ChaiAssetCategory } from "~/constants/ASSET_TYPES";
+import { AssetTypeThumbnail } from "../digital-asset-manager/asset-type-thumbnail";
+import { isSvgFile, readFilesAsDataUrls, toStreamUpload } from "../digital-asset-manager/upload-files";
+import { useVideoPosterBackfill } from "../digital-asset-manager/use-video-poster-backfill";
+import { panelCategoriesFor, panelCategoryOfFile, panelMaxBytesForFile, videoBlocksForAsset } from "./images-panel-utils";
 
 const ImageEditor = React.lazy(() => import("../digital-asset-manager/image-editor"));
 
 export const imagesPanelId = "images";
 
-/**
- * SVGs still cross the JSON action endpoint, under nginx's *global*
- * `client_max_body_size 25m` — so their ceiling is this, not the streamed one.
- */
-const BASE64_PATH_MAX_SIZE = 25 * 1024 * 1024;
 /** Only used if the host never passes `maxFileSize`; the real value is env-driven. */
 const DEFAULT_MAX_FILE_SIZE = 100 * 1024 * 1024;
 const PAGE_SIZE = 30;
-
-const isSvgFile = (file: File) => file.type === "image/svg+xml";
 
 const ImagesButton = ({ isActive, show }: { isActive: boolean; show: () => void; panelId: string }) => {
   const { t } = useTranslation();
@@ -55,8 +52,8 @@ const ImagesButton = ({ isActive, show }: { isActive: boolean; show: () => void;
       variant="ghost"
       size="icon"
       onClick={show}
-      aria-label={t("Images")}
-      title={t("Images")}
+      aria-label={t("Media")}
+      title={t("Media")}
       className={`h-8 w-8 ${isActive ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground" : ""}`}>
       <ImageIcon className="h-5 w-5" />
     </Button>
@@ -65,6 +62,15 @@ const ImagesButton = ({ isActive, show }: { isActive: boolean; show: () => void;
 
 const ImagesPanel = () => {
   const { t } = useTranslation();
+
+  // Images and videos, narrowed to what the host's upload config allows.
+  const mediaManagerConfig = usePagesProp("mediaManager", {}) as {
+    uploads?: { allowedTypes?: ChaiAssetCategory[]; maxSizes?: Partial<Record<ChaiAssetCategory, number>> };
+  };
+  const allowedTypes = mediaManagerConfig.uploads?.allowedTypes;
+  const maxSizes = mediaManagerConfig.uploads?.maxSizes;
+  const panelCategories = useMemo(() => panelCategoriesFor(allowedTypes), [allowedTypes]);
+  const acceptsVideo = panelCategories.includes("video");
 
   const [optimizeImages, setOptimizeImages] = useState<boolean>(
     () => localStorage.getItem("chai_optimize_images") !== "false",
@@ -110,14 +116,15 @@ const ImagesPanel = () => {
     setAccumulated((prev) => {
       const byId = new Map(prev.map((a) => [a.id, a]));
       for (const asset of data.assets as Asset[]) {
-        if (asset.type === "image") byId.set(asset.id, asset);
+        if (panelCategories.some((category) => category === asset.type)) byId.set(asset.id, asset);
       }
       return Array.from(byId.values());
     });
-  }, [data]);
+  }, [data, panelCategories]);
 
-  // Only images are draggable onto the canvas
+  // Images and videos, each draggable onto the canvas as its own block
   const images = useMemo(() => accumulated, [accumulated]);
+  useVideoPosterBackfill(images);
 
   const lastPageCount = data?.assets?.length ?? 0;
   const hasMore = lastPageCount === PAGE_SIZE;
@@ -186,16 +193,20 @@ const ImagesPanel = () => {
 
   // ── Upload (drop files from OS onto the whole panel) ──────────────────
   const onDrop = useCallback(
-    async (acceptedFiles: File[]) => {
+    async (acceptedFiles: File[], fileRejections: FileRejection[]) => {
+      // `accept` already filtered by extension; say so, or a HEIC/MKV drop is silent.
+      for (const { file } of fileRejections) {
+        toast.error(t('"{{name}}" is not an accepted file type.', { name: file.name }));
+      }
       if (acceptedFiles.length === 0) return;
 
       const valid: File[] = [];
       let tooLarge = 0;
       let exceededLimit = maxFileSize;
       for (const file of acceptedFiles) {
-        if (!file.type.startsWith("image/")) continue;
-        // SVGs are bounded by the base64 endpoint; rasters only by the env-driven ceiling.
-        const limit = isSvgFile(file) ? Math.min(maxFileSize, BASE64_PATH_MAX_SIZE) : maxFileSize;
+        const category = panelCategoryOfFile(file, panelCategories);
+        if (!category) continue;
+        const limit = panelMaxBytesForFile(file, category, maxFileSize, maxSizes);
         if (file.size > limit) {
           tooLarge++;
           exceededLimit = limit;
@@ -208,47 +219,23 @@ const ImagesPanel = () => {
         const limitLabel = `${Math.floor(exceededLimit / (1024 * 1024))}MB`;
         toast.error(`${t("Some files exceed the maximum size limit of")} ${limitLabel}.`);
       }
-      if (valid.length === 0) {
-        if (tooLarge === 0) toast.error(t("Invalid file type. Please upload an image."));
-        return;
-      }
+      if (valid.length === 0) return;
 
       try {
-        // SVGs keep the base64 path (dimensions come from the markup); rasters stream.
+        // SVGs keep the base64 path (dimensions come from the markup); rasters and
+        // videos stream, in one batch so the progress bar covers every streamed byte.
         const svgFiles = valid.filter(isSvgFile);
-        const rasterFiles = valid.filter((file) => !isSvgFile(file));
+        const streamedFiles = valid.filter((file) => !isSvgFile(file));
 
         await Promise.all([
           svgFiles.length
-            ? Promise.all(
-                svgFiles.map(async (file) => {
-                  const processed = optimizeImages ? await compressImageIfNeeded(file) : file;
-                  const dataUrl: string = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result as string);
-                    reader.onerror = () => reject(reader.error);
-                    reader.readAsDataURL(processed);
-                  });
-                  return { file: dataUrl, folderId: undefined, name: file.name, optimize: optimizeImages };
-                }),
-              ).then((payload) => uploadAssets(payload))
+            ? readFilesAsDataUrls(svgFiles, optimizeImages).then((payload) => uploadAssets(payload as any))
             : Promise.resolve(),
-          rasterFiles.length
+          streamedFiles.length
             ? Promise.all(
-                rasterFiles.map(async (file) => {
-                  const processed: File | Blob = optimizeImages ? await compressImageIfNeeded(file) : file;
-                  let width: number | undefined;
-                  let height: number | undefined;
-                  try {
-                    const bitmap = await createImageBitmap(processed);
-                    width = bitmap.width;
-                    height = bitmap.height;
-                    bitmap.close();
-                  } catch {
-                    // Optional metadata; a failure here must not fail the upload.
-                  }
-                  return { file: processed, name: file.name, folderId: undefined, width, height };
-                }),
+                streamedFiles.map((file) =>
+                  toStreamUpload(file, optimizeImages && categoryFromExtension(file.name) === "image"),
+                ),
               ).then((payload) => streamUploadAssets(payload))
             : Promise.resolve(),
         ]);
@@ -260,12 +247,16 @@ const ImagesPanel = () => {
         // Errors surfaced via the mutation's onError toast.
       }
     },
-    [uploadAssets, streamUploadAssets, optimizeImages, maxFileSize, t],
+    [uploadAssets, streamUploadAssets, optimizeImages, maxFileSize, maxSizes, panelCategories, t],
   );
+
+  // The exact extension whitelist the server enforces, so the OS picker cannot
+  // offer a format (HEIC, AVIF, MKV) that would only be rejected after upload.
+  const accept = useMemo(() => dropzoneAcceptForCategories(panelCategories), [panelCategories]);
 
   const { getRootProps, getInputProps, open, isDragActive } = useDropzone({
     onDrop,
-    accept: { "image/*": [] },
+    accept,
     multiple: true,
     noClick: true, // clicks must reach thumbnails/search, not open the file dialog
     noKeyboard: true,
@@ -295,7 +286,11 @@ const ImagesPanel = () => {
         onBlur={(e) => {
           if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setIsSearchFocused(false);
         }}>
-        <SearchInput setValue={setSearchInputValue} value={searchInputValue} placeholder={t("Search images...")} />
+        <SearchInput
+          setValue={setSearchInputValue}
+          value={searchInputValue}
+          placeholder={acceptsVideo ? t("Search images and videos...") : t("Search images...")}
+        />
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -310,8 +305,12 @@ const ImagesPanel = () => {
             <Upload className="h-8 w-8 text-muted-foreground" />
             <p className="text-xs text-muted-foreground">
               {searchQuery.length > 0
-                ? t("No images found")
-                : t("Drop images here or use the Upload button to add them.")}
+                ? acceptsVideo
+                  ? t("No images or videos found")
+                  : t("No images found")
+                : acceptsVideo
+                  ? t("Drop images or videos here or use the Upload button to add them.")
+                  : t("Drop images here or use the Upload button to add them.")}
             </p>
           </div>
         ) : (
@@ -324,20 +323,42 @@ const ImagesPanel = () => {
                     "group relative overflow-hidden border border-transparent transition-colors hover:border-foreground/20",
                     deletingIds.includes(asset.id) ? "pointer-events-none opacity-50" : "",
                   )}>
-                  <ChaiDraggableBlock
-                    type="Image"
-                    block={{ image: asset.url, alt: asset.name, name: asset.name }}
-                    className="block">
-                    <Tooltip content={asset.name}>
-                      <div className="flex aspect-square w-full items-center justify-center overflow-hidden bg-muted">
-                        <ChaiImage
-                          src={asset.thumbnailUrl || asset.url}
-                          alt={asset.name}
-                          className="max-h-full max-w-full object-contain"
-                        />
-                      </div>
-                    </Tooltip>
-                  </ChaiDraggableBlock>
+                  {asset.type === "video" ? (
+                    <ChaiDraggableBlock blocks={videoBlocksForAsset(asset)} className="block">
+                      <Tooltip content={asset.name}>
+                        <div className="relative flex aspect-square w-full items-center justify-center overflow-hidden bg-muted">
+                          {/* The poster captured at upload; older rows without one get the type icon. */}
+                          {asset.thumbnailUrl ? (
+                            <ChaiImage
+                              src={asset.thumbnailUrl}
+                              alt={asset.name}
+                              className="max-h-full max-w-full object-contain"
+                            />
+                          ) : (
+                            <AssetTypeThumbnail type="video" format={asset.format} />
+                          )}
+                          <span className="pointer-events-none absolute top-1 left-1 flex h-5 w-5 items-center justify-center rounded-sm bg-black/60 text-white">
+                            <Play className="h-3 w-3 fill-current" aria-label={t("Video")} />
+                          </span>
+                        </div>
+                      </Tooltip>
+                    </ChaiDraggableBlock>
+                  ) : (
+                    <ChaiDraggableBlock
+                      type="Image"
+                      block={{ image: asset.url, alt: asset.name, name: asset.name }}
+                      className="block">
+                      <Tooltip content={asset.name}>
+                        <div className="flex aspect-square w-full items-center justify-center overflow-hidden bg-muted">
+                          <ChaiImage
+                            src={asset.thumbnailUrl || asset.url}
+                            alt={asset.name}
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </div>
+                      </Tooltip>
+                    </ChaiDraggableBlock>
+                  )}
 
                   {/* Name overlay — bottom gradient caption; full name is in the hover Tooltip above */}
                   <div
@@ -368,10 +389,12 @@ const ImagesPanel = () => {
                         <DropdownMenuItem onClick={() => setDetailAssetId(asset.id)}>
                           {t("View Details")}
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setImageEditor({ id: asset.id, url: asset.url, name: asset.name })}>
-                          {t("Edit Image")}
-                        </DropdownMenuItem>
+                        {asset.type === "image" && (
+                          <DropdownMenuItem
+                            onClick={() => setImageEditor({ id: asset.id, url: asset.url, name: asset.name })}>
+                            {t("Edit Image")}
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onClick={() => setAssetToDelete(asset)}>
                           {flags?.trash ? t(getTrashLabels().sidebarButton) : t("Delete")}
                         </DropdownMenuItem>
@@ -409,7 +432,13 @@ const ImagesPanel = () => {
           <Upload className="h-8 w-8 text-primary" />
           <p className="text-sm font-medium text-foreground">
             {/* Bytes sent is not done: the route is still storing the file and writing the row. */}
-            {isFinalizing ? t("Saving to storage...") : isUploading ? t("Uploading...") : t("Drop images to upload")}
+            {isFinalizing
+              ? t("Saving to storage...")
+              : isUploading
+                ? t("Uploading...")
+                : acceptsVideo
+                  ? t("Drop images or videos to upload")
+                  : t("Drop images to upload")}
             {/* Only streamed uploads report progress; base64 ones have none. */}
             {isUploading && !isFinalizing && typeof uploadProgress === "number"
               ? ` ${Math.round(uploadProgress * 100)}%`
@@ -436,7 +465,7 @@ const ImagesPanel = () => {
 
       {/* View details — reuse the full media manager, opened at this asset */}
       <MediaManagerModal
-        mode="image"
+        mode={images.find((asset) => asset.id === detailAssetId)?.type === "video" ? "video" : "image"}
         assetId={detailAssetId ?? undefined}
         open={Boolean(detailAssetId)}
         onOpenChange={(o) => !o && setDetailAssetId(null)}
@@ -491,7 +520,7 @@ const ImagesPanel = () => {
 
 export const imagesPanel = {
   button: ImagesButton,
-  label: "Images",
+  label: "Media",
   position: "top" as const,
   width: 280,
   icon: <ImageIcon className="h-5 w-5" />,

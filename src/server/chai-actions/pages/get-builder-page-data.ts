@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { consumeProviderTags } from "~/server/chai-builder/public/register-cache-tags";
-import { getConfigPageType, toChaiPageType } from "~/server/defaults";
+import { getConfigPageType, toChaiPageType } from "~/server/defaults/config-registry";
 import { ChaiPageType } from "~/types/actions";
 import { ChaiBaseAction } from "../base-action";
 

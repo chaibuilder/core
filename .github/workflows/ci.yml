@@ -30,7 +30,10 @@ jobs:
     # enforced, and reformatting them in one sweep would conflict with every host repo
     # that vendors src/ as a subtree and carries local edits. So contributors are held to
     # the standard for their own changes, and the backlog is cleared separately.
-    if: github.event_name == 'pull_request'
+    # Sync PRs from chaibuilder/pro (sync/* branches, see SYNC.md) are skipped: they author
+    # nothing here, and their content already passed this same check where it was written.
+    # A sync touches hundreds of files at once and would otherwise surface the whole backlog.
+    if: github.event_name == 'pull_request' && !startsWith(github.head_ref, 'sync/')
     steps:
       - uses: actions/checkout@v7
         with:
@@ -67,26 +70,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+      # One tier: every test runs against a real in-memory SQLite DB (src/tests/setup).
       - run: pnpm test
-
-  integration:
-    name: Integration tests
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-
-      # .env.test is gitignored — recreate it for the dotenv loaders in vitest and drizzle.
-      - name: Write .env.test
-        run: echo 'TEST_DATABASE_URL=file:./.tmp/chaibuilder_test.sqlite' > .env.test
-
-      - name: Generate SQLite migrations
-        run: pnpm db:test:generate
-
-      - name: Run integration tests
-        env:
-          NODE_ENV: test
-        run: pnpm test:integration
 
   build:
     name: Build

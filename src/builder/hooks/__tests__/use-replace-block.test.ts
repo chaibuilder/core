@@ -1,35 +1,12 @@
 /**
  * @vitest-environment happy-dom
  */
-import { act, renderHook } from "@testing-library/react";
+import { act } from "@testing-library/react";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
-import { builderStore } from "~/builder/atoms/store";
 import { replaceBlock, useReplaceBlock } from "~/builder/hooks/use-replace-block";
+import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
+import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
 import { ChaiBlock } from "~/types/common";
-
-// Mock dependencies
-vi.mock("~/builder/hooks/history/use-blocks-store-undoable-actions", () => ({
-  useBlocksStore: vi.fn(),
-  useBlocksStoreUndoableActions: vi.fn(),
-}));
-
-vi.mock("~/builder/hooks/use-selected-blockIds", () => ({
-  useSelectedBlockIds: vi.fn(),
-}));
-
-vi.mock("~/builder/core/main", () => ({
-  PERMISSIONS: {
-    EDIT_BLOCK: "EDIT_BLOCK",
-  },
-}));
-
-vi.mock("~/builder/hooks/use-permissions", () => ({
-  usePermissions: vi.fn(),
-}));
-
-import { useBlocksStoreUndoableActions } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
-import { usePermissions } from "~/builder/hooks/use-permissions";
-import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 
 describe("replaceBlock", () => {
   it("should replace a block with replacement blocks", () => {
@@ -226,34 +203,25 @@ describe("replaceBlock", () => {
 });
 
 describe("useReplaceBlock", () => {
-  const mockSetNewBlocks = vi.fn();
-  const mockSetSelectedIds = vi.fn();
-  const mockHasPermission = vi.fn();
+  const PAGE_BLOCKS: ChaiBlock[] = [
+    { _id: "1", _parent: undefined, _type: "Container" },
+    { _id: "2", _parent: "1", _type: "Text" },
+    { _id: "3", _parent: "1", _type: "Button" },
+  ];
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-
-    builderStore.set(presentBlocksAtom, [
-      { _id: "1", _parent: undefined, _type: "Container" },
-      { _id: "2", _parent: "1", _type: "Text" },
-      { _id: "3", _parent: "1", _type: "Button" },
-    ]);
-
-    (useBlocksStoreUndoableActions as any).mockReturnValue({
-      setNewBlocks: mockSetNewBlocks,
+  const render = (permissions: string[] | null, selectedBlockIds: string[] = []) =>
+    renderHookInBuilder(() => useReplaceBlock(), {
+      blocks: PAGE_BLOCKS,
+      selectedBlockIds,
+      builderProps: { permissions },
     });
 
-    (useSelectedBlockIds as any).mockReturnValue([[], mockSetSelectedIds]);
-
-    (usePermissions as any).mockReturnValue({
-      hasPermission: mockHasPermission,
-    });
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("should replace block when permission is granted", () => {
-    mockHasPermission.mockReturnValue(true);
-
-    const { result } = renderHook(() => useReplaceBlock());
+    const { result, store } = render(["pages:update"]);
 
     const replacementBlocks: ChaiBlock[] = [{ _id: "4", _parent: undefined, _type: "Image" }];
 
@@ -261,35 +229,32 @@ describe("useReplaceBlock", () => {
       result.current("2", replacementBlocks);
     });
 
-    expect(mockHasPermission).toHaveBeenCalledWith("pages:update");
-    expect(mockSetNewBlocks).toHaveBeenCalled();
-
-    const newBlocks = mockSetNewBlocks.mock.calls[0][0];
+    const newBlocks = store.get(presentBlocksAtom) as ChaiBlock[];
     expect(newBlocks.find((b: ChaiBlock) => b._id === "2")).toBeUndefined();
     expect(newBlocks.find((b: ChaiBlock) => b._id === "4")).toBeDefined();
   });
 
   it("should not replace block when permission is denied", () => {
-    mockHasPermission.mockReturnValue(false);
-
-    const { result } = renderHook(() => useReplaceBlock());
+    vi.useFakeTimers();
+    // has other permissions, but not "pages:update"
+    const { result, store } = render(["pages:read"], ["3"]);
 
     const replacementBlocks: ChaiBlock[] = [{ _id: "4", _parent: undefined, _type: "Image" }];
 
     act(() => {
       result.current("2", replacementBlocks);
     });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
 
-    expect(mockHasPermission).toHaveBeenCalledWith("pages:update");
-    expect(mockSetNewBlocks).not.toHaveBeenCalled();
-    expect(mockSetSelectedIds).not.toHaveBeenCalled();
+    expect(store.get(presentBlocksAtom)).toEqual(PAGE_BLOCKS);
+    expect(store.get(selectedBlockIdsAtom)).toEqual(["3"]);
   });
 
   it("should select first replacement block after replace", () => {
     vi.useFakeTimers();
-    mockHasPermission.mockReturnValue(true);
-
-    const { result } = renderHook(() => useReplaceBlock());
+    const { result, store } = render(null);
 
     const replacementBlocks: ChaiBlock[] = [
       { _id: "4", _parent: undefined, _type: "Image" },
@@ -304,16 +269,12 @@ describe("useReplaceBlock", () => {
       vi.advanceTimersByTime(200);
     });
 
-    expect(mockSetSelectedIds).toHaveBeenCalledWith(["4"]);
-
-    vi.useRealTimers();
+    expect(store.get(selectedBlockIdsAtom)).toEqual(["4"]);
   });
 
   it("should not select any block if replacement blocks array is empty", () => {
     vi.useFakeTimers();
-    mockHasPermission.mockReturnValue(true);
-
-    const { result } = renderHook(() => useReplaceBlock());
+    const { result, store } = render(null, ["3"]);
 
     act(() => {
       result.current("2", []);
@@ -323,15 +284,12 @@ describe("useReplaceBlock", () => {
       vi.advanceTimersByTime(200);
     });
 
-    expect(mockSetSelectedIds).not.toHaveBeenCalled();
-
-    vi.useRealTimers();
+    expect(store.get(presentBlocksAtom).map((b: ChaiBlock) => b._id)).toEqual(["1", "3"]);
+    expect(store.get(selectedBlockIdsAtom)).toEqual(["3"]);
   });
 
   it("should handle replacing with multiple replacement blocks", () => {
-    mockHasPermission.mockReturnValue(true);
-
-    const { result } = renderHook(() => useReplaceBlock());
+    const { result, store } = render(null);
 
     const replacementBlocks: ChaiBlock[] = [
       { _id: "4", _parent: undefined, _type: "Image" },
@@ -343,7 +301,7 @@ describe("useReplaceBlock", () => {
       result.current("2", replacementBlocks);
     });
 
-    const newBlocks = mockSetNewBlocks.mock.calls[0][0];
+    const newBlocks = store.get(presentBlocksAtom);
     expect(newBlocks).toHaveLength(5); // 3 original - 1 removed + 3 added
   });
 });

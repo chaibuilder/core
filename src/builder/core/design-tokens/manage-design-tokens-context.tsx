@@ -10,6 +10,7 @@ import { orderClassesByBreakpoint } from "~/builder/core/functions/order-classes
 import { removeDuplicateClasses } from "~/builder/core/functions/remove-duplicate-classes";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useSaveWebsiteData } from "~/builder/hooks/use-save-website-data";
+import { markDesignTokensSaved } from "~/builder/hooks/use-unsaved-theme";
 import { DESIGN_TOKEN_PREFIX } from "~/constants/STRINGS";
 import { ChaiDesignTokens } from "~/types/types";
 import { CHAI_BUILT_IN_DESIGN_TOKENS } from "../../../constants/BUILTIN_TOKENS";
@@ -59,6 +60,9 @@ interface DesignTokensProviderProps {
   onActiveTokenChange?: (token: { name: string; value: string; id?: string } | null) => void;
   onDirtyStateChange?: (isDirty: boolean) => void;
   setCreatePreview?: (value: any) => any;
+  /** Token to open on: its tab, selected, and — with `initialMode` "edit" — its edit form. */
+  initialTokenId?: string;
+  initialMode?: "select" | "edit";
 }
 
 export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
@@ -66,20 +70,41 @@ export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
   onActiveTokenChange,
   onDirtyStateChange,
   setCreatePreview,
+  initialTokenId,
+  initialMode = "select",
 }) => {
   const { t } = useTranslation();
   const [designTokens, setDesignTokens] = useAtom(chaiDesignTokensAtom);
+  // Read once at mount: the opening token only seeds the state below.
+  const [initial] = useState(() => {
+    const token = initialTokenId
+      ? designTokens[initialTokenId] || CHAI_BUILT_IN_DESIGN_TOKENS[initialTokenId]
+      : undefined;
+    if (!initialTokenId || !token) return null;
+    return {
+      id: initialTokenId,
+      token,
+      tab: (initialTokenId in CHAI_BUILT_IN_DESIGN_TOKENS ? "builtin" : "custom") as TabType,
+      // Archived tokens have no edit form (only restore/delete), so they open selected.
+      edit: initialMode === "edit" && !(token as { archived?: boolean }).archived,
+    };
+  });
   const incrementActionsCount = useIncrementActionsCount();
-  const { saveDesignTokens, debouncedSaveDesignTokens } = useSaveWebsiteData();
+  const { saveDesignTokens } = useSaveWebsiteData();
+  // Every token change saves to the draft right away (publish is the gate). Failures are toasted
+  // by the save mutation itself.
+  const persistDesignTokens = useCallback(() => {
+    saveDesignTokens().then(markDesignTokensSaved, () => undefined);
+  }, [saveDesignTokens]);
   const currentPageId = useBuilderProp("pageId", "");
   const siteWideUsage = useBuilderProp("siteWideUsage", {});
 
-  const [activeTab, setActiveTab] = useState<TabType>("builtin");
-  const [viewMode, setViewMode] = useState<ViewMode>("view");
-  const [editingTokenId, setEditingTokenId] = useState<string | null>(null);
-  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(null);
-  const [tokenName, setTokenName] = useState("");
-  const [classes, setClasses] = useState("");
+  const [activeTab, setActiveTab] = useState<TabType>(initial?.tab ?? "builtin");
+  const [viewMode, setViewMode] = useState<ViewMode>(initial?.edit ? "edit" : "view");
+  const [editingTokenId, setEditingTokenId] = useState<string | null>(initial?.edit ? initial.id : null);
+  const [selectedTokenId, setSelectedTokenId] = useState<string | null>(initial?.id ?? null);
+  const [tokenName, setTokenName] = useState(initial?.edit ? initial.token.name : "");
+  const [classes, setClasses] = useState(initial?.edit ? initial.token.value : "");
   const [tokenNameError, setTokenNameError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -204,14 +229,16 @@ export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
       debounceTimerRef.current = setTimeout(() => {
         const newTokens = {
           ...designTokens,
+          // Keep what the form does not edit (description, archived) — only name and classes change.
           [editingTokenId]: {
+            ...designTokens[editingTokenId],
             name: name.trim(),
             value: value.trim(),
           },
         };
         setDesignTokens(newTokens);
         incrementActionsCount();
-        debouncedSaveDesignTokens();
+        persistDesignTokens();
         setIsSaving(false);
         toast.success(t("Token updated successfully"));
         resetAndGoToView();
@@ -223,7 +250,7 @@ export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
       designTokens,
       setDesignTokens,
       incrementActionsCount,
-      debouncedSaveDesignTokens,
+      persistDesignTokens,
       t,
       resetAndGoToView,
     ],
@@ -288,7 +315,7 @@ export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
       };
       setDesignTokens(newTokens);
       incrementActionsCount();
-      saveDesignTokens();
+      persistDesignTokens();
       toast.success(t("Token added successfully"));
       resetAndGoToView();
     }
@@ -302,7 +329,7 @@ export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
     debouncedUpdateToken,
     setDesignTokens,
     incrementActionsCount,
-    saveDesignTokens,
+    persistDesignTokens,
     resetAndGoToView,
   ]);
 
@@ -315,11 +342,11 @@ export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
 
       setDesignTokens(newTokens);
       incrementActionsCount();
-      saveDesignTokens();
+      persistDesignTokens();
       toast.success(t("Token reset to built-in"));
       resetAndGoToView();
     },
-    [designTokens, setDesignTokens, incrementActionsCount, saveDesignTokens, t, resetAndGoToView],
+    [designTokens, setDesignTokens, incrementActionsCount, persistDesignTokens, t, resetAndGoToView],
   );
 
   const archiveToken = useCallback(
@@ -333,10 +360,10 @@ export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
       };
       setDesignTokens(newTokens);
       incrementActionsCount();
-      saveDesignTokens();
+      persistDesignTokens();
       toast.success(t("Token archived successfully"));
     },
-    [designTokens, setDesignTokens, incrementActionsCount, saveDesignTokens, t],
+    [designTokens, setDesignTokens, incrementActionsCount, persistDesignTokens, t],
   );
 
   const unarchiveToken = useCallback(
@@ -350,10 +377,10 @@ export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
       };
       setDesignTokens(newTokens);
       incrementActionsCount();
-      saveDesignTokens();
+      persistDesignTokens();
       toast.success(t("Token unarchived successfully"));
     },
-    [designTokens, setDesignTokens, incrementActionsCount, saveDesignTokens, t],
+    [designTokens, setDesignTokens, incrementActionsCount, persistDesignTokens, t],
   );
 
   const deleteToken = useCallback(
@@ -362,10 +389,10 @@ export const DesignTokensProvider: React.FC<DesignTokensProviderProps> = ({
       delete newTokens[tokenId];
       setDesignTokens(newTokens);
       incrementActionsCount();
-      saveDesignTokens();
+      persistDesignTokens();
       toast.success(t("Token deleted successfully"));
     },
-    [designTokens, setDesignTokens, incrementActionsCount, saveDesignTokens, t],
+    [designTokens, setDesignTokens, incrementActionsCount, persistDesignTokens, t],
   );
 
   const selectToken = useCallback((tokenId: string) => {

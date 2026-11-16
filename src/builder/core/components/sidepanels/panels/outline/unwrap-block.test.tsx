@@ -232,6 +232,34 @@ describe("useUnwrapBlock", () => {
     });
   });
 
+  describe("per-instance action rules", () => {
+    const renderWith = (pageBlocks: ChaiBlock[]) =>
+      renderHook(() => useUnwrapBlock(), {
+        wrapper: ({ children }) => (
+          <TestProvider
+            initialValues={[
+              [presentBlocksAtom, pageBlocks],
+              [selectedBlockIdsAtom, ["wrapper"]],
+            ]}>
+            {children}
+          </TestProvider>
+        ),
+      });
+
+    it("cannot unwrap a wrapper flagged _canDelete: false", () => {
+      const { result } = renderWith([{ _id: "wrapper", _type: "Box", _canDelete: false }]);
+      expect(result.current.canUnwrap).toBe(false);
+    });
+
+    it("can unwrap a parent whose child is flagged _canMove: false", () => {
+      const { result } = renderWith([
+        { _id: "wrapper", _type: "Box" },
+        { _id: "nav", _type: "Box", _parent: "wrapper", _canMove: false },
+      ]);
+      expect(result.current.canUnwrap).toBe(true);
+    });
+  });
+
   describe("sibling position calculation", () => {
     it("should correctly identify root-level siblings (blocks without parent)", () => {
       const rootBlocks = blocks.filter((b) => !b._parent);

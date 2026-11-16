@@ -4,6 +4,41 @@ import { transformNode, type HimalayaNode } from "~/builder/hooks/use-blocks-htm
 describe("transformNode", () => {
   const mockBlocks: any[] = [];
 
+  describe("Action hints", () => {
+    const blocks: any[] = [
+      { _id: "box1", _type: "Box", _canMove: false },
+      { _id: "card1", _type: "ProductCard", _canDelete: false, title: "Hi" },
+    ];
+
+    test("core blocks carry resolved can-* hints", () => {
+      const node: HimalayaNode = {
+        type: "element",
+        tagName: "div",
+        attributes: [
+          { key: "data-block-type", value: "Box" },
+          { key: "data-block-id", value: "box1" },
+        ],
+        children: [],
+      };
+      expect(transformNode(node, blocks).attributes).toContainEqual({ key: "can-move", value: "false" });
+    });
+
+    test("custom blocks carry hints but never the raw _can* props", () => {
+      const node: HimalayaNode = {
+        type: "element",
+        tagName: "div",
+        attributes: [
+          { key: "data-block-type", value: "ProductCard" },
+          { key: "data-block-id", value: "card1" },
+        ],
+        children: [],
+      };
+      const keys = transformNode(node, blocks).attributes?.map((attr) => attr.key);
+      expect(keys).toContain("can-delete");
+      expect(keys).not.toContain("_can-delete");
+    });
+  });
+
   describe("Core Blocks", () => {
     test("should remove data-block-type attribute from core block", () => {
       const node: HimalayaNode = {

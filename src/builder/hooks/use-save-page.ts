@@ -1,7 +1,7 @@
 import { useThrottledCallback } from "@react-hookz/web";
 import { atom, useAtom, useAtomValue, useSetAtom } from "jotai";
-import { compact, has, isEmpty, noop } from "lodash-es";
-import { useCallback } from "react";
+import { has, isEmpty, noop } from "lodash-es";
+import { useCallback, useMemo } from "react";
 import {
   hasStructureErrorsAtom,
   hasStructureWarningsAtom,
@@ -16,11 +16,14 @@ import { useGetPageData } from "~/builder/hooks/use-get-page-data";
 import { useIsPageLoaded } from "~/builder/hooks/use-is-page-loaded";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { usePermissions } from "~/builder/hooks/use-permissions";
+import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
 import { executeChaiHooks } from "~/builder/register-apis/register-chai-hooks";
 import { CHAI_HOOKS } from "~/constants/CHAI_HOOKS";
 import { getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlock } from "~/types/common";
+import { derivePageRefs, type PageRefs } from "~/utils/derive-page-refs";
 import { extractPartialIds, partialBlocksAtom } from "./partial-blocks";
+import { currentBlocksPartialIdsAtom } from "./partial-blocks/atoms";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 
 export const builderSaveStateAtom = atom<"SAVED" | "SAVING" | "UNSAVED">("SAVED"); // SAVING
@@ -41,32 +44,60 @@ const isPageRefLinkValue = (value: unknown): boolean => {
   return typeof href === "string" && PAGE_TYPE_REF_EXACT_REGEX.test(href);
 };
 
+const getMissingTranslationProps = (block: any, lang: string): string[] => {
+  if (!block?._type || block._type === "PartialBlock") {
+    return [];
+  }
+
+  try {
+    const blockDef = getRegisteredChaiBlock(block._type);
+    if (!blockDef) return [];
+
+    const i18nProps = has(blockDef, "i18nProps") ? (blockDef.i18nProps ?? []) : [];
+    // Unset in the fallback language too: every language renders the block's
+    // own default, nothing to translate.
+    const defaultProps = blockDef.i18nDefaultProps ?? [];
+
+    return i18nProps.filter((prop: string) => {
+      // Page-reference links resolve per language at render time — never
+      // missing. Kept in sync with the Translation Center scan
+      // (actions/translation-center.ts).
+      if (isPageRefLinkValue(block[prop])) return false;
+      const base = block[prop];
+      if (defaultProps.includes(prop) && (typeof base === "string" ? !base.trim() : isEmpty(base))) return false;
+      const translatedProp = `${prop}-${lang}`;
+      return !block[translatedProp] || isEmpty(block[translatedProp]);
+    });
+  } catch (error) {
+    console.warn(`Failed to get block definition for type: ${block._type}`, error);
+    return [];
+  }
+};
+
 export const checkMissingTranslations = (blocks: any[], lang: string): boolean => {
   if (!lang) return false;
+  return blocks.some((block) => getMissingTranslationProps(block, lang).length > 0);
+};
 
-  return blocks.some((block) => {
-    if (!block?._type || block._type === "PartialBlock") {
-      return false;
-    }
+export type UntranslatedBlock = {
+  blockId: string;
+  label: string;
+  missingProps: string[];
+  /** Set when the block lives in a partial rather than on the page itself. */
+  partialPageId?: string;
+};
 
-    try {
-      const blockDef = getRegisteredChaiBlock(block._type);
-      if (!blockDef) return false;
-
-      const i18nProps = has(blockDef, "i18nProps") ? (blockDef.i18nProps ?? []) : [];
-
-      return i18nProps.some((prop: string) => {
-        // Page-reference links resolve per language at render time — never
-        // missing. Kept in sync with the Translation Center scan
-        // (actions/translation-center.ts).
-        if (isPageRefLinkValue(block[prop])) return false;
-        const translatedProp = `${prop}-${lang}`;
-        return !block[translatedProp] || isEmpty(block[translatedProp]);
-      });
-    } catch (error) {
-      console.warn(`Failed to get block definition for type: ${block._type}`, error);
-      return false;
-    }
+export const getBlocksWithMissingTranslations = (
+  blocks: any[],
+  lang: string,
+  partialPageId?: string,
+): UntranslatedBlock[] => {
+  if (!lang) return [];
+  return blocks.flatMap((block) => {
+    const missingProps = getMissingTranslationProps(block, lang);
+    if (missingProps.length === 0) return [];
+    const label = getRegisteredChaiBlock(block._type)?.label || block._type;
+    return [{ blockId: block._id, label, missingProps, partialPageId }];
   });
 };
 
@@ -76,9 +107,12 @@ export const useSavePage = () => {
   const onSaveStateChange = useBuilderProp("onSaveStateChange", noop);
   const getPageData = useGetPageData();
   const { hasPermission } = usePermissions();
+  const readOnly = useReadOnlyMode() !== null;
   const { selectedLang, fallbackLang } = useLanguages();
   const [isPageLoaded] = useIsPageLoaded();
   const partialBlocksStore = useAtomValue(partialBlocksAtom);
+  // The ids, not the blocks: consumers re-render only when a partial reference changes, not on every edit.
+  const pagePartialIds = useAtomValue(currentBlocksPartialIdsAtom);
   const iframe = useAtomValue(canvasIframeAtom) as HTMLIFrameElement | null;
   const setActionsCount = useSetAtom(userActionsCountAtom);
   const setStructureErrors = useSetAtom(structureErrorsAtom);
@@ -86,17 +120,17 @@ export const useSavePage = () => {
   const setHasStructureErrors = useSetAtom(hasStructureErrorsAtom);
   const setHasStructureWarnings = useSetAtom(hasStructureWarningsAtom);
 
-  const needTranslations = () => {
-    const pageData = getPageData();
-    return !selectedLang || selectedLang === fallbackLang
-      ? false
-      : checkMissingTranslations(pageData.blocks || [], selectedLang);
-  };
+  const needTranslations = useCallback(() => {
+    // Short-circuit before getPageData(): the omit-clone over all blocks is wasted
+    // work when the selected language is the fallback language
+    if (!selectedLang || selectedLang === fallbackLang) return false;
+    return checkMissingTranslations(getPageData().blocks || [], selectedLang);
+  }, [getPageData, selectedLang, fallbackLang]);
 
   const getAllPartialIds = useCallback(
-    (blocks: ChaiBlock[]): string[] => {
+    (partialIds: string[]): string[] => {
       const collected = new Set<string>();
-      const queue = extractPartialIds(blocks);
+      const queue = [...partialIds];
 
       while (queue.length > 0) {
         const id = queue.shift()!;
@@ -114,37 +148,34 @@ export const useSavePage = () => {
     [partialBlocksStore],
   );
 
-  // Extracts linked page ids and design tokens in a single serialization pass
-  // over the blocks (each block is stringified once instead of twice)
-  const getSaveMetadata = useCallback(
-    (blocks: ChaiBlock[]): { linkPageIds: string[]; designTokens: Record<string, Record<string, string>> } => {
-      const linkRegex = /pageType:[^:]+:([a-f0-9-]{36})/gi;
-      const tokenRegex = /dt#[^ "]+/g;
-      const uuids = new Set<string>();
-      const designTokens: Record<string, Record<string, string>> = {};
-      for (const block of blocks) {
-        const blockStr = JSON.stringify(block);
-        let match;
-        while ((match = linkRegex.exec(blockStr)) !== null) {
-          if (match[1]) uuids.add(match[1]);
-        }
-        while ((match = tokenRegex.exec(blockStr)) !== null) {
-          if (match[0]) {
-            const tokenId = match[0];
-            if (!designTokens[tokenId]) {
-              designTokens[tokenId] = {};
-            }
-            designTokens[tokenId][block._id] = block._name || block._type;
-          }
-        }
-      }
-      return { linkPageIds: compact([...uuids]), designTokens };
-    },
-    [],
+  // Includes the blocks of the partials this page uses: they render on it but are translated on their own page.
+  const getUntranslatedBlocks = useCallback((): UntranslatedBlock[] => {
+    if (!selectedLang || selectedLang === fallbackLang) return [];
+    const blocks = getPageData().blocks || [];
+    return [
+      ...getBlocksWithMissingTranslations(blocks, selectedLang),
+      ...getAllPartialIds(extractPartialIds(blocks)).flatMap((partialId) =>
+        getBlocksWithMissingTranslations(partialBlocksStore[partialId]?.blocks ?? [], selectedLang, partialId),
+      ),
+    ];
+  }, [getPageData, getAllPartialIds, partialBlocksStore, selectedLang, fallbackLang]);
+
+  // Not "error"/"missing": those are final, so waiting on them would lock publishing.
+  const arePartialsLoading = useMemo(
+    () => getAllPartialIds(pagePartialIds).some((id) => partialBlocksStore[id]?.status === "loading"),
+    [getAllPartialIds, pagePartialIds, partialBlocksStore],
   );
+
+  // Extracts linked page ids and design tokens. The server derives these itself
+  // on save (see `derivePageRefs`), so this shares that implementation rather
+  // than keeping a second copy that could drift — it stays here because the
+  // builder also feeds them to the local sync/usage panels.
+  const getSaveMetadata = useCallback((blocks: ChaiBlock[]): PageRefs => derivePageRefs(blocks), []);
 
   const shouldSkipSave = useCallback(
     (force: boolean) => {
+      // A view-only page never saves, not even a forced save
+      if (readOnly) return true;
       // Skip save if no permission or page not loaded
       if (!force && (!hasPermission(CHAI_PERMISSIONS["pages:update"]) || !isPageLoaded)) {
         return true;
@@ -155,7 +186,7 @@ export const useSavePage = () => {
       }
       return false;
     },
-    [hasPermission, isPageLoaded, saveState],
+    [readOnly, hasPermission, isPageLoaded, saveState],
   );
 
   const savePage = useThrottledCallback(
@@ -198,7 +229,7 @@ export const useSavePage = () => {
         autoSave,
         blocks: transformedBlocks,
         needTranslations: needTranslations(),
-        partialIds: getAllPartialIds(transformedBlocks || []),
+        partialIds: getAllPartialIds(extractPartialIds(transformedBlocks || [])),
         linkPageIds,
         designTokens,
       });
@@ -251,14 +282,22 @@ export const useSavePage = () => {
     onSaveStateChange("SAVING");
     setActionsCount(0);
     const { linkPageIds, designTokens } = getSaveMetadata(transformedBlocks || []);
-    await onSave({
+    // `false` from the host's onSave means the page was not persisted; anything else
+    // (including no return value) counts as saved.
+    const saved: unknown = await onSave({
       autoSave: true,
       blocks: transformedBlocks,
       needTranslations: needTranslations(),
-      partialIds: getAllPartialIds(transformedBlocks || []),
+      partialIds: getAllPartialIds(extractPartialIds(transformedBlocks || [])),
       linkPageIds,
       designTokens,
     });
+    if (saved === false) {
+      // Not persisted: the changes are still pending, and no after-save hook runs.
+      setSaveState("UNSAVED");
+      onSaveStateChange("UNSAVED");
+      return false;
+    }
 
     // Execute after-save hooks (side effects only)
     await executeChaiHooks(
@@ -274,5 +313,13 @@ export const useSavePage = () => {
     return true;
   };
 
-  return { savePage, savePageAsync, saveState, setSaveState, needTranslations };
+  return {
+    savePage,
+    savePageAsync,
+    saveState,
+    setSaveState,
+    needTranslations,
+    getUntranslatedBlocks,
+    arePartialsLoading,
+  };
 };

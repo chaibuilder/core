@@ -1,5 +1,6 @@
 import { z } from "zod";
-import { getConfigPageTypes, serializePageTypesForClient, type SerializedPageType } from "~/server/defaults";
+import { getConfigPageTypes } from "~/server/defaults/config-registry";
+import { serializePageTypesForClient, type SerializedPageType } from "~/server/defaults/serialize-page-types";
 import { ChaiBaseAction } from "../base-action";
 
 type GetPageTypesActionData = Record<string, never>;

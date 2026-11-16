@@ -4,11 +4,10 @@ import { UseMutateFunction } from "@tanstack/react-query";
 import { isEmpty } from "lodash-es";
 import { AlertTriangle, Link, Upload } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useDropzone } from "react-dropzone";
+import { useDropzone, type FileRejection } from "react-dropzone";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { mergeClasses } from "~/builder/core/main";
-import { compressImageIfNeeded } from "~/builder/pages/utils/image-compression";
 import Tooltip from "~/builder/pages/utils/tooltip";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -24,13 +23,8 @@ import {
 } from "~/constants/ASSET_TYPES";
 import { Loading } from "../../../components/ui/loader";
 import type { Asset } from "./types";
+import { BASE64_PATH_MAX_SIZE, isSvgFile, readFilesAsDataUrls, toStreamUpload } from "./upload-files";
 import { useDownloadSearchImage } from "./use-download-image";
-
-/**
- * SVGs still cross the JSON action endpoint, which sits under nginx's *global*
- * `client_max_body_size 25m` — so their ceiling is this, not the streamed one.
- */
-const BASE64_PATH_MAX_SIZE = 25 * 1024 * 1024;
 
 /**
  * Known image file extensions used for client-side validation.
@@ -101,44 +95,6 @@ export type UploaderProps = {
   onUploaded: (asset: Asset) => void;
 };
 
-const isSvgFile = (file: File) => file.type === "image/svg+xml";
-
-/** Base64 payloads for the SVG path — unchanged from how this always worked. */
-const readFilesAsDataUrls = (files: File[], optimize: boolean) =>
-  Promise.all(
-    files.map(
-      (file) =>
-        new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(file);
-          reader.onload = () =>
-            resolve({ file: reader.result as string, folderId: undefined, name: file.name, optimize });
-          reader.onerror = () => reject(null);
-        }),
-    ),
-  );
-
-/**
- * Measures the file and hands back the blob itself — never a base64 string. Dimensions
- * are read from the *processed* blob, and its `type` is what gets sent, because
- * compression can change the format.
- */
-const toStreamUpload = async (file: File, optimize: boolean) => {
-  const processedFile: File | Blob = optimize ? await compressImageIfNeeded(file) : file;
-
-  let width: number | undefined;
-  let height: number | undefined;
-  try {
-    const bitmap = await createImageBitmap(processedFile);
-    width = bitmap.width;
-    height = bitmap.height;
-    bitmap.close();
-  } catch {
-    // Dimensions are optional metadata; a failure here must not fail the upload.
-  }
-
-  return { file: processedFile, name: file.name, folderId: undefined, width, height };
-};
 
 // ── Sub-component: loading state ────────────────────────────────────────
 const UploadingIndicator = ({
@@ -447,9 +403,10 @@ export const Uploader = ({
    * user a pointless upload.
    *
    */
-  const onDropWithValidation = (files: File[]) => {
+  const onDropWithValidation = (files: File[], fileRejections: FileRejection[]) => {
     const valid: File[] = [];
-    const rejected: string[] = [];
+    // Files the dropzone's `accept` already refused by extension; without this a HEIC drop is silent.
+    const rejected = fileRejections.map(({ file }) => t('"{{name}}" is not an accepted file type.', { name: file.name }));
 
     files.forEach((file) => {
       const category = categoryFromExtension(file.name);

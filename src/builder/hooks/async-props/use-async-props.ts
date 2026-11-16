@@ -3,7 +3,7 @@ import { COLLECTION_ITEM_TYPE } from "~/constants/BLOCK_TYPES";
 import { COLLECTION_PREFIX } from "~/constants/STRINGS";
 
 import { atom, useAtom, useSetAtom } from "jotai";
-import { get, isEmpty, isFunction, omit, pick, startsWith, values } from "lodash-es";
+import { get, isEmpty, isFunction, isString, omit, pick, startsWith, values } from "lodash-es";
 import { useEffect, useRef, useState } from "react";
 import { ChaiBlock } from "~/types/common";
 import { useUpdateBlocksPropsRealtime } from "../use-update-blocks-props";
@@ -31,6 +31,14 @@ type BlockAsyncProps = {
 };
 
 type BlockRepeaterDataAtom = Record<string, BlockAsyncProps>;
+
+// A drop remounts the whole canvas (canvasRenderKeyAtom), so keep the last live result
+// per block to reuse when it remounts with the same deps instead of refetching.
+const liveAsyncPropsCache = new Map<string, { depsString: string; provider: unknown; props: Record<string, any> }>();
+
+// Data providers swallow fetch errors into empty values, so an all-empty result is not cached.
+const hasAnyData = (props: Record<string, any>) =>
+  values(props).some((value) => value != null && !((typeof value === "object" || isString(value)) && isEmpty(value)));
 
 export const blockRepeaterDataAtom = atom<BlockRepeaterDataAtom>({});
 blockRepeaterDataAtom.debugLabel = "blockRepeaterDataAtom";
@@ -62,11 +70,15 @@ export const useAsyncProps = (
     (dataProviderMode === "live" &&
       ((isCollectionRepeater && !collectionItemHasNoFind) || isCustomBlockDataProvider));
 
-  const [asyncProps, setAsyncProps] = useState<BlockAsyncProps>({
-    status: shouldFetchData ? "loading" : "idle",
-    props: {},
-    error: undefined,
-  });
+  const cachedLive = isCustomBlockDataProvider ? liveAsyncPropsCache.get(block?._id) : undefined;
+  const cachedLiveProps =
+    cachedLive?.depsString === depsString && cachedLive.provider === getAsyncBlockProps ? cachedLive.props : undefined;
+
+  const [asyncProps, setAsyncProps] = useState<BlockAsyncProps>(() =>
+    cachedLiveProps
+      ? { status: "loaded", props: cachedLiveProps }
+      : { status: shouldFetchData ? "loading" : "idle", props: {}, error: undefined },
+  );
 
   const blockRef = useRef(block);
   useEffect(() => {
@@ -79,7 +91,7 @@ export const useAsyncProps = (
   }, [updateRuntimeProps]);
 
   useEffect(() => {
-    if (!shouldFetchData) return;
+    if (!shouldFetchData || cachedLiveProps) return;
 
     // Cancelled covers the request already in flight when the deps change again:
     // its response is stale and must not overwrite the newer one.
@@ -128,10 +140,15 @@ export const useAsyncProps = (
               setAsyncProps({ status: "loaded", props: {} });
             }
           } else {
-            setAsyncProps({
-              status: "loaded",
-              props: isObject(props) ? props : {},
-            });
+            const loadedProps = isObject(props) ? props : {};
+            if (isCustomBlockDataProvider && hasAnyData(loadedProps)) {
+              liveAsyncPropsCache.set(blockRef.current._id, {
+                depsString,
+                provider: getAsyncBlockProps,
+                props: loadedProps,
+              });
+            }
+            setAsyncProps({ status: "loaded", props: loadedProps });
           }
         })
         .catch((error) => {
@@ -163,6 +180,7 @@ export const useAsyncProps = (
   }, [
     depsString,
     shouldFetchData,
+    cachedLiveProps,
     isCollectionRepeater,
     isCustomBlockDataProvider,
     mockDataProvider,

@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
+import { getAppFields } from "~/server/chai-actions/apps/app-store";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { ActionError } from "../action-error";
 import { ChaiBaseAction } from "../base-action";
@@ -29,12 +30,7 @@ export class GetAiContextAction extends ChaiBaseAction<GetAiContextActionData, G
     const { appId } = this.context;
 
     // 1. Get App level AI context
-    const { data: appData, error: appError } = await safeQuery(() =>
-      db.query.apps.findFirst({
-        where: eq(schema.apps.id, appId),
-        columns: { ai: true },
-      }),
-    );
+    const { data: appData, error: appError } = await getAppFields(appId, ["ai"]);
 
     if (appError) {
       console.error("Error fetching app AI context:", appError);

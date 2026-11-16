@@ -1,9 +1,9 @@
 import { atom, Atom, Provider, useAtom, useAtomValue } from "jotai";
 import { splitAtom } from "jotai/utils";
-import { get, isArray, isEmpty, isNull, isString, noop } from "lodash-es";
+import { get, isArray, isEmpty, isNull, isString, startCase } from "lodash-es";
 import React, { createContext, createElement, memo, Suspense, useCallback, useContext, useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
-import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
 import { blockChildrenMapAtom, pageBlocksAtomsAtom } from "~/builder/atoms/blocks";
 import { usePageExternalData } from "~/builder/atoms/builder";
 import { builderStore } from "~/builder/atoms/store";
@@ -23,12 +23,12 @@ import {
   ChaiBlockChildrenMap,
   ChaiBlockStructureEntry,
 } from "~/builder/core/functions/blocks-fn";
-import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useEditorMode } from "~/builder/hooks/use-editor-mode";
 import { useInlineEditing } from "~/builder/hooks/use-inline-editing";
 import { useLanguages } from "~/builder/hooks/use-languages";
+import { useOpenPartialBlock } from "~/builder/hooks/use-open-partial-block";
 import { partialBlocksListAtom, usePartialBlocksStore } from "~/builder/hooks/use-partial-blocks-store";
-import { useSavePage } from "~/builder/hooks/use-save-page";
 import { useGetBlockAtom } from "~/builder/hooks/use-update-block-atom";
 import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
 import { getRegisteredChaiBlock, resolveChaiBlockComponent } from "~/registry";
@@ -40,6 +40,7 @@ import { adjustSpacingInBlock } from "./adjust-spacing-in-blocks";
 import { MayBeAsyncPropsWrapper } from "./async-props-wrapper";
 import { ErrorFallback } from "./error-fallback";
 import WithBlockTextEditor from "./with-block-text-editor";
+import { getBlockSlots, matchesBlockSlot } from "~/render/block-slots";
 
 export const RepeaterContext = createContext<{
   index: number;
@@ -106,10 +107,12 @@ const CORE_BLOCKS = [
 const BlockRenderer = ({
   asyncProps,
   block,
+  slotProps,
   children,
 }: {
   block: ChaiBlock;
   asyncProps: Record<string, any>;
+  slotProps?: Record<string, React.ReactNode>;
   children: ({
     _id,
     _type,
@@ -158,7 +161,11 @@ const BlockRenderer = ({
     [block, selectedLang, fallbackLang, registeredChaiBlock, pageExternalData, dataBindingActive, index, key, itemKey],
   );
 
-  const blockAttributesProps = useMemo(() => getBlockTagAttributes(block, true, designTokens), [block, designTokens]);
+  // Bound attributes follow the canvas's data-binding toggle, like the props do.
+  const blockAttributesProps = useMemo(
+    () => getBlockTagAttributes(dataBindingProps, true, designTokens),
+    [dataBindingProps, designTokens],
+  );
   const mergedDesignTokens = useMemo(() => mergeDesignTokens(designTokens), [designTokens]);
 
   // Only subscribe to presentBlocksAtom if block has runtime props
@@ -218,13 +225,15 @@ const BlockRenderer = ({
       blockProps,
       inBuilder: mode === "edit",
       inPartialBlock,
-      lang: selectedLang || fallbackLang,
       pageData: pageExternalData,
       designTokens: mergedDesignTokens,
       ...dataBindingProps,
       ...blockAttributesProps,
       ...runtimeProps,
       ...asyncProps,
+      ...slotProps,
+      // After the block's props: a stale stored `lang` must never override the page's.
+      lang: selectedLang || fallbackLang,
     }),
     [
       blockProps,
@@ -238,6 +247,7 @@ const BlockRenderer = ({
       blockAttributesProps,
       runtimeProps,
       asyncProps,
+      slotProps,
     ],
   );
   const needErrorBoundary = useMemo(() => !CORE_BLOCKS.includes(block._type), [block._type]);
@@ -288,31 +298,17 @@ const BlockRenderer = ({
 };
 
 const PartialWrapper = ({ children, partialBlockId }: { children: React.ReactNode; partialBlockId: string }) => {
-  const gotoPage = useBuilderProp("gotoPage", noop);
-  const { saveState, savePageAsync } = useSavePage();
-  const { selectedLang, fallbackLang } = useLanguages();
   const partialBlocksList = useAtomValue(partialBlocksListAtom);
   const partialName = get(partialBlocksList, [partialBlockId, "name"], "");
+  const { t } = useTranslation();
+  const { singular } = usePartialTypeLabel();
+  const openPartialBlock = useOpenPartialBlock(partialBlockId);
   const onDoubleClick = useCallback(
-    async (e: any) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
-      // Navigating into a partial/global requires the current page to be
-      // persisted first, otherwise the destination loads stale blocks.
-      if (saveState === "SAVING") {
-        return;
-      }
-      if (saveState === "UNSAVED") {
-        try {
-          await savePageAsync();
-        } catch (error) {
-          console.error("Failed to save page before opening partial block", error);
-          toast.error("Could not save the page. Please try again.");
-          return;
-        }
-      }
-      gotoPage({ pageId: partialBlockId, lang: selectedLang || fallbackLang });
+      await openPartialBlock();
     },
-    [saveState, savePageAsync, gotoPage, partialBlockId, selectedLang, fallbackLang],
+    [openPartialBlock],
   );
   return (
     <>
@@ -323,12 +319,25 @@ const PartialWrapper = ({ children, partialBlockId }: { children: React.ReactNod
           className="bg-background/10 flex h-full w-full items-center justify-center opacity-0 transition-opacity duration-300 ease-in-out group-hover:opacity-100 group-hover:backdrop-opacity-85">
           <p className="rounded-md bg-white px-2 py-1 text-xs">
             {partialName
-              ? `${partialName} — Partial block. Double click to edit.`
-              : "Partial block. Double click to edit."}
+              ? t("{{name}} — {{type}}. Double click to edit.", { name: partialName, type: singular })
+              : t("{{type}}. Double click to edit.", { type: singular })}
           </p>
         </div>
       </div>
     </>
+  );
+};
+
+// Frosted glass over whatever sits behind an empty slot, with a hint like the partial overlay's.
+const ChaiSlotPlaceholder = ({ name }: { name: string }) => {
+  const { t } = useTranslation();
+  return (
+    <div className="flex min-h-24 items-center justify-center rounded-2xl bg-white/20 p-4 shadow-lg ring-1 ring-inset ring-white/40 backdrop-blur-lg backdrop-saturate-100">
+      <p className="flex items-center gap-2 rounded-md bg-white px-2 py-1 text-sm">
+        <span className="font-bold">{name}</span>
+        <span>{t("Add blocks inside or hide the area.")}</span>
+      </p>
+    </div>
   );
 };
 
@@ -395,10 +404,27 @@ const BlockSubtreeInner = ({
     [rawBlock, contentSpacing],
   );
   const hasChildren = structure?.childrenMap.has(block._id) ?? false;
+  const blockSlots = getBlockSlots(structure?.childrenMap.get(block._id) ?? EMPTY_CHILDREN).join(",");
+  const isEmptySlot = block._type === "ChaiSlot" && !hasChildren;
+  // Keyed children render once each into their own prop on the parent.
+  const slotProps = useMemo(
+    () => ({
+      ...Object.fromEntries(
+        (blockSlots ? blockSlots.split(",") : []).map((key) => [
+          key,
+          <BlocksRenderer key={key} parent={block._id} type={block._type} blockSlot={key} />,
+        ]),
+      ),
+      ...(isEmptySlot && {
+        placeholder: <ChaiSlotPlaceholder name={block._name || startCase(block._slot) || "Area"} />,
+      }),
+    }),
+    [blockSlots, block._id, block._type, isEmptySlot, block._name, block._slot],
+  );
   return (
     <MayBeAsyncPropsWrapper block={block}>
       {(asyncProps) => (
-        <BlockRenderer block={block} asyncProps={asyncProps}>
+        <BlockRenderer block={block} asyncProps={asyncProps} slotProps={slotProps}>
           {({ _id, _type, partialBlockId, repeaterItems, $repeaterItemsKey }) => {
             return _type === "Repeater" ? (
               // Check the builder-only preview toggle BEFORE the array guard:
@@ -444,13 +470,19 @@ const BlocksRenderer = ({
   parent = null,
   type = "",
   repeaterSlot,
+  blockSlot,
 }: {
   parent?: string | null;
   type?: string;
   repeaterSlot?: "emptyState" | "items";
+  blockSlot?: string;
 }) => {
   const structure = useContext(BlocksStructureContext);
-  const allChildBlocks = structure?.childrenMap.get(parent || null) ?? EMPTY_CHILDREN;
+  const parentChildren = structure?.childrenMap.get(parent || null) ?? EMPTY_CHILDREN;
+  const allChildBlocks = useMemo(
+    () => parentChildren.filter((child) => matchesBlockSlot(child, blockSlot)),
+    [parentChildren, blockSlot],
+  );
   // A Repeater splits its children into two slots: the per-row "items" slot
   // (everything except the Empty State) and the "emptyState" slot (only the
   // RepeaterEmptyState child). Non-repeater parents pass no slot → render all.

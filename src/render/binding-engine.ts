@@ -262,7 +262,9 @@ export const resolveBindingVisibility = (
 ): boolean => {
   if (typeof value === "boolean") return value;
   if (typeof value !== "string") return false;
-  const expression = value.startsWith("{{") && value.endsWith("}}") ? value.slice(2, -2).trim() : value.trim();
+  // Authored `_show` can carry whitespace around the braces (" {{a}} ").
+  const trimmed = value.trim();
+  const expression = trimmed.startsWith("{{") && trimmed.endsWith("}}") ? trimmed.slice(2, -2).trim() : trimmed;
   const result = evaluateVisibilityExpression(expression, data, options);
   if (!result.ok) {
     warnPipeEvaluation(expression, `visibility binding could not be evaluated: ${result.reason}`);

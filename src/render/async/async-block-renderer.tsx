@@ -12,6 +12,7 @@ import { resolveBindingVisibility } from "~/render/binding-engine";
 import { getRuntimePropValues, RenderChaiBlocksProps } from "~/render/render-chai-blocks-sdk";
 import { ChaiBlockConfig } from "~/types/blocks";
 import { ChaiBlock } from "~/types/common";
+import { ROOT_BLOCK_PROPS } from "~/utils/site-layout-css";
 import AsyncDataProviderPropsBlock from "./async-props-block";
 
 const SuspenseFallback = () => <div></div>;
@@ -60,7 +61,9 @@ export const AsyncRenderBlock = async (
     externalData ?? {},
     { index, key: dataKey, locale: bindingLocale, itemKey },
   );
-  const blockAttributesProps = getBlockTagAttributes(block, false);
+  // From the bound block, so `{{…}}` in authored attributes (aria-label, title,
+  // alt…) resolves like text content; React escapes attribute values itself.
+  const blockAttributesProps = getBlockTagAttributes(blockWithBinding, false);
   const runtimeProps = getRuntimePropValues(blocks, block._id, getBlockRuntimeProps(block._type));
   const hasDataProvider = has(registeredChaiBlock, "dataProvider") && isFunction(registeredChaiBlock.dataProvider);
 
@@ -71,13 +74,14 @@ export const AsyncRenderBlock = async (
   };
 
   const blockProps = {
-    blockProps: {},
+    blockProps: block._parent ? {} : ROOT_BLOCK_PROPS,
     inBuilder: false,
-    lang: lang || fallbackLang || "en",
     draft: draft ?? false,
     pageData: externalData ?? {},
     pageProps,
     ...newBlock,
+    // After the block's props: a stale stored `lang` must never override the page's.
+    lang: lang || fallbackLang || "en",
   };
   const isShown = resolveBindingVisibility(get(newBlock, "_show", true), externalData ?? {}, {
     index,

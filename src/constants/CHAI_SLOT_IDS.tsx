@@ -3,6 +3,8 @@ export const CHAI_SLOT_IDS = {
   TOPBAR_LEFT: "topbar-left",
   TOPBAR_CENTER: "topbar-center",
   TOPBAR_RIGHT: "topbar-right",
+  // Start of the right group, before Theme / Preview / Save / Publish (TOPBAR_RIGHT renders after them)
+  TOPBAR_RIGHT_START: "topbar-right-start",
 
   // Component Replacement Slots
   MEDIA_MANAGER: "media-manager",
@@ -33,6 +35,13 @@ export const CHAI_SLOT_IDS = {
   SETTINGS_FIELD_ACTIONS: "settings-field-actions",
   // Action entries in the theme panel header (next to import theme)
   THEME_PANEL_ACTIONS: "theme-panel-actions",
+  // History entry in the action bar of each Theme and Design Tokens panel tab;
+  // context carries { scope: "theme" | "designTokens" } — whose history it opens
+  GLOBAL_STYLES_HISTORY: "global-styles-history",
+  // Actions stacked under Save in the theme panel's bottom bar (e.g. publish theme)
+  THEME_PANEL_FOOTER: "theme-panel-footer",
+  // Bottom of the Global styles panel's design tokens tab (e.g. unpublished changes + publish)
+  DESIGN_TOKENS_PANEL_FOOTER: "design-tokens-panel-footer",
   // Language switcher (topbar + SEO panel); registered by the multilingual plugin
   LANGUAGE_SWITCHER: "language-switcher",
   // Rendered after the block attributes accordion in block settings

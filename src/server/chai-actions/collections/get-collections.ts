@@ -1,7 +1,7 @@
 import { omit } from "lodash-es";
 import { z } from "zod";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
-import { getConfigCollections } from "~/server/defaults";
+import { getConfigCollections } from "~/server/defaults/config-registry";
 
 type GetCollectionsActionData = Record<string, never>;
 

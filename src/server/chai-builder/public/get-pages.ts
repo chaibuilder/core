@@ -1,5 +1,6 @@
 import { and, desc, eq, isNull, ne } from "drizzle-orm";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
+import { getFallbackLang } from "../internal/init";
 import { verifyInit } from "../state";
 import { withRequestCache } from "./cache-utils";
 
@@ -82,5 +83,5 @@ export async function getPages(mode: "live" | "draft", options?: GetPagesOptions
   const { fields = ["id", "slug", "updatedAt", "name", "lang"] } = options || {};
 
   const cachedFetchPages = withRequestCache(fetchPages);
-  return cachedFetchPages(state.appId!, mode, fields, state.fallbackLang);
+  return cachedFetchPages(state.appId!, mode, fields, await getFallbackLang());
 }

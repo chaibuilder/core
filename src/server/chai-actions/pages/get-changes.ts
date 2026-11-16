@@ -1,5 +1,6 @@
 import { and, eq, isNotNull, isNull } from "drizzle-orm";
 import { z } from "zod";
+import { getAppFields } from "~/server/chai-actions/apps/app-store";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { ActionError } from "../action-error";
 import { ChaiBaseAction } from "../base-action";
@@ -84,7 +85,14 @@ export class GetChangesAction extends ChaiBaseAction<GetChangesActionData, GetCh
           currentEditor: schema.appPages.currentEditor,
         })
         .from(schema.appPages)
-        .where(and(eq(schema.appPages.app, this.appId), isNotNull(schema.appPages.changes))),
+        .where(
+          and(
+            eq(schema.appPages.app, this.appId),
+            isNotNull(schema.appPages.changes),
+            // Trashed pages stay out of the publish list: publishing one puts it back online.
+            isNull(schema.appPages.deletedAt),
+          ),
+        ),
     );
 
     if (changedPagesError) {
@@ -110,6 +118,7 @@ export class GetChangesAction extends ChaiBaseAction<GetChangesActionData, GetCh
             eq(schema.appPages.app, this.appId),
             isNull(schema.appPages.currentEditor),
             eq(schema.appPages.online, false),
+            isNull(schema.appPages.deletedAt),
           ),
         ),
     );
@@ -137,17 +146,10 @@ export class GetChangesAction extends ChaiBaseAction<GetChangesActionData, GetCh
     ];
 
     // Check for theme changes in the apps table
-    const { data: apps, error: appsError } = await safeQuery(() =>
-      db
-        .select({
-          changes: schema.apps.changes,
-        })
-        .from(schema.apps)
-        .where(and(eq(schema.apps.id, this.appId), isNotNull(schema.apps.changes))),
-    );
+    const { data: app, error: appsError } = await getAppFields(this.appId, ["changes"]);
 
-    if (!appsError && apps && apps.length > 0) {
-      const appChanges = (apps[0].changes ?? []) as string[];
+    if (!appsError && app?.changes) {
+      const appChanges = app.changes as string[];
       if (appChanges.includes("THEME")) {
         mergedPages.push({
           id: "THEME",

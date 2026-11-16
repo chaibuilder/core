@@ -21,7 +21,7 @@ import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
 import { Button } from "~/components/ui/button";
 import { ChaiBlock } from "~/types/common";
 import { AIModel, useAIConfig, useAIModels } from "./ai-models-context";
-import { extractJsonFromResponse, getHumanReadableError, Message } from "./ai-panel-helper";
+import { extractJsonFromResponse, getHumanReadableError, Message, normalizeAiBlocksResponse } from "./ai-panel-helper";
 import { getDefaultModel } from "./models";
 import { ModelSelectorDropdown } from "./model-selector-dropdown";
 import { LANGUAGE_CONTENT_ACTIONS, getTranslationUserPrompt } from "./prompt-helper";
@@ -182,12 +182,15 @@ const AiPanelForOtherLang = ({
         accumulatedText += chunk;
       }
 
-      const blocks = extractJsonFromResponse(accumulatedText);
+      const blocks = normalizeAiBlocksResponse(extractJsonFromResponse(accumulatedText), selectedLang);
+      if (blocks.length === 0) {
+        throw new Error("Invalid AI response: no valid block updates were returned.");
+      }
       await updateBlocksWithStream(blocks);
 
       // Persist the translated content once the AI action settles, mirroring the
       // page-chat panel. Only save when the run actually updated blocks.
-      if (Array.isArray(blocks) && blocks.length > 0) {
+      if (blocks.length > 0) {
         savePageAsync(true).catch(() => {});
       }
 

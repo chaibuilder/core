@@ -1,5 +1,5 @@
 import { startsWith } from "lodash-es";
-import { getResolvedPageType } from "~/server/defaults";
+import { getResolvedPageType } from "~/server/defaults/config-registry";
 import { getInitializedState } from "../state";
 import { withRequestCache } from "./cache-utils";
 import { resolvePageSlug } from "./get-page-slug-by-id";

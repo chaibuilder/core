@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { cache, useMemo } from "react";
 
 /**
  * Stable `dangerouslySetInnerHTML` value for a given HTML string.
@@ -14,9 +14,15 @@ import { useMemo } from "react";
  * Safe in shared server/client blocks: the RSC (Flight) hooks dispatcher implements
  * `useMemo` (it simply evaluates the factory).
  */
+// Request-scoped on the server: identical strings (repeated icons, duplicated
+// partial content) share ONE object, so the RSC flight serialises repeats as
+// `$ref`s instead of copying the markup. On the client `cache` is a passthrough
+// and `useMemo` alone keeps the per-instance identity stable.
+const shared = cache((value: string): { __html: string } => ({ __html: value }));
+
 export const useInnerHtml = (html: string | null | undefined): { __html: string } => {
   // Normalize BEFORE memoizing so null/undefined/"" share one identity — otherwise a
   // source flipping between null and undefined would still yield a new object.
   const value = html ?? "";
-  return useMemo(() => ({ __html: value }), [value]);
+  return useMemo(() => shared(value), [value]);
 };

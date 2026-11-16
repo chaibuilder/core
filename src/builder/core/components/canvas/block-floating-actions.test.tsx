@@ -3,7 +3,7 @@
  */
 import { act, renderHook } from "@testing-library/react";
 import { useAtom, useSetAtom } from "jotai";
-import { CoreTestProvider } from "~/builder/core/__tests__/test-utils";
+import { BuilderStoreProvider } from "~/tests/builder/render-in-builder";
 import { canDeleteBlock, canDuplicateBlock } from "~/builder/core/functions/block-helpers";
 import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
 import { selectedStylingBlocksAtom } from "~/builder/hooks/use-selected-styling-blocks";
@@ -17,7 +17,7 @@ describe("Block Floating Actions Hooks", () => {
           const [selectedIds, setSelectedIds] = useAtom(selectedBlockIdsAtom);
           return { selectedIds, setSelectedIds };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       expect(result.current.selectedIds).toEqual([]);
@@ -35,7 +35,7 @@ describe("Block Floating Actions Hooks", () => {
           const [selectedIds, setSelectedIds] = useAtom(selectedBlockIdsAtom);
           return { selectedIds, setSelectedIds };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -52,7 +52,7 @@ describe("Block Floating Actions Hooks", () => {
           const [selectedIds, setSelectedIds] = useAtom(selectedBlockIdsAtom);
           return { selectedIds, setSelectedIds };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -76,7 +76,7 @@ describe("Block Floating Actions Hooks", () => {
           const [stylingBlocks, setStylingBlocks] = useAtom(selectedStylingBlocksAtom);
           return { stylingBlocks, setStylingBlocks };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       expect(result.current.stylingBlocks).toEqual([]);
@@ -110,7 +110,7 @@ describe("Block Floating Actions Hooks", () => {
             handleParentSelect,
           };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -140,7 +140,7 @@ describe("Block Floating Actions Hooks", () => {
             handleParentSelect,
           };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -169,7 +169,7 @@ describe("Block Floating Actions Hooks", () => {
 
           return { handleMouseEnter };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       expect(result.current.handleMouseEnter).toBeInstanceOf(Function);
@@ -182,27 +182,27 @@ describe("Block Floating Actions Hooks", () => {
 
   describe("Block Capability Checks", () => {
     it("should default to allowing deletion for standard blocks", () => {
-      expect(canDeleteBlock("Box")).toBe(true);
-      expect(canDeleteBlock("Text")).toBe(true);
-      expect(canDeleteBlock("Image")).toBe(true);
+      expect(canDeleteBlock({ _type: "Box" })).toBe(true);
+      expect(canDeleteBlock({ _type: "Text" })).toBe(true);
+      expect(canDeleteBlock({ _type: "Image" })).toBe(true);
     });
 
     it("should default to allowing duplication for standard blocks", () => {
-      expect(canDuplicateBlock("Box")).toBe(true);
-      expect(canDuplicateBlock("Text")).toBe(true);
-      expect(canDuplicateBlock("Image")).toBe(true);
+      expect(canDuplicateBlock({ _type: "Box" })).toBe(true);
+      expect(canDuplicateBlock({ _type: "Text" })).toBe(true);
+      expect(canDuplicateBlock({ _type: "Image" })).toBe(true);
     });
 
     it("should handle unregistered block types gracefully", () => {
-      expect(canDeleteBlock("UnknownBlock")).toBe(true);
-      expect(canDuplicateBlock("UnknownBlock")).toBe(true);
+      expect(canDeleteBlock({ _type: "UnknownBlock" })).toBe(true);
+      expect(canDuplicateBlock({ _type: "UnknownBlock" })).toBe(true);
     });
 
     it("should be callable with any block type string", () => {
       const blockTypes = ["Box", "Text", "Image", "Button", "Link"];
       blockTypes.forEach((type) => {
-        expect(typeof canDeleteBlock(type)).toBe("boolean");
-        expect(typeof canDuplicateBlock(type)).toBe("boolean");
+        expect(typeof canDeleteBlock({ _type: type })).toBe("boolean");
+        expect(typeof canDuplicateBlock({ _type: type })).toBe("boolean");
       });
     });
   });
@@ -272,7 +272,7 @@ describe("Block Floating Actions Hooks", () => {
             handleDragEnd,
           };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       expect(result.current.isDragging).toEqual([]);

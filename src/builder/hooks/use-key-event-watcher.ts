@@ -3,6 +3,7 @@ import { useCallback } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
 import { undoManager, useUndoManager } from "~/builder/hooks/history/use-undo-manager";
 import { useBlockKeyboardCommands } from "~/builder/hooks/use-block-keyboard-commands";
+import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
 import { isTextEntryTarget } from "~/builder/hooks/keyboard-target";
 import { useSavePage } from "~/builder/hooks/use-save-page";
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
@@ -30,6 +31,7 @@ export const useKeyEventWatcher = (doc?: Document) => {
   const commands = useBlockKeyboardCommands();
   const { undo, redo } = useUndoManager();
   const { savePage } = useSavePage();
+  const readOnly = useReadOnlyMode() !== null;
 
   const getOptions = useCallback(
     ({
@@ -37,11 +39,14 @@ export const useKeyEventWatcher = (doc?: Document) => {
       preventDefault,
       ignoreTextEntry = true,
       enableOnContentEditable = false,
+      readOnlySafe = false,
     }: {
       checkForEnabled?: boolean;
       preventDefault?: boolean;
       ignoreTextEntry?: boolean;
       enableOnContentEditable?: boolean;
+      /** Stays on for a view-only page: it changes nothing there. */
+      readOnlySafe?: boolean;
     }) => {
       const options: {
         document?: Document;
@@ -65,10 +70,12 @@ export const useKeyEventWatcher = (doc?: Document) => {
 
       if (doc) options.document = doc;
       if (checkForEnabled) options.enabled = !isEmpty(ids);
+      // A view-only page takes no edits: no undo, cut, paste, delete or duplicate.
+      if (readOnly && !readOnlySafe) options.enabled = false;
       if (preventDefault) options.preventDefault = true;
       return options;
     },
-    [doc, ids],
+    [doc, ids, readOnly],
   );
 
   useHotkeys(
@@ -143,6 +150,7 @@ export const useKeyEventWatcher = (doc?: Document) => {
       preventDefault: false,
       ignoreTextEntry: false,
       enableOnContentEditable: true,
+      readOnlySafe: true,
     }),
     [doc, setIds],
   );
@@ -170,7 +178,13 @@ export const useKeyEventWatcher = (doc?: Document) => {
     () => {
       savePage();
     },
-    getOptions({ checkForEnabled: false, preventDefault: true, ignoreTextEntry: false, enableOnContentEditable: true }),
+    getOptions({
+      checkForEnabled: false,
+      preventDefault: true,
+      ignoreTextEntry: false,
+      enableOnContentEditable: true,
+      readOnlySafe: true,
+    }),
     [doc, savePage],
   );
 };

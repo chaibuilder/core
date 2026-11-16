@@ -1,5 +1,5 @@
-import { useThrottledCallback } from "@react-hookz/web";
-import { useEffect, useState } from "react";
+import { debounce } from "lodash-es";
+import { useEffect, useMemo, useState } from "react";
 import { Slider } from "~/components/ui/slider";
 
 type BorderRadiusInputProps = {
@@ -10,12 +10,16 @@ type BorderRadiusInputProps = {
 
 const BorderRadiusInput = ({ value, onChange, disabled }: BorderRadiusInputProps) => {
   const [_value, _setValue] = useState(value);
+  const debouncedChange = useMemo(() => debounce(onChange, 150), [onChange]);
+
+  useEffect(() => () => debouncedChange.cancel(), [debouncedChange]);
 
   useEffect(() => {
+    // Presets, number input edits and discard must supersede pending slider edits.
+    debouncedChange.cancel();
     _setValue(value);
-  }, [value]);
+  }, [value, debouncedChange]);
 
-  const throttledChange = useThrottledCallback(onChange, [value], 200, true);
   return (
     <Slider
       min={0}
@@ -25,7 +29,11 @@ const BorderRadiusInput = ({ value, onChange, disabled }: BorderRadiusInputProps
       value={[Number(_value.replace("px", "")) || 0]}
       onValueChange={(value) => {
         _setValue(value[0].toString() + "px");
-        throttledChange(value[0].toString());
+        debouncedChange(value[0].toString());
+      }}
+      onValueCommit={(value) => {
+        debouncedChange.cancel();
+        onChange(value[0].toString());
       }}
       className="flex-1 cursor-pointer"
     />

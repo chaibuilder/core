@@ -1,82 +1,71 @@
 /**
  * @vitest-environment happy-dom
  */
-import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  activePanel: "add-block" as string | null,
-  clearHighlight: vi.fn(),
-  publish: vi.fn(),
-  setActivePanel: vi.fn(),
-  setAtom: vi.fn(),
-  setPanelSwap: vi.fn(),
-  setSelectedBlockIds: vi.fn(),
-  setStyleBlocks: vi.fn(),
-}));
-
-vi.mock("jotai", () => ({ atom: (value: unknown) => value, useAtom: () => [null, mocks.setAtom] }));
-vi.mock("~/builder/core/pubsub", () => ({ pubsub: { publish: mocks.publish } }));
-vi.mock("~/builder/hooks/use-block-highlight", () => ({
-  useBlockHighlight: () => ({ clearHighlight: mocks.clearHighlight }),
-}));
-vi.mock("~/builder/hooks/use-selected-blockIds", () => ({
-  useSelectedBlockIds: () => [[], mocks.setSelectedBlockIds],
-}));
-vi.mock("~/builder/hooks/use-selected-styling-blocks", () => ({
-  useSelectedStylingBlocks: () => [[], mocks.setStyleBlocks],
-}));
-vi.mock("~/builder/hooks/use-sidebar-active-panel", () => ({
-  useSidebarActivePanel: () => [mocks.activePanel, mocks.setActivePanel],
-  useSidebarPanelSwap: () => [null, mocks.setPanelSwap],
-}));
-
+import { act } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  dragAndDropAtom,
+  dropIndicatorAtom,
+  setIsDragging,
+} from "~/builder/core/components/canvas/dnd/drag-and-drop/hooks/use-drag-and-drop";
+import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
+import { sidebarActivePanelAtom, sidebarPanelSwapAtom } from "~/builder/hooks/use-sidebar-active-panel";
+import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
 import { useBlockDragStart } from "./use-block-drag-start";
 
 const dragEvent = () => ({ dataTransfer: { effectAllowed: "", setData: vi.fn(), setDragImage: vi.fn() } }) as any;
 
+const renderDragStart = (activePanel: string | null = "add-block") =>
+  renderHookInBuilder(() => useBlockDragStart(), {
+    selectedBlockIds: ["block-1"],
+    seed: (s) => s.set(sidebarActivePanelAtom, activePanel),
+  });
+
 describe("useBlockDragStart", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.activePanel = "add-block";
+  afterEach(() => {
+    vi.useRealTimers();
+    setIsDragging(false);
   });
 
   it("shows Outline when a block is dragged from the Add panel", () => {
     vi.useFakeTimers();
-    const { result } = renderHook(() => useBlockDragStart());
+    const { result, store } = renderDragStart();
 
     act(() => result.current(dragEvent(), {} as any, true));
-    expect(mocks.setActivePanel).not.toHaveBeenCalled();
+    expect(store.get(sidebarActivePanelAtom)).toBe("add-block");
 
     act(() => vi.runAllTimers());
 
-    expect(mocks.setActivePanel).toHaveBeenCalledWith("outline");
-    vi.useRealTimers();
+    expect(store.get(sidebarActivePanelAtom)).toBe("outline");
   });
 
   it("starts the panel swap so Add Blocks slides out before Outline slides in", () => {
-    const { result } = renderHook(() => useBlockDragStart());
+    const { result, store } = renderDragStart();
 
     act(() => result.current(dragEvent(), {} as any, true));
 
-    expect(mocks.setPanelSwap).toHaveBeenCalledWith("add-block");
+    expect(store.get(sidebarPanelSwapAtom)).toBe("add-block");
+    expect(store.get(dragAndDropAtom)).toEqual({});
+    expect(store.get(selectedBlockIdsAtom)).toEqual([]);
+    expect(store.get(dropIndicatorAtom)).toMatchObject({ isVisible: true, targetBlockId: "canvas" });
   });
 
   it("does not swap panels when the drag starts outside the Add Blocks panel", () => {
-    mocks.activePanel = "images";
-    const { result } = renderHook(() => useBlockDragStart());
+    const { result, store } = renderDragStart("images");
 
     act(() => result.current(dragEvent(), {} as any, true));
 
-    expect(mocks.setPanelSwap).not.toHaveBeenCalled();
+    expect(store.get(sidebarPanelSwapAtom)).toBeNull();
   });
 
   it("keeps the active panel when moving an existing canvas block", () => {
-    const { result } = renderHook(() => useBlockDragStart());
+    vi.useFakeTimers();
+    const { result, store } = renderDragStart();
 
     act(() => result.current(dragEvent(), {} as any, false));
+    act(() => vi.runAllTimers());
 
-    expect(mocks.setActivePanel).not.toHaveBeenCalled();
-    expect(mocks.setPanelSwap).not.toHaveBeenCalled();
+    expect(store.get(sidebarActivePanelAtom)).toBe("add-block");
+    expect(store.get(sidebarPanelSwapAtom)).toBeNull();
   });
 });

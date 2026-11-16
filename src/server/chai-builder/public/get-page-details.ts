@@ -31,7 +31,12 @@ async function fetchPageDetailsQuery(appId: string, draftMode: boolean, pageId: 
       .limit(1),
   );
 
-  if (error || !data?.[0]) {
+  // A failed query must not read as a missing page (see fetchFullPage).
+  if (error) {
+    throw new Error("FAILED_TO_FETCH_PAGE_DETAILS", { cause: error });
+  }
+
+  if (!data?.[0]) {
     throw new Error("PAGE_NOT_FOUND");
   }
 

@@ -3,10 +3,13 @@ import { filter, groupBy } from "lodash-es";
 import { Fragment, type ReactNode, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { CoreBlock } from "~/builder/core/components/sidepanels/panels/add-blocks/core-block";
-import { BlockCard } from "~/builder/core/components/sidepanels/panels/add-blocks/libraries-panel";
+import {
+  BlockCard,
+  isRegisteredLibraryBlockDisabled,
+} from "~/builder/core/components/sidepanels/panels/add-blocks/libraries-panel";
 import { PartialBlockCard } from "~/builder/core/components/sidepanels/panels/add-blocks/partial-block-card";
 import {
-  canAcceptChildBlock,
+  canAcceptInto,
   canBeNestedInside,
   isBlockAvailableForPageType,
 } from "~/builder/core/functions/block-helpers";
@@ -16,6 +19,9 @@ import {
   useLibraryBlocks,
 } from "~/builder/hooks/use-library-blocks";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
+import { useFeatureLabel } from "~/builder/hooks/use-feature-label";
+import { useLibraryChaiBlocks } from "~/builder/hooks/use-library-chai-blocks";
 import {
   useCheckPartialCanAdd,
   usePartialBlocksList,
@@ -59,22 +65,27 @@ export const GlobalSearchResults = ({
   activeTab?: string;
 }) => {
   const { t } = useTranslation();
+  const libraryLabel = useFeatureLabel("library");
+  const blocksLabel = useFeatureLabel("blocks");
+  const { plural } = usePartialTypeLabel();
   const chaiBlocks = useRegisteredChaiBlocks();
   const { data: currentPage } = usePrimaryPage();
   const layoutPagesEnabled = useBuilderProp("flags.layoutPages", false);
   const dnd = useBuilderProp("flags.dragAndDrop", true);
   const [allBlocks] = useBlocksStore();
   const parentType = allBlocks.find((block) => block._id === parentId)?._type;
+  const partialBlocksEnabled = useBuilderProp("flags.partialBlocks", true);
   const { data: partialBlocksList } = usePartialBlocksList();
   const checkPartialCanAdd = useCheckPartialCanAdd();
   const libraries = useChaiLibraries();
+  const libraryChaiBlocks = useLibraryChaiBlocks();
   const [libraryBlocks] = useAtom(libraryBlocksAtom);
   const currentPageType = currentPage?.pageType || "page";
   const showPageSlot = layoutPagesEnabled && currentPageType === "_layout";
 
   const partialResults = useMemo(
     () =>
-      Object.entries(partialBlocksList || {})
+      Object.entries(partialBlocksEnabled ? partialBlocksList || {} : {})
         .map(([id, data]) => {
           const block = data as {
             name?: string;
@@ -103,7 +114,7 @@ export const GlobalSearchResults = ({
             ...block.tags,
           ]),
         ),
-    [checkPartialCanAdd, partialBlocksList, searchTerm],
+    [checkPartialCanAdd, partialBlocksEnabled, partialBlocksList, searchTerm],
   );
 
   const coreResults = useMemo(
@@ -118,6 +129,7 @@ export const GlobalSearchResults = ({
         .filter(
           (block) =>
             !block.hidden &&
+            !block.showInLibrary &&
             matchesGlobalSearch(searchTerm, [
               block.label,
               block.type,
@@ -129,8 +141,8 @@ export const GlobalSearchResults = ({
   );
 
   const libraryResults = useMemo(
-    () =>
-      libraries.flatMap((library) =>
+    () => [
+      ...libraries.flatMap((library) =>
         (libraryBlocks[library.id]?.blocks || [])
           .filter((block) =>
             matchesGlobalSearch(searchTerm, [
@@ -141,9 +153,15 @@ export const GlobalSearchResults = ({
               ...(block.tags || []),
             ]),
           )
-          .map((block) => ({ block, library })),
+          .map((block) => ({ key: `${library.id}-${block.id}`, block, library })),
       ),
-    [libraries, libraryBlocks, searchTerm],
+      ...libraryChaiBlocks
+        .filter((block) =>
+          matchesGlobalSearch(searchTerm, [block.label, block.type, block.description, block.group]),
+        )
+        .map((block) => ({ key: `chai-block-${block.type}`, block: block as any, library: undefined })),
+    ],
+    [libraries, libraryBlocks, libraryChaiBlocks, searchTerm],
   );
 
   const coreByGroup = useMemo(
@@ -161,7 +179,7 @@ export const GlobalSearchResults = ({
   const partialSection =
     partialResults.length > 0 ? (
       <section className="space-y-1">
-        <SectionHeading>{t("Global Blocks")}</SectionHeading>
+        <SectionHeading>{plural}</SectionHeading>
         <div className="space-y-2">
           {partialResults.map((block) => (
             <PartialBlockCard
@@ -179,14 +197,20 @@ export const GlobalSearchResults = ({
   const coreSection =
     coreResults.length > 0 ? (
       <section className="space-y-1">
-        <SectionHeading>{t("Blocks")}</SectionHeading>
+        <SectionHeading>{blocksLabel}</SectionHeading>
         {Object.entries(coreByGroup).map(([group, blocks]) => (
           <div key={group} className="space-y-2">
             <Label className="text-[11px] uppercase text-muted-foreground">{t(group)}</Label>
             <div className="grid grid-cols-2 gap-2">
               {blocks.map((block) => {
                 const disabled =
-                  !dnd && (!canAcceptChildBlock(parentType!, block.type) || !canBeNestedInside(parentType!, block.type));
+                  !dnd &&
+                  (!canAcceptInto(
+                    allBlocks.find((b) => b._id === parentId),
+                    block.type,
+                    allBlocks,
+                  ) ||
+                    !canBeNestedInside(parentType!, block.type));
                 return (
                   <CoreBlock key={block.type} block={block} parentId={parentId} position={position} disabled={disabled} />
                 );
@@ -200,15 +224,16 @@ export const GlobalSearchResults = ({
   const librarySection =
     libraryResults.length > 0 ? (
       <section className="space-y-1">
-        <SectionHeading>{t("Library")}</SectionHeading>
+        <SectionHeading>{libraryLabel}</SectionHeading>
         <div className="grid grid-cols-1 gap-2">
-          {libraryResults.map(({ block, library }) => (
+          {libraryResults.map(({ key, block, library }) => (
             <BlockCard
-              key={`${library.id}-${block.id}`}
+              key={key}
               block={block}
               library={library}
               parentId={parentId}
               position={position}
+              disabled={isRegisteredLibraryBlockDisabled(block, parentType, dnd)}
             />
           ))}
         </div>

@@ -17,6 +17,6 @@ describe("getFontFamily", () => {
   });
 
   it("emits valid CSS for an unregistered font", () => {
-    expect(getFontFamily("Unregistered Font")).toBe(`"Unregistered Font"`);
+    expect(getFontFamily("Unregistered Font")).toBe(`"Unregistered Font", ui-sans-serif, system-ui, sans-serif`);
   });
 });

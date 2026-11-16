@@ -1,39 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const { mockWhere } = vi.hoisted(() => ({
-  mockWhere: vi.fn(),
-}));
-
-vi.mock("~/server/chai-actions/db", () => ({
-  db: {
-    select: () => ({ from: () => ({ where: mockWhere }) }),
-  },
-  safeQuery: async (fn: () => Promise<unknown>) => {
-    try {
-      return { data: await fn(), error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
-  },
-  schema: {
-    appPages: {
-      id: "id",
-      name: "name",
-      metadata: "metadata",
-      pageType: "pageType",
-      partialBlocks: "partialBlocks",
-      app: "app",
-      slug: "slug",
-      lang: "lang",
-      deletedAt: "deletedAt",
-    },
-  },
-}));
-
-vi.mock("~/server/chai-builder/state", () => ({
-  getInitializedStateWithUser: () => ({ appId: "app-1" }),
-}));
-
+import { describe, expect, it } from "vitest";
+import { withTableUnavailable } from "~/tests/setup/db-faults";
+import { schema } from "~/tests/setup/test-db";
+import { withTestDB } from "~/tests/setup/transaction-manager";
 import { buildAiEditPageTools, extractBlockHtmlSlices, isValidAiBindingTemplate } from "./ai-edit-page-tools";
 
 const PAGE_HTML = `
@@ -112,28 +80,74 @@ describe("isValidAiBindingTemplate", () => {
   });
 });
 
+describe("get_pages_list", () => {
+  const ABOUT_ID = "11111111-1111-4111-8111-111111111111";
+
+  const getPagesList = (scopedBlockId?: string): Promise<any> =>
+    withTestDB(({ inRequest }) =>
+      inRequest(() => (buildAiEditPageTools({ pageHtml: "", scopedBlockId }) as any).get_pages_list.execute({})),
+    );
+
+  const seedPages = () =>
+    withTestDB(({ seedMany }) =>
+      seedMany("appPages", [
+        { id: ABOUT_ID, name: "About", slug: "/about", lang: "", pageType: "page" },
+        { id: "home", name: "Home", slug: "/", lang: "", pageType: "page" },
+        // Not linkable: a folder, a partial, a dynamic page, a language variant, a deleted page.
+        { id: "docs", name: "Docs", slug: "/docs", lang: "", pageType: "_folder" },
+        { id: "header", name: "Header", slug: "", lang: "", pageType: "global" },
+        { id: "products", name: "Product", slug: "/products", lang: "", pageType: "product", dynamic: true },
+        { id: "about-fr", name: "À propos", slug: "/fr/a-propos", lang: "fr", pageType: "page", primaryPage: ABOUT_ID },
+        { id: "old", name: "Old", slug: "/old", lang: "", pageType: "page", deletedAt: new Date().toISOString() },
+      ]),
+    );
+
+  it("lists routable primary pages with a ready-to-use linkRef", async () => {
+    await seedPages();
+    const result = await getPagesList();
+    expect(result.pages).toEqual([
+      { name: "Home", slug: "/", pageType: "page", linkRef: "pageType:page:home" },
+      { name: "About", slug: "/about", pageType: "page", linkRef: `pageType:page:${ABOUT_ID}` },
+    ]);
+    expect(result.note).toContain("linkRef");
+  });
+
+  it("is available to a block-scoped run", async () => {
+    await seedPages();
+    expect((await getPagesList("hero-1")).pages).toHaveLength(2);
+  });
+});
+
 describe("get_partial_blocks nesting filter", () => {
   // MAX_PARTIAL_DEPTH = 3. Chain mega -> layout -> header (partialBlocks columns
   // hold the closure); footer is an unused leaf. This is the same fixture as the
-  // depth3 twin (mocked); here it runs against the real constant.
+  // depth3 twin; both run against the real constant and real rows.
   const PARTIAL_PAGES = [
-    { id: "header", name: "Header", metadata: {}, pageType: "global", partialBlocks: "" },
-    { id: "footer", name: "Footer", metadata: {}, pageType: "global", partialBlocks: "" },
-    { id: "layout", name: "Layout", metadata: {}, pageType: "global", partialBlocks: "header" },
-    { id: "mega", name: "Mega", metadata: {}, pageType: "global", partialBlocks: "layout|header" },
+    { id: "header", name: "Header", partialBlocks: "" },
+    { id: "footer", name: "Footer", partialBlocks: "" },
+    { id: "layout", name: "Layout", partialBlocks: "header" },
+    { id: "mega", name: "Mega", partialBlocks: "layout|header" },
   ];
 
-  const getPartialBlocks = (pageId?: string) =>
-    (buildAiEditPageTools({ pageHtml: "", pageId }) as any).get_partial_blocks;
+  /** Partials are slug-less, language-less pages of the test app. */
+  const seedPartials = (rows: { id: string; name: string; partialBlocks: string }[]) =>
+    withTestDB(({ seedMany }) =>
+      seedMany(
+        "appPages",
+        rows.map((row) => ({ ...row, slug: "", lang: "", pageType: "global", metadata: {} })),
+      ),
+    );
 
-  beforeEach(() => {
-    mockWhere.mockReset();
-    mockWhere.mockResolvedValue(PARTIAL_PAGES);
-  });
+  /** Runs get_partial_blocks the way the action does: inside the request for the test app. */
+  const getPartialBlocks = (pageId?: string): Promise<any> =>
+    withTestDB(({ inRequest }) =>
+      inRequest(() => (buildAiEditPageTools({ pageHtml: "", pageId }) as any).get_partial_blocks.execute({})),
+    );
 
   it("lists every partial when editing a regular page", async () => {
     // Budget on a page is the full MAX_PARTIAL_DEPTH (3), so even mega (depth 3) fits.
-    const result = await getPartialBlocks("page-1").execute({});
+    await seedPartials(PARTIAL_PAGES);
+    const result = await getPartialBlocks("page-1");
     expect(Object.keys(result.partials).sort()).toEqual(["footer", "header", "layout", "mega"]);
     expect(result.note).toBeUndefined();
   });
@@ -141,7 +155,8 @@ describe("get_partial_blocks nesting filter", () => {
   it("excludes the partial being edited (self-nesting)", async () => {
     // Editing footer (fresh leaf): budget 3 - 1 = 2. header (1) and layout (2)
     // fit; mega (3) is too deep; footer is excluded as self.
-    const result = await getPartialBlocks("footer").execute({});
+    await seedPartials(PARTIAL_PAGES);
+    const result = await getPartialBlocks("footer");
     expect(Object.keys(result.partials).sort()).toEqual(["header", "layout"]);
     expect(result.partials.footer).toBeUndefined();
   });
@@ -149,7 +164,8 @@ describe("get_partial_blocks nesting filter", () => {
   it("excludes a partial too deep to fit while allowing a nested one that does", async () => {
     // Editing footer (budget 2): a non-leaf that fits (layout, depth 2) is now
     // allowed — the depth-3 relaxation — while mega (depth 3) is still excluded.
-    const result = await getPartialBlocks("footer").execute({});
+    await seedPartials(PARTIAL_PAGES);
+    const result = await getPartialBlocks("footer");
     expect(result.partials.layout).toBeDefined();
     expect(result.partials.mega).toBeUndefined();
     expect(result.note).toContain("editing a partial");
@@ -157,13 +173,42 @@ describe("get_partial_blocks nesting filter", () => {
 
   it("returns no partials when the edited partial is already used inside another partial", async () => {
     // header is nested two deep (mega -> layout -> header), so its budget is 0.
-    const result = await getPartialBlocks("header").execute({});
+    await seedPartials(PARTIAL_PAGES);
+    const result = await getPartialBlocks("header");
     expect(result.partials).toEqual({});
     expect(result.note).toContain("maximum nesting depth");
   });
 
   it("keeps the full list when no pageId is provided", async () => {
-    const result = await getPartialBlocks(undefined).execute({});
+    await seedPartials(PARTIAL_PAGES);
+    const result = await getPartialBlocks(undefined);
     expect(Object.keys(result.partials).sort()).toEqual(["footer", "header", "layout", "mega"]);
+  });
+
+  it("only offers this app's live partials (not pages with a slug, other apps, or trashed rows)", async () => {
+    await seedPartials([{ id: "header", name: "Header", partialBlocks: "" }]);
+    await withTestDB(async ({ seed }) => {
+      const otherApp = await seed("apps");
+      await seed("appPages", { id: "home", name: "Home", slug: "/home", lang: "" });
+      await seed("appPages", { id: "localized", name: "Localized", slug: "", lang: "fr" });
+      await seed("appPages", {
+        id: "trashed",
+        name: "Trashed",
+        slug: "",
+        lang: "",
+        deletedAt: new Date().toISOString(),
+      });
+      await seed("appPages", { id: "foreign", name: "Foreign", slug: "", lang: "", app: otherApp.id });
+    });
+
+    const result = await getPartialBlocks("page-1");
+    expect(Object.keys(result.partials)).toEqual(["header"]);
+    expect(result.partials.header).toEqual({ name: "Header", description: "", type: "global" });
+  });
+
+  it("surfaces a failed partial lookup", async () => {
+    await withTableUnavailable(schema.appPages, async () => {
+      await expect(getPartialBlocks("page-1")).rejects.toThrow(/Failed to fetch partial blocks/);
+    });
   });
 });

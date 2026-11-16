@@ -11,6 +11,9 @@ export interface ChaiPage {
   children?: ChaiPage[];
   isTemplate?: boolean;
   dynamic?: boolean;
+  /** The page this one renders while `useUpstream` is on (upstream pages). */
+  upstream?: string | null;
+  useUpstream?: boolean;
   [key: string]: any;
 }
 

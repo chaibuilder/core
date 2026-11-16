@@ -51,14 +51,23 @@ const RichTextEditor = memo(
         const editorElement = document.querySelector(".ProseMirror");
         const bubbleMenu = document.querySelector(".tippy-box");
         const menuBar = document.querySelector("#chai-rich-text-menu-bar");
+        // Menu-bar dropdowns (link form, color picker) are portalled out of the bubble menu.
+        const menuDropdown = document.querySelector("#chaibuilder-rte-dropdown-menu-content");
 
         const isEditorClicked = editorElement?.contains(target);
         const isBubbleMenuClicked = bubbleMenu?.contains(target);
         const isMenuBarClicked = menuBar?.contains(target);
+        const isMenuDropdownClicked = menuDropdown?.contains(target);
         const isColorPickerOpen = window.document.getElementById("rte-widget-color-picker");
 
         // Check if click was outside both editor and bubble menu
-        if (!isEditorClicked && !isBubbleMenuClicked && !isMenuBarClicked && !isColorPickerOpen) {
+        if (
+          !isEditorClicked &&
+          !isBubbleMenuClicked &&
+          !isMenuBarClicked &&
+          !isMenuDropdownClicked &&
+          !isColorPickerOpen
+        ) {
           const content = editor?.getHTML() || "";
           onClose(content);
         }

@@ -1,3 +1,5 @@
+const ELEMENT_NODE = 1;
+
 const TEXT_INPUT_TYPES = new Set([
   "text",
   "search",
@@ -19,8 +21,10 @@ const TEXT_INPUT_TYPES = new Set([
  * typing — must take priority over builder-level shortcuts.
  */
 export const isTextEntryTarget = (event: KeyboardEvent): boolean => {
-  const target = event.target;
-  if (!(target instanceof Element)) return false;
+  // `nodeType`, not `instanceof Element`: the canvas watcher listens on the iframe's document
+  // while this module runs in the parent window, whose `Element` no canvas node is an instance of.
+  const target = event.target as Element | null;
+  if (target?.nodeType !== ELEMENT_NODE) return false;
 
   if (target.tagName === "TEXTAREA") return true;
 

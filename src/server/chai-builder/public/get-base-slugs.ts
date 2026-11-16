@@ -1,6 +1,7 @@
 import { and, eq, inArray, isNotNull, ne, or } from "drizzle-orm";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import type { ChaiBaseSlugEntry } from "~/types/chaibuilder-config";
+import { getFallbackLang } from "../internal/init";
 import { getInitializedState } from "../state";
 import { withRequestCache } from "./cache-utils";
 import { inheritDynamicFlagsFromPrimary } from "./find-page-by-slug";
@@ -102,6 +103,6 @@ export async function getBaseSlugs(pageType: string, options: GetBaseSlugsOption
     state.appId!,
     pageType,
     { ...options, draft },
-    state.fallbackLang,
+    await getFallbackLang(),
   );
 }

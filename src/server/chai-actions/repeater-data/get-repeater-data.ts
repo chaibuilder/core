@@ -1,7 +1,7 @@
 import { isFunction, omit } from "lodash-es";
 import { z } from "zod";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
-import { getConfigRepeaterData } from "~/server/defaults";
+import { getConfigRepeaterData } from "~/server/defaults/config-registry";
 import type { ChaiRepeaterDataDefinition } from "~/types/repeater-data";
 
 type GetRepeaterDataActionData = Record<string, never>;

@@ -14,6 +14,11 @@ export abstract class ChaiBaseAction<T = any, K = any> implements ChaiAction<T, 
    */
   public requiredPermission?: ChaiRequiredPermission<T>;
   /**
+   * Static superset of the keys {@link requiredPermission} may require. Set by
+   * `wp` / `withActionPermission` at registration; see `permission-keys.ts`.
+   */
+  public declaredPermissionKeys?: string[];
+  /**
    * Method to get the validation schema for the action data
    * Each action can override this to define its own validation rules
    */

@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
+import type { DuplicatePageVariant } from "~/server/chai-actions/pages/duplicate-page";
 
 export const useDuplicatePage = () => {
   const apiUrl = useApiUrl();
@@ -10,9 +11,19 @@ export const useDuplicatePage = () => {
   const fetchAPI = useFetch();
 
   return useMutation({
-    mutationFn: async ({ pageId, name, slug }: { pageId: string; name: string; slug?: string }) => {
+    mutationFn: async ({
+      pageId,
+      name,
+      slug,
+      variants,
+    }: {
+      pageId: string;
+      name: string;
+      slug?: string;
+      variants?: DuplicatePageVariant[];
+    }) => {
       // Create payload with required fields
-      const data: { pageId: string; name: string; slug?: string } = {
+      const data: { pageId: string; name: string; slug?: string; variants?: DuplicatePageVariant[] } = {
         pageId,
         name,
       };
@@ -20,6 +31,10 @@ export const useDuplicatePage = () => {
       // Only include slug in the payload if it's provided
       if (slug) {
         data.slug = slug;
+      }
+
+      if (variants?.length) {
+        data.variants = variants;
       }
 
       const response = await fetchAPI(apiUrl, {
@@ -31,6 +46,9 @@ export const useDuplicatePage = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({
         queryKey: [ACTIONS.GET_WEBSITE_PAGES],
+      });
+      queryClient.invalidateQueries({
+        queryKey: [ACTIONS.GET_LANGUAGE_PAGES],
       });
       queryClient.invalidateQueries({
         queryKey: [ACTIONS.GET_CHANGES],

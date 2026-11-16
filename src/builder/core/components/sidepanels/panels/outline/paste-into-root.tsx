@@ -2,7 +2,6 @@ import { DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "~/co
 
 import { CardStackIcon } from "@radix-ui/react-icons";
 import { PlusIcon } from "lucide-react";
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { pubsub } from "~/builder/core/pubsub";
@@ -22,14 +21,11 @@ export const PasteAtRootContextMenu = ({
   const { t } = useTranslation();
   const { hasPermission } = usePermissions();
 
-  const { canPaste, pasteBlocks } = usePasteBlocks();
+  const { pasteBlocks } = usePasteBlocks();
   const enableCopyToClipboard = useBuilderProp("flags.copyPaste", true);
 
-  useEffect(() => {
-    if (!canPaste("root")) setParentContext(null);
-  }, [canPaste, setParentContext]);
-
-  if (!parentContext || !canPaste("root")) return null;
+  // Never probe the clipboard here: Safari and Firefox show a native "Paste" prompt on every read.
+  if (!parentContext) return null;
 
   if (!enableCopyToClipboard) return null;
 

@@ -6,6 +6,7 @@ type CheckUserAccessResponse = {
   access: boolean;
   role: string;
   permissions: string[] | null;
+  userId: string;
 };
 
 /**
@@ -28,9 +29,14 @@ export class CheckUserAccessAction extends ChaiBaseAction<any, CheckUserAccessRe
     }
 
     // The dispatcher rejects unauthorized callers before an action runs, so reaching this
-    // point means access was granted.
-    const { role = "user", permissions = null } = this.context.userAccess ?? {};
+    // point means access was granted and the authenticated user id is on the context.
+    const { userId, userAccess } = this.context;
+    const { role = "user", permissions = null } = userAccess ?? {};
 
-    return { access: true, role, permissions };
+    if (!userId) {
+      throw new ActionError("Authenticated user id missing from context", "CONTEXT_NOT_SET", 500);
+    }
+
+    return { access: true, role, permissions, userId };
   }
 }

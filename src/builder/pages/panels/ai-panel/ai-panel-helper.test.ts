@@ -6,6 +6,7 @@ import {
   extractHtmlFromResponse,
   extractJsonFromResponse,
   getHumanReadableError,
+  normalizeAiBlocksResponse,
   parseSectionPlan,
 } from "./ai-panel-helper";
 
@@ -453,5 +454,39 @@ describe("computeTotalTokensUsed", () => {
 
   it("returns 0 for an empty conversation", () => {
     expect(computeTotalTokensUsed([])).toBe(0);
+  });
+});
+
+describe("normalizeAiBlocksResponse", () => {
+  it("keeps an array of blocks", () => {
+    expect(normalizeAiBlocksResponse([{ _id: "a", "content-en": "Hi" }])).toEqual([{ _id: "a", "content-en": "Hi" }]);
+  });
+
+  it("wraps a single block object", () => {
+    expect(normalizeAiBlocksResponse({ _id: "QU47PH", "content-en": "Hi" })).toEqual([
+      { _id: "QU47PH", "content-en": "Hi" },
+    ]);
+  });
+
+  it("unwraps a list nested under a key", () => {
+    expect(normalizeAiBlocksResponse({ blocks: [{ _id: "a" }] })).toEqual([{ _id: "a" }]);
+  });
+
+  it("drops entries without a string _id", () => {
+    expect(normalizeAiBlocksResponse([{ _id: "a" }, { content: "x" }, null, "str"])).toEqual([{ _id: "a" }]);
+  });
+
+  it("returns an empty list for non-object input", () => {
+    expect(normalizeAiBlocksResponse("text")).toEqual([]);
+    expect(normalizeAiBlocksResponse(null)).toEqual([]);
+    expect(normalizeAiBlocksResponse({ ok: true })).toEqual([]);
+  });
+
+  it("with a language, never writes back the fallback-language props", () => {
+    const response = [
+      { _id: "a", content: "Improved English written over the French", "content-en": "Hi", "content-fr": "Salut" },
+      { _id: "b", content: "Only the source key came back" },
+    ];
+    expect(normalizeAiBlocksResponse(response, "en")).toEqual([{ _id: "a", "content-en": "Hi" }]);
   });
 });

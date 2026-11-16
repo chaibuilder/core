@@ -114,7 +114,6 @@ const benchSize = (n: number, iterations: number) => {
     propEdits.push(performance.now() - t1);
     if (i === 0) {
       const reRendered = passthroughRenders - before;
-      // eslint-disable-next-line no-console
       console.log(`BENCH canvas n=${n} blocksReRenderedByOnePropEdit=${reRendered}`);
       // Acceptance: an edit must reach the DOM (no stale canvas) while
       // re-rendering only the edited block, not the page.
@@ -136,7 +135,6 @@ const benchSize = (n: number, iterations: number) => {
     unmount();
   }
 
-  // eslint-disable-next-line no-console
   console.log(
     `BENCH canvas n=${n} mount=${median(mounts).toFixed(1)}ms propEdit=${median(propEdits).toFixed(2)}ms structureEdit=${median(structureEdits).toFixed(1)}ms domDivs=${domNodes}`,
   );

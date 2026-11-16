@@ -9,6 +9,7 @@ import { ActionError } from "./action-error";
 import { ensureAiProvider } from "./ai-providers";
 import { ChaiBaseAction } from "./base-action";
 import { getAiLogger, isAiCreditsEnabled, resolveImageModel, resolveLanguageModel } from "./lib";
+import { isFeatureEnabled } from "~/server/defaults/config-registry";
 import { getChaiCreditProvider } from "~/server/plugin-api/credit-provider";
 import {
   resolveChaiAiPrompt,
@@ -76,6 +77,17 @@ export type PromptVariant = {
 export abstract class ChaiBaseAIAction<T, R> extends ChaiBaseAction<T, R> {
   protected model?: string;
   protected prompts?: PromptVariant[];
+
+  /**
+   * `features.ai` is the single switch for builder AI. The builder hides every AI entry
+   * when it is off; this refuses the model call itself, so no request can spend tokens.
+   */
+  async run(data: T): Promise<any> {
+    if (!isFeatureEnabled("ai")) {
+      throw new ActionError("AI is disabled for this app", "AI_DISABLED", 403);
+    }
+    return super.run(data);
+  }
 
   private getActionLabel(): string {
     return this.context?.action ?? "UNKNOWN_AI_ACTION";

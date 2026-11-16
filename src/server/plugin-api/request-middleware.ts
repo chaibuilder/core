@@ -25,9 +25,10 @@ export function registerChaiRequestMiddleware(name: string, middleware: ChaiRequ
  * Runs registered middleware in REVERSE registration order and returns the
  * first non-null result: the pro presets register before caller plugins, so
  * later (caller) middleware overrides earlier defaults — consistent with how
- * plugin config merging resolves. A middleware that throws is skipped — an
- * unresolved path must degrade to the normal 404 flow, never to a broken
- * response.
+ * plugin config merging resolves. A middleware that throws fails the request:
+ * it could not say whether this path redirects, and falling through to the
+ * 404 flow would let the route cache keep a 404 for a path that may resolve.
+ * A thrown error is a 500 that the next request retries.
  */
 export async function runChaiRequestMiddleware(
   args: ChaiRequestMiddlewareArgs,
@@ -40,6 +41,7 @@ export async function runChaiRequestMiddleware(
       }
     } catch (error) {
       console.error(`ChaiBuilder: request middleware "${name}" failed:`, { slug: args.slug, error });
+      throw error;
     }
   }
   return null;

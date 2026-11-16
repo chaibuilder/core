@@ -3,7 +3,7 @@ import { registerChaiBlockProps, stylesProp } from "../..";
 import {
   getBlockDefaultProps,
   getBlockFormSchemas,
-  getChaiBlockStyleVariantProps,
+  getChaiBlockVariantProps,
   getRegisteredChaiBlock,
   registerChaiBlock,
   resolveChaiBlockComponent,
@@ -28,11 +28,11 @@ describe("block variants registration", () => {
   it("stores registered variants on the registry entry", () => {
     registerChaiBlock(DefaultComponent, {
       ...baseConfig("VariantBlock"),
-      variants: { minimal: MinimalComponent, hero: HeroComponent },
+      variants: { minimal: { component: MinimalComponent }, hero: { component: HeroComponent } },
     });
 
     const registered = getRegisteredChaiBlock("VariantBlock");
-    expect(registered?.variants).toEqual({ minimal: MinimalComponent, hero: HeroComponent });
+    expect(registered?.variants).toEqual({ minimal: { component: MinimalComponent }, hero: { component: HeroComponent } });
     expect(registered?.component).toBe(DefaultComponent);
   });
 
@@ -45,11 +45,11 @@ describe("block variants registration", () => {
   it("keeps previously registered variants when re-registered without the key", () => {
     registerChaiBlock(DefaultComponent, {
       ...baseConfig("StickyVariantBlock"),
-      variants: { minimal: MinimalComponent },
+      variants: { minimal: { component: MinimalComponent } },
     });
     registerChaiBlock(DefaultComponent, baseConfig("StickyVariantBlock"));
 
-    expect(getRegisteredChaiBlock("StickyVariantBlock")?.variants).toEqual({ minimal: MinimalComponent });
+    expect(getRegisteredChaiBlock("StickyVariantBlock")?.variants).toEqual({ minimal: { component: MinimalComponent } });
   });
 });
 
@@ -57,7 +57,7 @@ describe("resolveChaiBlockComponent", () => {
   beforeEach(() => {
     registerChaiBlock(DefaultComponent, {
       ...baseConfig("ResolveBlock"),
-      variants: { minimal: MinimalComponent },
+      variants: { minimal: { component: MinimalComponent } },
     });
   });
 
@@ -86,7 +86,7 @@ describe("resolveChaiBlockComponent", () => {
   });
 });
 
-describe("style variants", () => {
+describe("variant props", () => {
   const styleConfig = (type: string) => ({
     type,
     label: type,
@@ -99,10 +99,10 @@ describe("style variants", () => {
     }),
   });
 
-  it("keeps the default component when the selected variant is a style variant", () => {
+  it("keeps the default component when the selected variant has no component", () => {
     registerChaiBlock(DefaultComponent, {
       ...styleConfig("StyleVariantBlock"),
-      variants: { boxed: { styles: "border p-6" } },
+      variants: { boxed: { props: { styles: "border p-6" } } },
     });
 
     expect(resolveChaiBlockComponent(getRegisteredChaiBlock("StyleVariantBlock"), "boxed")).toBe(DefaultComponent);
@@ -111,10 +111,10 @@ describe("style variants", () => {
   it("returns the variant's classes as style props to write into the block", () => {
     registerChaiBlock(DefaultComponent, {
       ...styleConfig("StyleReplaceBlock"),
-      variants: { boxed: { styles: "border p-6" } },
+      variants: { boxed: { props: { styles: "border p-6" } } },
     });
 
-    expect(getChaiBlockStyleVariantProps(getRegisteredChaiBlock("StyleReplaceBlock"), "boxed")).toEqual({
+    expect(getChaiBlockVariantProps(getRegisteredChaiBlock("StyleReplaceBlock"), "boxed")).toEqual({
       styles: "#styles:,border p-6",
     });
   });
@@ -122,10 +122,10 @@ describe("style variants", () => {
   it("returns several style props at once", () => {
     registerChaiBlock(DefaultComponent, {
       ...styleConfig("MultiStyleBlock"),
-      variants: { dots: { styles: "w-2 h-2", activeItemStyle: "bg-black" } },
+      variants: { dots: { props: { styles: "w-2 h-2", activeItemStyle: "bg-black" } } },
     });
 
-    expect(getChaiBlockStyleVariantProps(getRegisteredChaiBlock("MultiStyleBlock"), "dots")).toEqual({
+    expect(getChaiBlockVariantProps(getRegisteredChaiBlock("MultiStyleBlock"), "dots")).toEqual({
       styles: "#styles:,w-2 h-2",
       activeItemStyle: "#styles:,bg-black",
     });
@@ -135,19 +135,19 @@ describe("style variants", () => {
     registerChaiBlock(DefaultComponent, {
       ...styleConfig("ResetStyleBlock"),
       variants: {
-        dots: { styles: "w-2 h-2", activeItemStyle: "bg-black" },
-        bars: { styles: "h-1 w-6" },
+        dots: { props: { styles: "w-2 h-2", activeItemStyle: "bg-black" } },
+        bars: { props: { styles: "h-1 w-6" } },
       },
     });
     const registered = getRegisteredChaiBlock("ResetStyleBlock");
 
     // switching dots -> bars must not leave the dots activeItemStyle behind
-    expect(getChaiBlockStyleVariantProps(registered, "bars")).toEqual({
+    expect(getChaiBlockVariantProps(registered, "bars")).toEqual({
       styles: "#styles:,h-1 w-6",
       activeItemStyle: "#styles:,bg-primary",
     });
     // back to Default restores every controlled prop
-    expect(getChaiBlockStyleVariantProps(registered, "")).toEqual({
+    expect(getChaiBlockVariantProps(registered, "")).toEqual({
       styles: "#styles:,text-4xl",
       activeItemStyle: "#styles:,bg-primary",
     });
@@ -156,40 +156,40 @@ describe("style variants", () => {
   it("passes through an author-supplied full #styles: string verbatim", () => {
     registerChaiBlock(DefaultComponent, {
       ...styleConfig("BaseSegmentBlock"),
-      variants: { boxed: { styles: "#styles:flex items-center,border p-6" } },
+      variants: { boxed: { props: { styles: "#styles:flex items-center,border p-6" } } },
     });
 
-    expect(getChaiBlockStyleVariantProps(getRegisteredChaiBlock("BaseSegmentBlock"), "boxed")).toEqual({
+    expect(getChaiBlockVariantProps(getRegisteredChaiBlock("BaseSegmentBlock"), "boxed")).toEqual({
       styles: "#styles:flex items-center,border p-6",
     });
   });
 
-  it("returns undefined for blocks with no style variants", () => {
+  it("returns undefined when no variant sets props", () => {
     registerChaiBlock(DefaultComponent, {
       ...styleConfig("ComponentOnlyBlock"),
-      variants: { minimal: MinimalComponent },
+      variants: { minimal: { component: MinimalComponent } },
     });
 
-    expect(getChaiBlockStyleVariantProps(getRegisteredChaiBlock("ComponentOnlyBlock"), "minimal")).toBeUndefined();
-    expect(getChaiBlockStyleVariantProps(getRegisteredChaiBlock("NeverRegistered"), "x")).toBeUndefined();
+    expect(getChaiBlockVariantProps(getRegisteredChaiBlock("ComponentOnlyBlock"), "minimal")).toBeUndefined();
+    expect(getChaiBlockVariantProps(getRegisteredChaiBlock("NeverRegistered"), "x")).toBeUndefined();
   });
 
-  it("treats a memo-wrapped component as a component variant, not a style variant", () => {
+  it("renders a memo-wrapped variant component", () => {
     const MemoComponent = memo(MinimalComponent);
     registerChaiBlock(DefaultComponent, {
       ...styleConfig("MemoVariantBlock"),
-      variants: { wrapped: MemoComponent as any },
+      variants: { wrapped: { component: MemoComponent } },
     });
     const registered = getRegisteredChaiBlock("MemoVariantBlock");
 
     expect(resolveChaiBlockComponent(registered, "wrapped")).toBe(MemoComponent);
-    expect(getChaiBlockStyleVariantProps(registered, "wrapped")).toBeUndefined();
+    expect(getChaiBlockVariantProps(registered, "wrapped")).toBeUndefined();
   });
 
   it("lists style variants in the same dropdown as component variants", () => {
     registerChaiBlock(DefaultComponent, {
       ...styleConfig("MixedVariantBlock"),
-      variants: { minimal: MinimalComponent, boxed: { styles: "border p-6" } },
+      variants: { minimal: { component: MinimalComponent }, boxed: { props: { props: { styles: "border p-6" } } } },
     });
 
     const { schema } = getBlockFormSchemas("MixedVariantBlock") as any;
@@ -197,11 +197,91 @@ describe("style variants", () => {
   });
 });
 
+describe("variant props beyond styles", () => {
+  const mixedConfig = (type: string) => ({
+    type,
+    label: type,
+    group: "basic",
+    props: registerChaiBlockProps({
+      properties: {
+        styles: stylesProp("p-4"),
+        ctaType: { type: "string", default: "button" },
+        note: { type: "string" },
+      },
+    }),
+  });
+
+  it("writes non-style props verbatim and style props as #styles: values", () => {
+    registerChaiBlock(DefaultComponent, {
+      ...mixedConfig("ContentVariantBlock"),
+      variants: { inset: { props: { styles: "border", ctaType: "email" } } },
+    });
+
+    expect(getChaiBlockVariantProps(getRegisteredChaiBlock("ContentVariantBlock"), "inset")).toEqual({
+      styles: "#styles:,border",
+      ctaType: "email",
+    });
+  });
+
+  it("resets content props a different variant controls to their schema default", () => {
+    registerChaiBlock(DefaultComponent, {
+      ...mixedConfig("ContentResetBlock"),
+      variants: {
+        inset: { props: { ctaType: "email", note: "No spam" } },
+        boxed: { props: { styles: "border" } },
+      },
+    });
+    const registered = getRegisteredChaiBlock("ContentResetBlock");
+
+    expect(getChaiBlockVariantProps(registered, "boxed")).toEqual({
+      styles: "#styles:,border",
+      ctaType: "button",
+      note: undefined,
+    });
+    expect(getChaiBlockVariantProps(registered, "")).toEqual({
+      styles: "#styles:,p-4",
+      ctaType: "button",
+      note: undefined,
+    });
+  });
+
+  it("resets a prop declared only in an allOf branch to that branch's default", () => {
+    registerChaiBlock(DefaultComponent, {
+      ...mixedConfig("ConditionalResetBlock"),
+      props: registerChaiBlockProps({
+        properties: { cta_1_enabled: { type: "boolean", default: true } },
+        allOf: [
+          {
+            if: { properties: { cta_1_enabled: { const: true } } },
+            then: { properties: { cta_1_style: { type: "string", default: "#styles:,dt#btn-outline" } } },
+          },
+        ],
+      } as any),
+      variants: { ghost: { props: { cta_1_style: "#styles:,dt#btn-ghost" } } },
+    });
+    const registered = getRegisteredChaiBlock("ConditionalResetBlock");
+
+    expect(getChaiBlockVariantProps(registered, "ghost")).toEqual({ cta_1_style: "#styles:,dt#btn-ghost" });
+    expect(getChaiBlockVariantProps(registered, "")).toEqual({ cta_1_style: "#styles:,dt#btn-outline" });
+  });
+
+  it("stores description and preview on the registered variant", () => {
+    registerChaiBlock(DefaultComponent, {
+      ...mixedConfig("DescribedVariantBlock"),
+      variants: { inset: { description: "Email signup in a card", preview: "/inset.webp" } },
+    });
+
+    const inset = getRegisteredChaiBlock("DescribedVariantBlock")?.variants?.inset;
+    expect(inset?.description).toBe("Email signup in a card");
+    expect(inset?.preview).toBe("/inset.webp");
+  });
+});
+
 describe("variant dropdown in the settings form schema", () => {
   it("injects a _variant select listing Default plus every variant", () => {
     registerChaiBlock(DefaultComponent, {
       ...baseConfig("FormVariantBlock"),
-      variants: { minimal: MinimalComponent, heroCentered: HeroComponent },
+      variants: { minimal: { component: MinimalComponent }, heroCentered: { component: HeroComponent } },
     });
 
     const { schema } = getBlockFormSchemas("FormVariantBlock") as any;
@@ -220,6 +300,16 @@ describe("variant dropdown in the settings form schema", () => {
     expect(schema.properties.title).toBeDefined();
   });
 
+  it("renders the injected select with the variant widget and its own label", () => {
+    registerChaiBlock(DefaultComponent, {
+      ...baseConfig("WidgetVariantBlock"),
+      variants: { minimal: { component: MinimalComponent } },
+    });
+
+    const { uiSchema } = getBlockFormSchemas("WidgetVariantBlock") as any;
+    expect(uiSchema._variant).toEqual({ "ui:widget": "variant", "ui:label": false });
+  });
+
   it("does not inject _variant for blocks without variants", () => {
     registerChaiBlock(DefaultComponent, baseConfig("FormPlainBlock"));
 
@@ -230,13 +320,13 @@ describe("variant dropdown in the settings form schema", () => {
   it("reflects the new variant list when a type is re-registered", () => {
     registerChaiBlock(DefaultComponent, {
       ...baseConfig("RefreshVariantBlock"),
-      variants: { minimal: MinimalComponent },
+      variants: { minimal: { component: MinimalComponent } },
     });
     expect((getBlockFormSchemas("RefreshVariantBlock") as any).schema.properties._variant.oneOf).toHaveLength(2);
 
     registerChaiBlock(DefaultComponent, {
       ...baseConfig("RefreshVariantBlock"),
-      variants: { minimal: MinimalComponent, hero: HeroComponent },
+      variants: { minimal: { component: MinimalComponent }, hero: { component: HeroComponent } },
     });
 
     const oneOf = (getBlockFormSchemas("RefreshVariantBlock") as any).schema.properties._variant.oneOf;
@@ -250,7 +340,7 @@ describe("variant dropdown in the settings form schema", () => {
         properties: { title: { type: "string", default: "Hello" } },
         ui: { "ui:order": ["title"] },
       } as any),
-      variants: { minimal: MinimalComponent },
+      variants: { minimal: { component: MinimalComponent } },
     });
 
     const { uiSchema } = getBlockFormSchemas("OrderedVariantBlock") as any;
@@ -264,7 +354,7 @@ describe("variant dropdown in the settings form schema", () => {
         properties: { title: { type: "string", default: "Hello" } },
         ui: { "ui:order": ["title"] },
       } as any),
-      variants: { minimal: MinimalComponent },
+      variants: { minimal: { component: MinimalComponent } },
     });
 
     getBlockFormSchemas("StableOrderBlock");
@@ -275,7 +365,7 @@ describe("variant dropdown in the settings form schema", () => {
   it("keeps _variant out of the block default props", () => {
     registerChaiBlock(DefaultComponent, {
       ...baseConfig("DefaultsVariantBlock"),
-      variants: { minimal: MinimalComponent },
+      variants: { minimal: { component: MinimalComponent } },
     });
 
     expect(getBlockDefaultProps("DefaultsVariantBlock")).toEqual({ title: "Hello" });

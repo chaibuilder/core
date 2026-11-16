@@ -8,6 +8,7 @@ import { getTrashLabels } from "~/builder/pages/constants/trash-config";
 import { useUpdatePage } from "~/builder/pages/hooks/pages/mutations";
 import { usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
 import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useUpstreamPagesEnabled } from "~/builder/pages/hooks/pages/use-upstream-pages";
 import { CHAI_SLOT_IDS, ChaiSlot } from "~/builder/register-apis";
 import {
   DropdownMenu,
@@ -16,6 +17,7 @@ import {
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
+import { useUpstreamPageMenu } from "./upstream-page-menu";
 
 interface PageActionsDropdownProps {
   page: any;
@@ -48,8 +50,15 @@ export const PageActionsDropdown = ({
   // variants live at "/<lang>" and stay deletable.
   const isHomePage = page?.slug === "/" && !page?.primaryPage;
   const { mutate: updatePage } = useUpdatePage();
+  const upstreamEnabled = useUpstreamPagesEnabled();
+  // A page linked to an upstream page (or cloned from one) adds its upstream items to the usual ones.
+  const upstreamMenu = useUpstreamPageMenu(page ?? {});
+  const hasUpstream = upstreamEnabled && !isLanguagePage && !!page?.upstream;
+  // A linked page has no content of its own, so a duplicate would be an empty page.
+  const isLinked = hasUpstream && !!page?.useUpstream;
 
   const noMoreActions =
+    !hasUpstream &&
     !hasPermission(CHAI_PERMISSIONS["pages:update"]) &&
     (isHomePage || !hasPermission(CHAI_PERMISSIONS["pages:delete"])) &&
     !hasPermission(CHAI_PERMISSIONS["pages:unpublish"]);
@@ -57,12 +66,14 @@ export const PageActionsDropdown = ({
   if (noMoreActions || !page) return null;
 
   return (
+    <>
     <DropdownMenu>
       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
         {children}
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="text-sm">
-        {hasPermission(CHAI_PERMISSIONS["pages:create"]) && !isLanguagePage && !isFolder && (
+        {hasUpstream && upstreamMenu.items}
+        {hasPermission(CHAI_PERMISSIONS["pages:create"]) && !isLanguagePage && !isFolder && !isLinked && (
           <DropdownMenuItem
             className="flex cursor-pointer items-center gap-2"
             onClick={(e) => {
@@ -162,5 +173,7 @@ export const PageActionsDropdown = ({
         */}
       </DropdownMenuContent>
     </DropdownMenu>
+    {hasUpstream && upstreamMenu.dialog}
+    </>
   );
 };

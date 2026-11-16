@@ -4,6 +4,7 @@ function convertAttributeName(attrName: string): string {
   const specialCases: Record<string, string> = {
     class: "className",
     for: "htmlFor",
+    fetchpriority: "fetchPriority",
     tabindex: "tabIndex",
     readonly: "readOnly",
     maxlength: "maxLength",

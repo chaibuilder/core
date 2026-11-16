@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChaiBuilderBlocks } from "~/builder/core/components/sidepanels/panels/add-blocks/add-blocks";
 import { PartialBlockCard } from "~/builder/core/components/sidepanels/panels/add-blocks/partial-block-card";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useCheckPartialCanAdd, usePartialBlocksList } from "~/builder/hooks/use-partial-blocks-store";
 import { Badge } from "~/components/ui/badge";
 
@@ -52,6 +53,7 @@ export const PartialBlocks = ({
   onSearchChange?: (value: string) => void;
 }) => {
   const { t } = useTranslation();
+  const { plural } = usePartialTypeLabel();
   const { data: partialBlocksList, isLoading, refetch, error: apiError } = usePartialBlocksList();
   const checkPartialCanAdd = useCheckPartialCanAdd();
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -142,7 +144,7 @@ export const PartialBlocks = ({
   if (isLoading && blocks.length === 0) {
     return (
       <div className="flex items-center justify-center p-8 text-center text-muted-foreground">
-        Loading partial blocks...
+        {t("Loading {{name}}...", { name: plural })}
       </div>
     );
   }
@@ -150,7 +152,7 @@ export const PartialBlocks = ({
   if (apiError || blocks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 p-8 text-center text-muted-foreground">
-        <p>{apiError || "No partial blocks available"}</p>
+        <p>{apiError || t("No {{name}} available", { name: plural })}</p>
         <button
           onClick={handleRefresh}
           className="rounded-md bg-primary px-3 py-1 text-sm text-primary-foreground hover:bg-primary/90">

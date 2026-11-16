@@ -3,11 +3,42 @@
  */
 import { act, renderHook } from "@testing-library/react";
 import { useAtom } from "jotai";
+import { presentBlocksAtom } from "~/builder/atoms/blocks";
 import { treeRefAtom } from "~/builder/atoms/ui";
-import { CoreTestProvider } from "~/builder/core/__tests__/test-utils";
+import { BuilderStoreProvider, renderInBuilder } from "~/tests/builder/render-in-builder";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
 import { selectedStylingBlocksAtom } from "~/builder/hooks/use-selected-styling-blocks";
+import type { ChaiBlock } from "~/types/common";
+import { CanvasEventsWatcher } from "./canvas-events-watcher";
+
+const nextFrame = () => act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
+
+describe("CanvasEventsWatcher - styling selection", () => {
+  it("picks up a styled element that appears when the selected block's props change", async () => {
+    // Stands in for the canvas: a partial placement with no wrapper renders an unstyled span.
+    const element = document.createElement("span");
+    element.setAttribute("data-block-id", "p-1");
+    document.body.appendChild(element);
+    const placement = { _id: "p-1", _type: "PartialBlock", partialBlockId: "partial-1", wrapperTag: "none" };
+    const { store } = renderInBuilder(<CanvasEventsWatcher />, {
+      blocks: [placement as unknown as ChaiBlock],
+      selectedBlockIds: ["p-1"],
+    });
+    await nextFrame();
+    expect(store.get(selectedStylingBlocksAtom)).toEqual([]);
+
+    // Choosing a wrapper re-renders the element with the block's styles prop.
+    element.setAttribute("data-style-prop", "styles");
+    element.setAttribute("data-style-id", "styles-p-1");
+    element.setAttribute("data-block-parent", "p-1");
+    act(() => store.set(presentBlocksAtom, [{ ...placement, wrapperTag: "div" } as unknown as ChaiBlock]));
+    await nextFrame();
+
+    expect(store.get(selectedStylingBlocksAtom)).toEqual([{ id: "styles-p-1", prop: "styles", blockId: "p-1" }]);
+    element.remove();
+  });
+});
 
 describe("CanvasEventsWatcher", () => {
   describe("Atom Integration", () => {
@@ -17,7 +48,7 @@ describe("CanvasEventsWatcher", () => {
           const [blockIds, setBlockIds] = useAtom(selectedBlockIdsAtom);
           return { blockIds, setBlockIds };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       expect(result.current.blockIds).toEqual([]);
@@ -35,7 +66,7 @@ describe("CanvasEventsWatcher", () => {
           const [stylingBlocks, setStylingBlocks] = useAtom(selectedStylingBlocksAtom);
           return { stylingBlocks, setStylingBlocks };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       expect(result.current.stylingBlocks).toEqual([]);
@@ -58,7 +89,7 @@ describe("CanvasEventsWatcher", () => {
           const [treeRef, setTreeRef] = useAtom(treeRefAtom);
           return { treeRef, setTreeRef };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       expect(result.current.treeRef).toBeNull();
@@ -93,7 +124,7 @@ describe("CanvasEventsWatcher", () => {
 
           return { blockIds, setBlockIds, handleBlockSelected, setTreeRef };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       const mockTreeRef = { closeAll: vi.fn(), openAll: vi.fn() };
@@ -135,7 +166,7 @@ describe("CanvasEventsWatcher", () => {
             setTreeRef,
           };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       const mockTreeRef = { closeAll: vi.fn(), openAll: vi.fn() };
@@ -176,7 +207,7 @@ describe("CanvasEventsWatcher", () => {
             handleClearSelection,
           };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {

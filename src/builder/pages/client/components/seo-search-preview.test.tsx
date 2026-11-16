@@ -1,9 +1,7 @@
 // @vitest-environment happy-dom
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { SeoSearchPreview } from "./seo-search-preview";
-
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (value: string) => value }) }));
 
 const externalData = { product: { price: 1234.5 } };
 

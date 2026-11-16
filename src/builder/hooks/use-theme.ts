@@ -62,9 +62,17 @@ export const useThemeOptions = () => {
   return defaultOptions as ChaiThemeOptions;
 };
 
-const rightPanelAtom = atom<"block" | "theme" | "ai" | "settings" | "design-tokens">("block");
+const rightPanelAtom = atom<"block" | "theme" | "ai" | "settings">("block");
 export const useRightPanel = () => {
   return useAtom(rightPanelAtom);
+};
+
+/** Tabs of the Global styles right panel (`rightPanel === "theme"`). */
+export type GlobalStylesTab = "theme" | "designTokens";
+
+export const globalStylesTabAtom = atom<GlobalStylesTab>("theme");
+export const useGlobalStylesTab = () => {
+  return useAtom(globalStylesTabAtom);
 };
 
 const activeSettingsTabAtom = atom<"settings" | "styles">("settings");

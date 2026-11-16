@@ -5,6 +5,7 @@ import { runInContext } from "~/server/chai-builder/state";
 import { resetActiveChaiBuilderConfigForTests } from "~/server/defaults/config-registry";
 import { registerChaiPermissions, resetChaiPermissionsForTests } from "~/server/plugin-api/permission-registry";
 import { ChaiBaseAction } from "./base-action";
+import { ChaiBaseAIAction } from "./base-ai-action";
 import { dispatchChaiAction, tryChaiAction } from "./dispatch-action";
 
 /** A member of the app, as the context resolver would report them. */
@@ -16,7 +17,7 @@ const member = (permissions: string[], role = "editor") => ({
 });
 
 /** Registers a gated action so `enforcePermission` has something to enforce. */
-function registerGatedAction(name: string, requiredPermission: string) {
+function registerGatedAction(name: string, requiredPermission: string | string[]) {
   class GatedAction extends ChaiBaseAction<unknown, { ok: true }> {
     public requiredPermission = requiredPermission;
     async execute() {
@@ -35,9 +36,9 @@ describe("dispatchChaiAction", () => {
   });
 
   it("throws when userId is missing for authenticated actions", async () => {
-    await expect(
-      runInContext({ appId: "test-app" }, () => dispatchChaiAction("GET_DRAFT_PAGE", {})),
-    ).rejects.toThrow(/initWithUser/);
+    await expect(runInContext({ appId: "test-app" }, () => dispatchChaiAction("GET_DRAFT_PAGE", {}))).rejects.toThrow(
+      /initWithUser/,
+    );
   });
 
   it("dispatches authenticated actions for a member", async () => {
@@ -47,9 +48,9 @@ describe("dispatchChaiAction", () => {
   });
 
   it("throws ACTION_NOT_FOUND for unknown actions", async () => {
-    await expect(
-      runInContext(member(["*"]), () => dispatchChaiAction("UNKNOWN_ACTION", {})),
-    ).rejects.toMatchObject({ code: "ACTION_NOT_FOUND" });
+    await expect(runInContext(member(["*"]), () => dispatchChaiAction("UNKNOWN_ACTION", {}))).rejects.toMatchObject({
+      code: "ACTION_NOT_FOUND",
+    });
   });
 
   // The resolver is the only authority; no permissions means it did not recognise this user
@@ -63,7 +64,7 @@ describe("dispatchChaiAction", () => {
   it("reports the resolver's decision through CHECK_USER_ACCESS", async () => {
     const result = await runInContext(member(["pages:read"]), () => dispatchChaiAction("CHECK_USER_ACCESS", {}));
 
-    expect(result).toEqual({ access: true, role: "editor", permissions: ["pages:read"] });
+    expect(result).toEqual({ access: true, role: "editor", permissions: ["pages:read"], userId: "user-1" });
   });
 
   it("defaults the role label when the resolver supplies permissions without one", async () => {
@@ -87,6 +88,45 @@ describe("dispatchChaiAction", () => {
 
     await expect(
       runInContext(member(["pages:read"]), () => dispatchChaiAction("GATED_UPDATE", {})),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  // Array form: every listed key must be held (the SEO gate on UPDATE_PAGE).
+  it("requires every key of a list-form permission", async () => {
+    registerGatedAction("GATED_LIST", ["pages:update", "pages:edit_seo"]);
+
+    await expect(
+      runInContext(member(["pages:update"]), () => dispatchChaiAction("GATED_LIST", {})),
+    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Missing permission: pages:edit_seo" });
+  });
+
+  it("runs a list-form action when every key is held", async () => {
+    registerGatedAction("GATED_LIST_OK", ["pages:update", "pages:edit_seo"]);
+
+    const result = await runInContext(member(["pages:update", "pages:edit_seo"]), () =>
+      dispatchChaiAction("GATED_LIST_OK", {}),
+    );
+
+    expect(result).toEqual({ ok: true });
+  });
+
+  // Function form: the permission is derived from the payload, so the same action
+  // can be open for one shape and gated for another.
+  it("derives the permission from the payload", async () => {
+    class DerivedAction extends ChaiBaseAction<{ seo?: unknown }, { ok: true }> {
+      public requiredPermission = (data: { seo?: unknown }) =>
+        data?.seo ? ["pages:update", "pages:edit_seo"] : "pages:update";
+      async execute() {
+        return { ok: true } as const;
+      }
+    }
+    buildChaiBuilderConfig({ db: stubChaiDbConfig(), actions: { GATED_DERIVED: new DerivedAction() } });
+
+    await expect(
+      runInContext(member(["pages:update"]), () => dispatchChaiAction("GATED_DERIVED", {})),
+    ).resolves.toEqual({ ok: true });
+    await expect(
+      runInContext(member(["pages:update"]), () => dispatchChaiAction("GATED_DERIVED", { seo: {} })),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
@@ -185,9 +225,7 @@ describe("dispatchChaiAction — delegated permissions", () => {
     registerGatedAction("GATED_READ", "pages:read");
 
     await expect(
-      runInContext({ ...member(["*"], "admin"), delegatedPermissions: [] }, () =>
-        dispatchChaiAction("GATED_READ", {}),
-      ),
+      runInContext({ ...member(["*"], "admin"), delegatedPermissions: [] }, () => dispatchChaiAction("GATED_READ", {})),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
@@ -222,5 +260,132 @@ describe("tryChaiAction", () => {
     if (result.ok) {
       expect(result.data).toMatchObject({ access: true, role: "admin" });
     }
+  });
+});
+
+describe("dispatchChaiAction — surface", () => {
+  beforeEach(() => {
+    resetActiveChaiBuilderConfigForTests();
+    buildChaiBuilderConfig({ db: stubChaiDbConfig() });
+  });
+
+  /** Registers an action that echoes the context the dispatcher handed it. */
+  function registerEchoAction(name: string) {
+    class EchoAction extends ChaiBaseAction<unknown, { surface: unknown }> {
+      async execute() {
+        return { surface: this.context?.surface };
+      }
+    }
+    const action = new EchoAction();
+    buildChaiBuilderConfig({ db: stubChaiDbConfig(), actions: { [name]: action } });
+    return action;
+  }
+
+  it("hands the resolver's surface to authenticated actions", async () => {
+    registerEchoAction("ECHO_SURFACE");
+
+    const result = await runInContext({ ...member(["*"], "admin"), surface: "settings" }, () =>
+      dispatchChaiAction("ECHO_SURFACE", {}),
+    );
+
+    expect(result).toEqual({ surface: "settings" });
+  });
+
+  it("leaves the surface null when the resolver did not state one", async () => {
+    registerEchoAction("ECHO_SURFACE");
+
+    const result = await runInContext(member(["*"], "admin"), () => dispatchChaiAction("ECHO_SURFACE", {}));
+
+    expect(result).toEqual({ surface: null });
+  });
+});
+
+describe("dispatchChaiAction — concurrent requests", () => {
+  beforeEach(() => {
+    resetActiveChaiBuilderConfigForTests();
+    buildChaiBuilderConfig({ db: stubChaiDbConfig() });
+  });
+
+  // One registered instance serves every request; a request that awaits mid-run must not
+  // see the context or per-run fields of one dispatched in the meantime.
+  it("gives each dispatch its own context and per-run fields", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+
+    class SlowAction extends ChaiBaseAction<{ input: string; wait?: boolean }, unknown> {
+      private input = "";
+      constructor(private readonly storage: string) {
+        super();
+      }
+      async execute(data: { input: string; wait?: boolean }) {
+        this.input = data.input;
+        if (data.wait) await gate;
+        return {
+          userId: this.context?.userId,
+          permissions: this.context?.userAccess?.permissions,
+          input: this.input,
+          storage: this.storage,
+        };
+      }
+    }
+    const action = new SlowAction("s3");
+    action.requiredPermission = "pages:read";
+    buildChaiBuilderConfig({ db: stubChaiDbConfig(), actions: { SLOW: action } });
+
+    const first = runInContext({ ...member(["pages:read"]), userId: "user-a" }, () =>
+      dispatchChaiAction("SLOW", { input: "a", wait: true }),
+    );
+    const second = await runInContext({ ...member(["pages:read", "pages:unpublish"]), userId: "user-b" }, () =>
+      dispatchChaiAction("SLOW", { input: "b" }),
+    );
+    release();
+
+    expect(await first).toEqual({ userId: "user-a", permissions: ["pages:read"], input: "a", storage: "s3" });
+    expect(second).toEqual({
+      userId: "user-b",
+      permissions: ["pages:read", "pages:unpublish"],
+      input: "b",
+      storage: "s3",
+    });
+    // A dispatch never mutates the registered instance.
+    expect((action as unknown as { context: unknown }).context).toBeNull();
+  });
+
+  it("enforces a permission set on the registered instance", async () => {
+    class PlainAction extends ChaiBaseAction<unknown, { ok: true }> {
+      async execute() {
+        return { ok: true } as const;
+      }
+    }
+    const action = new PlainAction();
+    action.requiredPermission = "pages:update";
+    buildChaiBuilderConfig({ db: stubChaiDbConfig(), actions: { PLAIN: action } });
+
+    await expect(runInContext(member(["pages:read"]), () => dispatchChaiAction("PLAIN", {}))).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
+
+  // `features.ai: false` turns builder AI off: a model-calling action must not run even for
+  // a caller who holds `ai:*` and sends the request directly.
+  it("refuses AI actions when features.ai is off, and runs them by default", async () => {
+    class ModelCallAction extends ChaiBaseAIAction<unknown, { ok: true }> {
+      async execute() {
+        return { ok: true } as const;
+      }
+    }
+    const action = new ModelCallAction();
+    action.requiredPermission = "ai:use";
+
+    buildChaiBuilderConfig({ db: stubChaiDbConfig(), actions: { MODEL_CALL: action } });
+    await expect(runInContext(member(["ai:*"]), () => dispatchChaiAction("MODEL_CALL", {}))).resolves.toEqual({
+      ok: true,
+    });
+
+    buildChaiBuilderConfig({ db: stubChaiDbConfig(), features: { ai: false }, actions: { MODEL_CALL: action } });
+    await expect(runInContext(member(["ai:*"]), () => dispatchChaiAction("MODEL_CALL", {}))).rejects.toMatchObject({
+      code: "AI_DISABLED",
+      status: 403,
+    });
   });
 });

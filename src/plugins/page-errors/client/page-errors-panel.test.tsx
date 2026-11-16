@@ -1,9 +1,7 @@
 /**
  * @vitest-environment happy-dom
  */
-import { act, fireEvent, render } from "@testing-library/react";
-import { Provider, WritableAtom } from "jotai";
-import { useHydrateAtoms } from "jotai/utils";
+import { act, fireEvent } from "@testing-library/react";
 import React, { createElement } from "react";
 import {
   hasStructureErrorsAtom,
@@ -12,30 +10,10 @@ import {
   structureValidationValidAtom,
 } from "~/builder/atoms/blocks";
 import { StructureError } from "~/builder/hooks/structure-rules";
+import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
 import { CHAI_BUILDER_PANELS, registerChaiSidebarPanel } from "~/builder/register-apis/register-chai-sidebar-panel";
+import { renderInBuilder } from "~/tests/builder/render-in-builder";
 import { pageErrorsPanel, pageErrorsPanelId } from "./page-errors-panel";
-
-// Mock useSelectedBlockIds for the click test
-const mockSetSelectedBlockIds = vi.fn();
-vi.mock("~/builder/hooks/use-selected-blockIds", () => ({
-  useSelectedBlockIds: () => [[], mockSetSelectedBlockIds, vi.fn()],
-  selectedBlockIdsAtom: { init: [], debugLabel: "selectedBlockIdsAtom" },
-}));
-
-// --- Test helpers ---
-
-type AtomTuple = [WritableAtom<any, any[], any>, any];
-
-const HydrateAtoms = ({ initialValues, children }: { initialValues: AtomTuple[]; children: React.ReactNode }) => {
-  useHydrateAtoms(initialValues);
-  return children;
-};
-
-const TestProvider = ({ initialValues, children }: { initialValues: AtomTuple[]; children: React.ReactNode }) => (
-  <Provider>
-    <HydrateAtoms initialValues={initialValues}>{children}</HydrateAtoms>
-  </Provider>
-);
 
 // --- Tests ---
 
@@ -170,10 +148,7 @@ describe("ErrorsButton (via pageErrorsPanel.button)", () => {
 
   it("should apply active class when isActive is true", () => {
     const mockShow = vi.fn();
-    const { container } = renderWithProvider(
-      createElement(ErrorsButton, { isActive: true, show: mockShow }),
-      [],
-    );
+    const { container } = renderWithProvider(createElement(ErrorsButton, { isActive: true, show: mockShow }), []);
 
     const button = container.querySelector("button");
     expect(button).not.toBeNull();
@@ -313,27 +288,13 @@ describe("ErrorsPanel (via pageErrorsPanel.panel)", () => {
 });
 
 describe("ErrorsPanel block selection", () => {
-  beforeEach(() => {
-    mockSetSelectedBlockIds.mockClear();
-  });
-
   it("should select block when error item is clicked", () => {
     const errors: StructureError[] = [{ id: "err-1", message: "Test error", severity: "error", blockId: "block-123" }];
 
     const ErrorsPanel = pageErrorsPanel.panel!;
 
-    const initialValues: AtomTuple[] = [
-      [structureErrorsAtom, errors],
-      [structureValidationValidAtom, false],
-      [hasStructureErrorsAtom, true],
-      [hasStructureWarningsAtom, false],
-    ];
-
-    const { container } = render(
-      <TestProvider initialValues={initialValues}>
-        <ErrorsPanel />
-      </TestProvider>,
-    );
+    const { container, store } = renderWithProvider(<ErrorsPanel />, errors);
+    expect(store.get(selectedBlockIdsAtom)).toEqual([]);
 
     // Click the error row button
     const errorButton = container.querySelector("button.border-red-200");
@@ -342,33 +303,24 @@ describe("ErrorsPanel block selection", () => {
       fireEvent.click(errorButton!);
     });
 
-    // After click, setSelectedBlockIds should have been called with the block ID
-    expect(mockSetSelectedBlockIds).toHaveBeenCalledWith(["block-123"]);
+    // After click, the block is selected in the builder
+    expect(store.get(selectedBlockIdsAtom)).toEqual(["block-123"]);
   });
 });
 
 // --- Test utility ---
 
+/** Renders `ui` in the builder with the structure-validation atoms seeded as the validator would set them. */
 function renderWithProvider(ui: React.ReactElement, errors: StructureError[]) {
   const hasErrors = errors.some((e) => e.severity === "error");
   const hasWarnings = errors.some((e) => e.severity === "warning");
 
-  const initialValues: AtomTuple[] = [
-    [structureErrorsAtom, errors],
-    [structureValidationValidAtom, errors.length === 0],
-    [hasStructureErrorsAtom, hasErrors],
-    [hasStructureWarningsAtom, hasWarnings],
-  ];
-
-  const container = document.createElement("div");
-  document.body.appendChild(container);
-
-  const result = render(ui, {
-    container,
-    wrapper: ({ children }: { children: React.ReactNode }) => (
-      <TestProvider initialValues={initialValues}>{children}</TestProvider>
-    ),
+  return renderInBuilder(ui, {
+    seed: (store) => {
+      store.set(structureErrorsAtom, errors);
+      store.set(structureValidationValidAtom, errors.length === 0);
+      store.set(hasStructureErrorsAtom, hasErrors);
+      store.set(hasStructureWarningsAtom, hasWarnings);
+    },
   });
-
-  return result;
 }

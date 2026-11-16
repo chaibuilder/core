@@ -1,8 +1,8 @@
-import { MixerHorizontalIcon, MoonIcon, ResetIcon, SunIcon, TextIcon } from "@radix-ui/react-icons";
+import { MixerHorizontalIcon, MoonIcon, SunIcon, TextIcon } from "@radix-ui/react-icons";
 import { useDebouncedCallback } from "@react-hookz/web";
 import { useAtom } from "jotai";
 import { capitalize, cloneDeep, get, set } from "lodash-es";
-import { SquareRoundCorner } from "lucide-react";
+import { LayoutTemplate, LoaderCircle, Save, SquareRoundCorner, Undo2 } from "lucide-react";
 import * as React from "react";
 import { lazy, Suspense } from "react";
 import { useTranslation } from "react-i18next";
@@ -16,11 +16,13 @@ import {
 import { cn } from "~/builder/core/functions/common-functions";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useDarkMode } from "~/builder/hooks/use-dark-mode";
+import { useChaiPanelCloseGuard } from "~/builder/hooks/use-panel-close-guard";
 import { usePermissions } from "~/builder/hooks/use-permissions";
-import { useSaveWebsiteData } from "~/builder/hooks/use-save-website-data";
 import { useTheme, useThemeOptions } from "~/builder/hooks/use-theme";
+import { THEME_PANEL_ID, useUnsavedTheme } from "~/builder/hooks/use-unsaved-theme";
 import { ChaiSlot } from "~/builder/register-apis";
 import { Button } from "~/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
@@ -30,8 +32,10 @@ import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 import { claude, defaultShadcnPreset, solarized, supabase, twitter } from "~/constants/THEME_PRESETS";
 import { useRegisteredFonts } from "~/registry";
-import type { ChaiTheme, ChaiThemePreset } from "~/types/chaibuilder-editor-props";
+import type { ChaiSiteLayout, ChaiTheme, ChaiThemePreset } from "~/types/chaibuilder-editor-props";
 import type { ChaiDesignTokens } from "~/types/types";
+import { themeColorLabel } from "~/utils/theme-color-label";
+import { ReadOnlyControls } from "./read-only-controls";
 import { resolveThemePreset } from "./theme-preset";
 
 const LazyCssImportModal = lazy(() =>
@@ -39,9 +43,6 @@ const LazyCssImportModal = lazy(() =>
     default: module.CssImportModal,
   })),
 );
-
-// Local storage key for storing previous theme
-const PREV_THEME_KEY = "chai-builder-previous-theme";
 
 // Default theme preset
 const DEFAULT_THEME_PRESET: ChaiThemePreset[] = [
@@ -51,24 +52,6 @@ const DEFAULT_THEME_PRESET: ChaiThemePreset[] = [
   { claude_theme: claude },
   { supabase_theme: supabase },
 ];
-
-const setPreviousTheme = (theme: ChaiTheme) => {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(PREV_THEME_KEY, JSON.stringify(theme));
-  } catch (error) {
-    console.warn("Failed to save previous theme to localStorage:", error);
-  }
-};
-
-const clearPreviousTheme = () => {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.removeItem(PREV_THEME_KEY);
-  } catch (error) {
-    console.warn("Failed to clear previous theme from localStorage:", error);
-  }
-};
 
 interface ThemeConfigProps {
   className?: string;
@@ -87,96 +70,56 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
   const [isDarkMode, setIsDarkMode] = useDarkMode();
   const [selectedPreset, setSelectedPreset] = React.useState<string>("");
   const [isImportModalOpen, setIsImportModalOpen] = React.useState(false);
+  const [isSaving, setIsSaving] = React.useState(false);
   const configuredThemePresets = useBuilderProp("themePresets", []) as ChaiThemePreset[];
   const themePresets = configuredThemePresets.length > 0 ? configuredThemePresets : DEFAULT_THEME_PRESET;
   const { hasPermission } = usePermissions();
-  const { debouncedSaveTheme, saveThemeAndDesignTokens } = useSaveWebsiteData();
+  const { hasUnsavedTheme, markUnsaved, saveUnsaved, discardUnsaved } = useUnsavedTheme();
+  // Set by the close guard when the panel is closed with unsaved edits; runs the close.
+  const [pendingClose, setPendingClose] = React.useState<(() => void) | null>(null);
   const importThemeEnabled = useBuilderProp("flags.importTheme", true);
   const darkModeEnabled = useBuilderProp("flags.darkMode", false);
+  const siteLayoutEnabled = useBuilderProp("flags.siteLayout", false);
   const availableFonts = useRegisteredFonts();
   const isAiEnabled = useBuilderProp("flags.ai", false);
 
   const [themeValues, setThemeValues] = useTheme();
   const [designTokens, setDesignTokens] = useAtom(chaiDesignTokensAtom);
+
+  // Whether these tokens are the author's to edit is the *host's* question, not the editor's —
+  // it arrives as a flag with a reason to show, and the editor never asks what is behind it.
+  const themeReadOnly = useBuilderProp("themeReadOnly", false);
+  const themeReadOnlyReason = useBuilderProp("themeReadOnlyReason", "");
   const chaiThemeOptions = useThemeOptions();
   const { t } = useTranslation();
-  const setThemeWithHistory = React.useCallback(
+
+  // Whole-theme changes (CSS import, presets, AI) land as unsaved edits like any control
+  // change: Save keeps them, Discard rolls them back.
+  const applyTheme = React.useCallback(
     (newTheme: ChaiTheme) => {
-      const previousTheme = { ...themeValues };
-      setPreviousTheme(previousTheme);
-      setThemeValues(newTheme);
-      debouncedSaveTheme();
-      toast.success("Theme updated", {
-        action: {
-          label: (
-            <span className="flex items-center gap-2">
-              <ResetIcon className="h-4 w-4" /> Undo
-            </span>
-          ),
-          onClick: () => {
-            setThemeValues(previousTheme);
-            clearPreviousTheme();
-            toast.dismiss();
-          },
-        },
-        closeButton: true,
-        duration: 15000,
-      });
+      markUnsaved();
+      setThemeValues((prev) => ({ siteLayout: prev.siteLayout, ...cloneDeep(newTheme) }));
     },
-    [themeValues, setThemeValues, debouncedSaveTheme],
+    [markUnsaved, setThemeValues],
   );
 
   const handleCssImport = (importedTheme: ChaiTheme) => {
-    // Apply the imported theme values directly to the current theme
-    setThemeWithHistory(importedTheme);
+    applyTheme(importedTheme);
     setSelectedPreset("");
   };
 
   const applyThemeAndDesignTokens = React.useCallback(
-    async ({ theme, designTokenOverrides }: { theme: ChaiTheme; designTokenOverrides: ChaiDesignTokens }) => {
-      const previousTheme = cloneDeep(themeValues);
-      const previousDesignTokens = cloneDeep(designTokens);
-      const nextTheme = cloneDeep(theme);
-      const nextDesignTokens = { ...designTokens, ...designTokenOverrides };
-
-      setThemeValues(nextTheme);
-      setDesignTokens(nextDesignTokens);
-
-      try {
-        await saveThemeAndDesignTokens(nextTheme, nextDesignTokens);
-      } catch (error) {
-        setThemeValues(previousTheme);
-        setDesignTokens(previousDesignTokens);
-        throw error;
-      }
-
+    ({ theme, designTokenOverrides }: { theme: ChaiTheme; designTokenOverrides: ChaiDesignTokens }) => {
+      markUnsaved({ designTokens: true });
+      setThemeValues((prev) => ({ siteLayout: prev.siteLayout, ...cloneDeep(theme) }));
+      setDesignTokens({ ...designTokens, ...designTokenOverrides });
       setSelectedPreset("");
-      toast.success(t("Theme and component styles updated"), {
-        action: {
-          label: (
-            <span className="flex items-center gap-2">
-              <ResetIcon className="h-4 w-4" /> {t("Undo")}
-            </span>
-          ),
-          onClick: () => {
-            setThemeValues(previousTheme);
-            setDesignTokens(previousDesignTokens);
-            saveThemeAndDesignTokens(previousTheme, previousDesignTokens).catch(() => {
-              setThemeValues(nextTheme);
-              setDesignTokens(nextDesignTokens);
-              toast.error(t("Failed to undo theme update"));
-            });
-          },
-        },
-        closeButton: true,
-        duration: 15000,
-      });
     },
-    [designTokens, saveThemeAndDesignTokens, setDesignTokens, setThemeValues, t, themeValues],
+    [designTokens, markUnsaved, setDesignTokens, setThemeValues],
   );
 
   // ── Preset handlers ───────────────────────────────────────────
-  const applyPreset = async () => {
+  const applyPreset = () => {
     const preset = themePresets.find((item) => selectedPreset in item);
     if (!preset) {
       console.error("Preset not found:", selectedPreset);
@@ -191,25 +134,41 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
     }
 
     if (presetConfig.designTokens === undefined) {
-      setThemeWithHistory(newThemeValues);
+      applyTheme(newThemeValues);
       setSelectedPreset("");
       return;
     }
 
-    try {
-      await applyThemeAndDesignTokens({
-        theme: newThemeValues,
-        designTokenOverrides: presetConfig.designTokens,
-      });
-    } catch {
-      toast.error(t("Failed to update theme"));
-    }
+    applyThemeAndDesignTokens({ theme: newThemeValues, designTokenOverrides: presetConfig.designTokens });
   };
 
   const handleAiThemeGenerated = applyThemeAndDesignTokens;
 
+  /** Resolves to whether the save went through. */
+  const handleSaveTheme = React.useCallback(async () => {
+    setIsSaving(true);
+    try {
+      await saveUnsaved();
+      toast.success(t("Theme saved"));
+      return true;
+    } catch {
+      toast.error(t("Failed to save theme"));
+      return false;
+    } finally {
+      setIsSaving(false);
+    }
+  }, [saveUnsaved, t]);
+
+  // Theme edits stay unsaved until Save, so closing the panel asks first.
+  useChaiPanelCloseGuard(THEME_PANEL_ID, (proceed) => {
+    if (!hasUnsavedTheme) return true;
+    setPendingClose(() => proceed);
+    return false;
+  });
+
   const handleFontChange = useDebouncedCallback(
     (key: string, newValue: string) => {
+      markUnsaved();
       setThemeValues(() => ({
         ...themeValues,
         fontFamily: {
@@ -217,9 +176,8 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
           [key.replace(/font-/g, "")]: newValue,
         },
       }));
-      debouncedSaveTheme();
     },
-    [themeValues, debouncedSaveTheme],
+    [themeValues, markUnsaved],
     200,
   );
 
@@ -232,28 +190,37 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
       } else {
         numValue = parsed.toString();
       }
+      markUnsaved();
       setThemeValues((prev) => ({
         ...prev,
         borderRadius: `${numValue}px`,
       }));
-      debouncedSaveTheme();
     },
-    [setThemeValues, debouncedSaveTheme],
+    [setThemeValues, markUnsaved],
   );
 
   const handleBorderRadiusSliderChange = React.useCallback(
     (value: string) => {
+      markUnsaved();
       setThemeValues((prev) => ({
         ...prev,
         borderRadius: `${value}px`,
       }));
-      debouncedSaveTheme();
     },
-    [setThemeValues, debouncedSaveTheme],
+    [setThemeValues, markUnsaved],
+  );
+
+  const handleSiteLayoutChange = React.useCallback(
+    (value: string) => {
+      markUnsaved();
+      setThemeValues((prev) => ({ ...prev, siteLayout: value as ChaiSiteLayout }));
+    },
+    [setThemeValues, markUnsaved],
   );
 
   const handleColorChange = useDebouncedCallback(
     (key: string, newValue: string) => {
+      markUnsaved();
       setThemeValues(() => {
         const prevColor = get(themeValues, `colors.${key}`)! as [string, string];
         if (!isDarkMode) {
@@ -269,9 +236,8 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
           },
         };
       });
-      debouncedSaveTheme();
     },
-    [themeValues, debouncedSaveTheme],
+    [themeValues, markUnsaved],
     200,
   );
 
@@ -286,22 +252,7 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
               value={themeColor as string}
               onChange={(newValue: string) => handleColorChange(key, newValue)}
             />
-            <Label className="text-xs font-light leading-tight text-foreground">
-              {key
-                .split(/(?=[A-Z])/)
-                .join(" ")
-                .replace(/-/g, " ")
-                .split(" ")
-                .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-                .join(" ") +
-                (!key.toLowerCase().includes("foreground") &&
-                !key.toLowerCase().includes("border") &&
-                !key.toLowerCase().includes("input") &&
-                !key.toLowerCase().includes("ring") &&
-                !key.toLowerCase().includes("background")
-                  ? " Background"
-                  : "")}
-            </Label>
+            <Label className="text-xs font-light leading-tight text-foreground">{themeColorLabel(key)}</Label>
           </div>
         );
       })}
@@ -327,20 +278,24 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
   }
 
   return (
-    <div className="relative w-full">
-      <div className={cn("no-scrollbar h-full w-full overflow-y-auto", className)}>
+    <div className="flex w-full flex-col">
+      <div className={cn("no-scrollbar min-h-0 w-full flex-1 overflow-y-auto", className)}>
+        {/* Presets stay available even when the tokens are read-only: a preset is a *whole* theme
+            the host itself supplied, so picking one is the host's own sanctioned way to change the
+            look. CSS import and AI generation are not — they write arbitrary tokens — so they hide
+            with the flag rather than sit there and have their save refused. */}
         {themePresets.length > 0 && (
           <div className="space-y-2 py-2">
             <div className="flex w-full items-center justify-between">
               <Label className="text-xs font-medium text-foreground">{t("Presets")}</Label>
               <div className="flex items-center gap-1">
-                {importThemeEnabled && (
+                {importThemeEnabled && !themeReadOnly && (
                   <Button variant="link" size="xs" onClick={() => setIsImportModalOpen(true)}>
                     {t("Import theme")}
                   </Button>
                 )}
 
-                {isAiEnabled && (
+                {isAiEnabled && !themeReadOnly && (
                   <ChaiSlot
                     slotId={CHAI_SLOT_IDS.THEME_PANEL_ACTIONS}
                     context={{ onThemeGenerated: handleAiThemeGenerated }}
@@ -375,8 +330,9 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
 
         <Separator />
 
-        <div className={cn("space-y-3 py-2", className)}>
-          {availableFonts.length > 0 ? (
+        <ReadOnlyControls disabled={themeReadOnly} reason={themeReadOnlyReason}>
+          <div className={cn("space-y-3 py-2", className)}>
+            {availableFonts.length > 0 ? (
             <>
               {/* Fonts Section */}
               <div className="flex items-center gap-2 pt-1">
@@ -432,6 +388,35 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
             </div>
           )}
 
+          {siteLayoutEnabled && (
+            <>
+              <Separator />
+
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <LayoutTemplate className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="text-xs font-medium text-foreground">{t("Site layout")}</span>
+                </div>
+                <Select value={themeValues.siteLayout ?? ""} onValueChange={handleSiteLayoutChange}>
+                  <SelectTrigger className="h-7 w-32 text-xs">
+                    <SelectValue placeholder={t("Not set")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="container" className="text-xs">
+                      {t("Container")}
+                    </SelectItem>
+                    <SelectItem value="fluid" className="text-xs">
+                      {t("Fluid")}
+                    </SelectItem>
+                    <SelectItem value="narrow" className="text-xs">
+                      {t("Narrow")}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </>
+          )}
+
           <Separator />
 
           {/* Colors Section with Mode Switch */}
@@ -470,12 +455,64 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
               />
             )}
           </Suspense>
-        </div>
-        <br />
-        <br />
-        <br />
-        <br />
+          </div>
+        </ReadOnlyControls>
       </div>
+      {/* Edge-to-edge action bar; the negative margins cancel the right panel's p-3. */}
+      <div className="-mx-3 -mb-3 flex shrink-0 flex-col gap-2 border-t bg-background p-3">
+        <div className="flex gap-2">
+          <ChaiSlot slotId={CHAI_SLOT_IDS.GLOBAL_STYLES_HISTORY} context={{ scope: "theme" }} />
+          {hasUnsavedTheme && (
+            <Button variant="outline" size="sm" className="flex-1" onClick={discardUnsaved} disabled={isSaving}>
+              <Undo2 />
+              {t("Discard")}
+            </Button>
+          )}
+          <Button className="flex-1" size="sm" onClick={handleSaveTheme} disabled={isSaving || !hasUnsavedTheme}>
+            {isSaving ? <LoaderCircle className="animate-spin" /> : <Save />}
+            {t("Save")}
+          </Button>
+        </div>
+        <ChaiSlot slotId={CHAI_SLOT_IDS.THEME_PANEL_FOOTER} />
+      </div>
+
+      <Dialog
+        open={pendingClose !== null}
+        onOpenChange={(open) => {
+          if (!open && !isSaving) setPendingClose(null);
+        }}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>{t("Unsaved theme changes")}</DialogTitle>
+            <DialogDescription>
+              {t("You have unsaved theme changes. Do you want to save them before closing?")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-3 pt-4">
+            <Button
+              variant="outline"
+              disabled={isSaving}
+              onClick={() => {
+                const close = pendingClose;
+                discardUnsaved();
+                setPendingClose(null);
+                close?.();
+              }}>
+              {t("Discard changes")}
+            </Button>
+            <Button
+              loading={isSaving}
+              onClick={async () => {
+                const close = pendingClose;
+                if (!(await handleSaveTheme())) return;
+                setPendingClose(null);
+                close?.();
+              }}>
+              {t("Save & Close")}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 });

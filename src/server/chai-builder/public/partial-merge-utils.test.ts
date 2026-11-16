@@ -1,27 +1,9 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { withTableUnavailable } from "~/tests/setup/db-faults";
+import { TEST_APP_ID } from "~/tests/setup/test-app";
+import { schema } from "~/tests/setup/test-db";
+import { withTestDB } from "~/tests/setup/transaction-manager";
 import { ChaiBlock } from "~/types";
-
-const { mockWhere } = vi.hoisted(() => ({
-  mockWhere: vi.fn(),
-}));
-
-vi.mock("~/server/chai-actions/db", () => ({
-  db: {
-    select: () => ({ from: () => ({ where: mockWhere }) }),
-  },
-  safeQuery: async (fn: () => Promise<unknown>) => {
-    try {
-      return { data: await fn(), error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
-  },
-  schema: {
-    appPages: { id: "id", blocks: "blocks", app: "app", deletedAt: "deletedAt" },
-    appPagesOnline: { id: "id", blocks: "blocks", app: "app", deletedAt: "deletedAt" },
-  },
-}));
-
 import {
   collectPartialBlocksMap,
   computePartialIdsClosure,
@@ -92,7 +74,11 @@ describe("replacePartialBlocks", () => {
   it("skips inlining when the PartialBlock reference has _show: false", () => {
     const map = new Map<string, ChaiBlock[]>([["A", [block({ _id: "a1" }), block({ _id: "a2", _parent: "a1" })]]]);
     const result = replacePartialBlocks(
-      [block({ _id: "before" }), partialRef("p1", "A", { _parent: "container", _show: false }), block({ _id: "after" })],
+      [
+        block({ _id: "before" }),
+        partialRef("p1", "A", { _parent: "container", _show: false }),
+        block({ _id: "after" }),
+      ],
       map,
     );
     expect(result.map((b) => b._id)).toEqual(["before", "after"]);
@@ -134,87 +120,148 @@ describe("replacePartialBlocks", () => {
     const result = replacePartialBlocks([partialRef("p1", "missing")], new Map());
     expect(result).toEqual([partialRef("p1", "missing")]);
   });
-});
 
-describe("collectPartialBlocksMap", () => {
-  beforeEach(() => {
-    mockWhere.mockReset();
+  it("keeps a placement with a wrapper tag as the parent of the partial's roots", () => {
+    const map = new Map<string, ChaiBlock[]>([
+      ["A", [block({ _id: "a1", _name: "root" }), block({ _id: "a2", _name: "child", _parent: "a1" })]],
+    ]);
+    const wrapper = partialRef("p1", "A", { _parent: "container", wrapperTag: "section", styles: "#styles:,py-6" });
+    const result = replacePartialBlocks([wrapper], map);
+    const byName = Object.fromEntries(result.map((b) => [b._name, b]));
+    expect(result[0]).toEqual(wrapper);
+    expect(byName["root"]?._parent).toBe("p1");
+    expect(byName["child"]?._parent).toBe(byName["root"]?._id);
   });
 
+  it.each(["none", "script"])("replaces the placement when its wrapper tag is %s", (wrapperTag) => {
+    const map = new Map<string, ChaiBlock[]>([["A", [block({ _id: "a1" })]]]);
+    const result = replacePartialBlocks([partialRef("p1", "A", { _parent: "container", wrapperTag })], map);
+    expect(result.map((b) => b._type)).toEqual(["Box"]);
+    expect(result[0]!._parent).toBe("container");
+  });
+
+  it("expands a nested partial inside its wrapper", () => {
+    const map = new Map<string, ChaiBlock[]>([
+      ["A", [partialRef("a1", "B", { wrapperTag: "div" })]],
+      ["B", [block({ _id: "b1", _name: "inner" })]],
+    ]);
+    const result = replacePartialBlocks([partialRef("p1", "A", { wrapperTag: "section" })], map);
+    expect(result.map((b) => b.wrapperTag ?? b._name)).toEqual(["section", "div", "inner"]);
+    expect(result[1]!._parent).toBe("p1");
+    expect(result[2]!._parent).toBe(result[1]!._id);
+  });
+
+  it("hides a wrapped placement with _show: false, wrapper included", () => {
+    const map = new Map<string, ChaiBlock[]>([["A", [block({ _id: "a1" })]]]);
+    const result = replacePartialBlocks([partialRef("p1", "A", { wrapperTag: "section", _show: false })], map);
+    expect(result).toEqual([]);
+  });
+});
+
+/** Draft partial pages stored in the real `app_pages` table. */
+const seedPartials = (rows: { id: string; blocks: ChaiBlock[] }[]) =>
+  withTestDB(async ({ seedMany }) => {
+    await seedMany(
+      "appPages",
+      rows.map((row) => ({ ...row, name: row.id, slug: `/${row.id}`, pageType: "global" })),
+    );
+  });
+
+describe("collectPartialBlocksMap", () => {
   it("makes no queries when the seeded map already covers all references", async () => {
     const seed = new Map<string, ChaiBlock[]>([
       ["A", [partialRef("a1", "B")]],
       ["B", [block({ _id: "b1" })]],
     ]);
-    const map = await collectPartialBlocksMap([partialRef("p1", "A")], seed, true, "app-1");
-    expect(mockWhere).not.toHaveBeenCalled();
+    // Any query against app_pages would fail and surface as FAILED_TO_FETCH_PARTIAL_BLOCKS.
+    const map = await withTableUnavailable(schema.appPages, () =>
+      collectPartialBlocksMap([partialRef("p1", "A")], seed, true, TEST_APP_ID),
+    );
     expect([...map.keys()].sort()).toEqual(["A", "B"]);
   });
 
   it("fetches nested partials missing from a stale seed", async () => {
-    // Seed knows A (stale column: B missing) — B must be fetched
+    await seedPartials([
+      { id: "A", blocks: [block({ _id: "a-db" })] },
+      { id: "B", blocks: [block({ _id: "b1" })] },
+    ]);
+    // Seed knows A (stale column: B missing) — B must be fetched, A must not be refetched.
     const seed = new Map<string, ChaiBlock[]>([["A", [partialRef("a1", "B")]]]);
-    mockWhere.mockResolvedValueOnce([{ id: "B", blocks: [block({ _id: "b1" })] }]);
-    const map = await collectPartialBlocksMap([partialRef("p1", "A")], seed, true, "app-1");
-    expect(mockWhere).toHaveBeenCalledTimes(1);
+    const map = await collectPartialBlocksMap([partialRef("p1", "A")], seed, true, TEST_APP_ID);
     expect([...map.keys()].sort()).toEqual(["A", "B"]);
+    expect(map.get("A")).toEqual([partialRef("a1", "B")]);
+    expect(map.get("B")).toEqual([block({ _id: "b1" })]);
   });
 
   it("fetches level by level when nothing is seeded", async () => {
-    mockWhere.mockResolvedValueOnce([{ id: "A", blocks: [partialRef("a1", "B")] }]);
-    mockWhere.mockResolvedValueOnce([{ id: "B", blocks: [block({ _id: "b1" })] }]);
-    const map = await collectPartialBlocksMap([partialRef("p1", "A")], new Map(), true, "app-1");
-    expect(mockWhere).toHaveBeenCalledTimes(2);
+    await seedPartials([
+      { id: "A", blocks: [partialRef("a1", "B")] },
+      { id: "B", blocks: [block({ _id: "b1" })] },
+    ]);
+    const map = await collectPartialBlocksMap([partialRef("p1", "A")], new Map(), true, TEST_APP_ID);
     expect([...map.keys()].sort()).toEqual(["A", "B"]);
+    expect(map.get("B")).toEqual([block({ _id: "b1" })]);
   });
 
   it("never refetches a dangling reference", async () => {
-    mockWhere.mockResolvedValue([]);
-    const map = await collectPartialBlocksMap([partialRef("p1", "ghost")], new Map(), true, "app-1");
-    expect(mockWhere).toHaveBeenCalledTimes(1);
+    const map = await collectPartialBlocksMap([partialRef("p1", "ghost")], new Map(), true, TEST_APP_ID);
     expect(map.size).toBe(0);
   });
 
+  it("reads published partials from the online table when not in draft", async () => {
+    await withTestDB(async ({ seed }) => {
+      await seed("appPagesOnline", { id: "A", pageType: "global", blocks: [block({ _id: "a-live" })] });
+    });
+    await seedPartials([{ id: "A", blocks: [block({ _id: "a-draft" })] }]);
+
+    const map = await collectPartialBlocksMap([partialRef("p1", "A")], new Map(), false, TEST_APP_ID);
+    expect(map.get("A")).toEqual([block({ _id: "a-live" })]);
+  });
+
   it("terminates on cyclic references", async () => {
-    mockWhere.mockResolvedValueOnce([{ id: "A", blocks: [partialRef("a1", "B")] }]);
-    mockWhere.mockResolvedValueOnce([{ id: "B", blocks: [partialRef("b1", "A")] }]);
-    const map = await collectPartialBlocksMap([partialRef("p1", "A")], new Map(), true, "app-1");
-    expect(mockWhere).toHaveBeenCalledTimes(2);
+    await seedPartials([
+      { id: "A", blocks: [partialRef("a1", "B")] },
+      { id: "B", blocks: [partialRef("b1", "A")] },
+    ]);
+    const map = await collectPartialBlocksMap([partialRef("p1", "A")], new Map(), true, TEST_APP_ID);
     expect([...map.keys()].sort()).toEqual(["A", "B"]);
   });
 
   it("throws when the partial fetch fails instead of silently dropping partials", async () => {
-    mockWhere.mockRejectedValueOnce(new Error("db down"));
-    await expect(collectPartialBlocksMap([partialRef("p1", "A")], new Map(), true, "app-1")).rejects.toThrow(
-      "FAILED_TO_FETCH_PARTIAL_BLOCKS",
-    );
+    await withTableUnavailable(schema.appPages, async () => {
+      const error = await collectPartialBlocksMap([partialRef("p1", "A")], new Map(), true, TEST_APP_ID).catch(
+        (e: unknown) => e,
+      );
+      expect((error as Error).message).toBe("FAILED_TO_FETCH_PARTIAL_BLOCKS");
+      expect((error as Error).cause).toBeInstanceOf(Error);
+    });
   });
 });
 
 describe("computePartialIdsClosure", () => {
-  beforeEach(() => {
-    mockWhere.mockReset();
-  });
-
   it("returns the transitive closure of existing partials", async () => {
-    mockWhere.mockResolvedValueOnce([{ id: "A", blocks: [partialRef("a1", "B")] }]);
-    mockWhere.mockResolvedValueOnce([{ id: "B", blocks: [] }]);
-    const closure = await computePartialIdsClosure([partialRef("p1", "A")], "app-1");
+    await seedPartials([
+      { id: "A", blocks: [partialRef("a1", "B")] },
+      { id: "B", blocks: [] },
+    ]);
+    const closure = await computePartialIdsClosure([partialRef("p1", "A"), partialRef("p2", "missing")], TEST_APP_ID);
     expect(closure.sort()).toEqual(["A", "B"]);
   });
 
   it("returns an empty closure for blocks without partials", async () => {
-    const closure = await computePartialIdsClosure([block({ _id: "x" })], "app-1");
+    // No query may run: the table is unavailable, so a query would throw.
+    const closure = await withTableUnavailable(schema.appPages, () =>
+      computePartialIdsClosure([block({ _id: "x" })], TEST_APP_ID),
+    );
     expect(closure).toEqual([]);
-    expect(mockWhere).not.toHaveBeenCalled();
   });
 
   it("returns a deterministic sorted closure regardless of DB result order", async () => {
-    mockWhere.mockResolvedValueOnce([
+    await seedPartials([
       { id: "zeta", blocks: [] },
       { id: "alpha", blocks: [] },
     ]);
-    const closure = await computePartialIdsClosure([partialRef("p1", "zeta"), partialRef("p2", "alpha")], "app-1");
+    const closure = await computePartialIdsClosure([partialRef("p1", "zeta"), partialRef("p2", "alpha")], TEST_APP_ID);
     expect(closure).toEqual(["alpha", "zeta"]);
   });
 });

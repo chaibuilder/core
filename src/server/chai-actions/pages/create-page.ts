@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { isEmpty, omit } from "lodash-es";
 import { z } from "zod";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
+import { linkedUpstreamId } from "~/server/chai-builder/public/get-upstream-full-page";
 import { routingTagsForMutation } from "~/server/chai-builder/public/page-routing-cache";
 import { computePartialIdsClosure } from "~/server/chai-builder/public/partial-merge-utils";
 import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
@@ -10,8 +11,10 @@ import { ActionError } from "../action-error";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 import { hasPermission } from "~/server/rbac/permissions";
 import { ChaiBaseAction } from "../base-action";
+import { getDefaultGlobalJsonLdIds } from "./default-global-jsonlds";
 import { demoteExistingHomepage, findExistingHomepage } from "./demote-existing-homepage";
 import { buildPartialMetadata } from "./partial-metadata";
+import { assertUpstreamPagesEnabled, findLinkableUpstream, type LinkableUpstreamPage } from "./upstream-pages";
 
 /**
  * Data type for CreatePageAction
@@ -29,11 +32,15 @@ export type CreatePageActionData = {
   dynamicSlugCustom?: string;
   seo?: Record<string, any>;
   jsonLD?: Record<string, any>;
+  /** Initial tracking jsonb — the page creator sends the page type's `trackingDefault`. */
+  tracking?: Record<string, any>;
   blocks?: ChaiBlock[];
   /** AI-facing description, primarily used for partials. Stored in metadata.description. */
   description?: string;
   /** Free-form, site-specific tags for partials/global blocks. Stored under the namespaced metadata key `__tags` (PARTIAL_TAGS_METADATA_KEY). */
   tags?: string[];
+  /** Create a linked page that renders this upstream page (features.upstreamPages). */
+  upstream?: string;
 };
 
 type CreatePageActionResponse = {
@@ -60,7 +67,9 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
     return z
       .object({
         name: z.string().min(1),
-        slug: z.string(),
+        // A stored `{{…}}` segment makes every dynamic URL under the slug 404:
+        // slugs are base paths, URL segments are appended at render.
+        slug: z.string().refine((slug) => !/[{}]/.test(slug), "must be a base path without {{…}} template segments"),
         pageType: z.string(),
         parent: z.string().nullable().optional(),
         lang: z.string().optional(),
@@ -70,10 +79,12 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
         template: z.string().optional(),
         seo: z.record(z.string(), z.any()).optional(),
         jsonLD: z.record(z.string(), z.any()).optional(),
+        tracking: z.record(z.string(), z.any()).optional(),
         dynamicSlugCustom: z.string().optional(),
         blocks: z.array(z.any()).optional(),
         description: z.string().optional(),
         tags: z.array(z.string().min(1).max(50)).optional(),
+        upstream: z.string().uuid().optional(),
       })
       .refine(
         (data) => {
@@ -92,11 +103,25 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
   /**
    * Execute the create page action
    */
-  async execute(data: CreatePageActionData): Promise<CreatePageActionResponse> {
+  async execute(input: CreatePageActionData): Promise<CreatePageActionResponse> {
     if (!this.context) {
       throw new ActionError("Context not set", "CONTEXT_NOT_SET");
     }
     const { appId, userId } = this.context;
+
+    // A linked page takes its type and dynamic settings from the upstream page and starts with no
+    // content of its own.
+    const upstream = input.upstream ? await this.resolveUpstream(input) : null;
+    const data = upstream
+      ? {
+          ...input,
+          pageType: upstream.pageType ?? "page",
+          dynamic: upstream.dynamic ?? false,
+          // As from scratch: the user may add a custom part after the type's dynamic pattern.
+          dynamicSlugCustom: upstream.dynamic ? (input.dynamicSlugCustom ?? "") : "",
+          blocks: [],
+        }
+      : input;
 
     // Partial page types (global, _layout, …) never get a slug — even if the client sends one
     const hasSlug = data.hasSlug ?? (data.pageType === "global" || data.pageType === "_layout" ? false : true);
@@ -122,7 +147,7 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
     // Validate slug uniqueness if hasSlug is true. A homepage claim skips this:
     // whatever currently owns "/" is demoted just before the insert instead.
     if (hasSlug && slug && !isHomepageClaim) {
-      const slugExists = await this.doesSlugExist(slug, data.pageType);
+      const slugExists = await this.doesSlugExist(slug, data.pageType, data.dynamic ?? false);
       if (slugExists) {
         throw new ActionError("Slug already exists", "SLUG_ALREADY_USED");
       }
@@ -145,9 +170,19 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
           columns: {
             dynamic: true,
             dynamicSlugCustom: true,
+            upstream: true,
+            useUpstream: true,
           },
         }),
       );
+      // A language page of a linked page would render its own empty blocks, not the upstream page's.
+      if (primaryPageData && linkedUpstreamId(primaryPageData)) {
+        throw new ActionError(
+          "A linked page can't have language pages until it is duplicated",
+          "UPSTREAM_PAGE_LINKED",
+          409,
+        );
+      }
       if (primaryPageData) {
         dynamic = primaryPageData.dynamic ?? false;
         dynamicSlugCustom = primaryPageData.dynamicSlugCustom ?? "";
@@ -176,6 +211,11 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
       }
     }
 
+    // Shared JSON-LD schemas flagged "enabled by default for new pages" are attached
+    // here (CREATE_PAGE) and by the two importers; DUPLICATE_PAGE and the clone
+    // service copy the source page's existing list instead, so they skip this.
+    const defaultGlobalJsonLds = await this.resolveDefaultGlobalJsonLds(appId, data, hasSlug && !!slug);
+
     // Prepare the page data
     const pageData = {
       app: appId,
@@ -203,6 +243,8 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
         searchDescription: "",
       },
       jsonld: {},
+      tracking: data.tracking ?? {},
+      globalJsonLds: defaultGlobalJsonLds,
       metadata: buildPartialMetadata(data.description, data.tags),
       online: false,
       currentEditor: null,
@@ -210,6 +252,7 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
       libRefId: null,
       lastSaved: null,
       createdBy: userId,
+      ...(upstream ? { upstream: upstream.id, useUpstream: true } : {}),
     };
 
     // Demote as late as possible — every fallible preparation step is done, so a
@@ -274,11 +317,51 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
   }
 
   /**
+   * The upstream page a linked create points at. The host's upstream page source decides, so an id
+   * this user may not link into this app is not found.
+   */
+  private async resolveUpstream(data: CreatePageActionData): Promise<LinkableUpstreamPage> {
+    assertUpstreamPagesEnabled();
+    if (data.primaryPage || data.lang || data.template || data.hasSlug === false) {
+      throw new ActionError("A linked page must be a routable primary page", "INVALID_UPSTREAM_PAGE", 400);
+    }
+    if (!data.slug?.trim()) throw new ActionError("A linked page needs a slug", "INVALID_UPSTREAM_PAGE", 400);
+    const upstream = await findLinkableUpstream({
+      appId: this.context!.appId,
+      userId: this.context!.userId,
+      upstreamId: data.upstream!,
+    });
+    if (!upstream) throw new ActionError("Upstream page not found", "UPSTREAM_PAGE_NOT_FOUND", 404);
+    // A dynamic page answers under its parent's path, so it cannot sit at the root.
+    if (upstream.dynamic && !data.parent) {
+      throw new ActionError("A dynamic linked page needs a parent page", "INVALID_UPSTREAM_PAGE", 400);
+    }
+    return upstream;
+  }
+
+  /**
+   * Shared JSON-LD ids to seed onto the new page, or `[]` when it is not a page
+   * that renders its own `<head>`: a language variant (inherits the primary's
+   * list at render time), a slugless page (merged into a host page's `<head>`),
+   * or a folder (never renders).
+   */
+  private async resolveDefaultGlobalJsonLds(
+    appId: string,
+    data: CreatePageActionData,
+    hasRoutableSlug: boolean,
+  ): Promise<string[]> {
+    if (data.primaryPage || !hasRoutableSlug || data.pageType === "_folder") return [];
+    return getDefaultGlobalJsonLdIds(appId);
+  }
+
+  /**
    * Check if slug already exists for the given page type.
    * Folders share the URL space with every type: a folder's slug conflicts with
-   * any existing page, and any page's slug conflicts with an existing folder.
+   * any existing page, and any page's slug conflicts with an existing folder —
+   * except a dynamic page, whose slug is its parent's path (`/listing` for
+   * `/listing/{{slug}}`) and so always sits on the folder that holds it.
    */
-  private async doesSlugExist(slug: string, pageType: string): Promise<boolean> {
+  private async doesSlugExist(slug: string, pageType: string, dynamic: boolean): Promise<boolean> {
     if (!this.context) {
       throw new ActionError("Context not set", "CONTEXT_NOT_SET");
     }
@@ -287,7 +370,7 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
     const pageTypeCondition =
       pageType === "_folder"
         ? undefined
-        : inArray(schema.appPages.pageType, [pageType, "_folder"]);
+        : inArray(schema.appPages.pageType, dynamic ? [pageType] : [pageType, "_folder"]);
 
     const { data: existingPage, error } = await safeQuery(() =>
       db.query.appPages.findFirst({

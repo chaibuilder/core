@@ -1,5 +1,6 @@
 import { each, filter, get, isString } from "lodash-es";
 import { useCallback } from "react";
+import { canDuplicateBlocks } from "~/builder/core/functions/block-helpers";
 import { getDuplicatedBlocks } from "~/builder/core/functions/blocks-fn";
 import {
   useBlocksStore,
@@ -18,6 +19,7 @@ export const useDuplicateBlocks = () => {
 
   return useCallback(
     (blockIds: string[], parentId: string | null = null) => {
+      if (!canDuplicateBlocks(blockIds, presentBlocks)) return;
       const newBlockIds: string[] = [];
       each(blockIds, (blockId: string) => {
         const block = presentBlocks.find((block) => block._id === blockId) as ChaiBlock;

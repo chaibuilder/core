@@ -7,10 +7,52 @@ import TextStyle from "@tiptap/extension-text-style";
 import Underline from "@tiptap/extension-underline";
 import { Editor, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
+import { startsWith } from "lodash-es";
 import React from "react";
 import { ChaiBindingNode, tokenizeBindings } from "~/builder/core/rjsf-widgets/binding-editor/binding-node";
 import { createBindingSuggestionExtension } from "~/builder/core/rjsf-widgets/binding-editor/binding-suggestion";
 import type { BindingSuggestionItem } from "~/builder/core/rjsf-widgets/binding-editor/use-binding-suggestion-items";
+
+/**
+ * A link to a site page is stored as a `pageType:<pageTypeKey>:<primaryPageId>` ref, the Link
+ * block's format, and resolved to the page's current URL at render time.
+ */
+export const isPageLinkRef = (href: unknown): href is string =>
+  typeof href === "string" && startsWith(href, "pageType:");
+
+/** An in-site href: a page ref, a path, an `#anchor` or an absolute URL on a known site host. */
+export const isInternalHref = (href: string, siteHosts: readonly string[] = []) =>
+  isPageLinkRef(href) ||
+  /^(\/|#|\.\/|\.\.\/)/.test(href) ||
+  (URL.canParse(href) && siteHosts.includes(new URL(href).host));
+
+/**
+ * `target`/`rel` for a link that opens in a new tab or the same one, as the Link block renders them.
+ * `data-new-tab` marks the new tab as chosen: older editors put `_blank` on every link, so a renderer
+ * that drops it from internal links (which older content needs) can still honour this one.
+ */
+export const linkTargetAttrs = (newTab: boolean) =>
+  newTab
+    ? { target: "_blank", rel: "noopener noreferrer", "data-new-tab": "true" }
+    : { target: null, rel: null, "data-new-tab": null };
+
+export const RteLink = Link.extend({
+  addAttributes() {
+    return { ...this.parent?.(), "data-new-tab": { default: null } };
+  },
+}).configure({
+  openOnClick: false,
+  // tiptap drops links whose scheme it doesn't know, so a page ref would be lost on load
+  // and saved with an empty href.
+  isAllowedUri: (url, ctx) => isPageLinkRef(url) || ctx.defaultValidate(url),
+  HTMLAttributes: {
+    class: "underline",
+    // tiptap defaults every link to `target="_blank" rel="noopener noreferrer nofollow"`, even
+    // one loaded without them. Keep what the HTML says; the link form sets them per link.
+    target: null,
+    rel: null,
+  },
+});
 
 /**
  *
@@ -59,12 +101,7 @@ export const useRTEditor = ({
         Highlight.configure({
           multicolor: true,
         }),
-        Link.configure({
-          openOnClick: false,
-          HTMLAttributes: {
-            class: "underline",
-          },
-        }),
+        RteLink,
         TextAlign.configure({
           types: ["heading", "paragraph"],
           alignments: ["left", "center", "right"],

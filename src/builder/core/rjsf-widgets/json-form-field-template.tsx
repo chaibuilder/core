@@ -6,13 +6,13 @@ import { usePageExternalData } from "~/builder/atoms/builder";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
 import Tooltip from "~/builder/pages/utils/tooltip";
+import { ChaiSlot } from "~/builder/register-apis";
 import { Badge } from "~/components/ui/badge";
 import { Label } from "~/components/ui/label";
+import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
 import { LANGUAGES } from "~/constants/LANGUAGES";
 import { useRegisteredChaiBlocks } from "~/registry";
 import { DataBindingSelector } from "./data-binding-selector";
-import { ChaiSlot } from "~/builder/register-apis";
-import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
 
 const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
   const { id, classNames, label, children, errors, help, hidden, required, schema, formData, onChange } = props;
@@ -30,7 +30,9 @@ const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
     () => (selectedBlock?._type ? get(registeredBlocks, [selectedBlock._type, "i18nProps"], []) : []),
     [registeredBlocks, selectedBlock],
   );
-  const [openedList, setOpenedList] = useState<null | string>(null);
+  const [openedList, setOpenedList] = useState<null | string>(
+    schema.type === "array" && Array.isArray(formData) && formData.length > 0 ? id : null,
+  );
 
   if (hidden) {
     return null;
@@ -40,6 +42,17 @@ const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
   // field) own their whole UI — skip the collapsible list chrome below, which
   // would otherwise keep them at height 0.
   if (schema.type === "array" && get(props.uiSchema, "ui:field")) {
+    return (
+      <div className={classNames}>
+        {children}
+        {errors}
+        {help}
+      </div>
+    );
+  }
+
+  // A widget that draws its own label (the Variant row) opts out of this one.
+  if (get(props.uiSchema, "ui:label") === false) {
     return (
       <div className={classNames}>
         {children}
@@ -98,6 +111,9 @@ const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
 
   const field = id.replace("root.", "");
   const showMissingWarning = i18nProps.includes(field as never) && !isEmpty(selectedLang) && isEmpty(formData);
+  // A plain object only groups its child fields, which carry their own binding selector.
+  // Objects with a custom "ui:field" (e.g. link) are left to that field.
+  const isGroupObject = schema.type === "object" && !get(props.uiSchema, "ui:field");
   return (
     <div className={classNames}>
       {schema.title && (
@@ -118,7 +134,7 @@ const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
               slotId={CHAI_SLOT_IDS.SETTINGS_FIELD_ACTIONS}
               context={{ field, blockType: selectedBlock?._type }}
             />
-            {!schema.enum && !schema.oneOf && pageExternalData && (
+            {!schema.enum && !schema.oneOf && !isGroupObject && pageExternalData && (
               <span className="flex items-center space-x-1">
                 {showMissingWarning ? (
                   <Tooltip

@@ -1,5 +1,5 @@
 import { ImageIcon } from "@radix-ui/react-icons";
-import { registerChaiBlockProps, stylesProp } from "~/registry";
+import { groupProps, registerChaiBlockProps, stylesProp } from "~/registry";
 import { ChaiBlockComponentProps, ChaiStyles } from "~/types/blocks";
 import { imageQualityProp } from "~/web-blocks/image-quality-prop";
 
@@ -18,6 +18,7 @@ export type ImageBlockProps = {
   mobileWidth?: string;
   mobileHeight?: string;
   imageQuality?: string;
+  highPriority?: boolean;
 };
 
 const ImageBlock = (props: ChaiBlockComponentProps<ImageBlockProps>) => {
@@ -64,61 +65,83 @@ const Config = {
   props: registerChaiBlockProps({
     properties: {
       styles: stylesProp("w-full h-full object-cover"),
-      image: {
-        type: "string",
-        title: "Image",
-        default: PLACEHOLDER_IMAGE,
-        ui: { "ui:widget": "image" },
-      },
-      width: {
-        type: "string",
-        title: "Width",
-        default: "",
-        ui: { "ui:placeholder": "Enter width" },
-      },
-      height: {
-        type: "string",
-        title: "Height",
-        default: "",
-        ui: { "ui:placeholder": "Enter height" },
-      },
-      mobileImage: {
-        type: "string",
-        title: "Mobile Image",
-        default: "",
-        ui: { "ui:widget": "image" },
-      },
-      mobileWidth: {
-        type: "string",
-        title: "Mobile Width",
-        default: "",
-        ui: { "ui:placeholder": "Enter width" },
-      },
-      mobileHeight: {
-        type: "string",
-        title: "Mobile Height",
-        default: "",
-        ui: { "ui:placeholder": "Enter height" },
-      },
       alt: {
         type: "string",
         title: "Alt text",
         default: "",
         ui: { "ui:placeholder": "Enter  alt text" },
       },
-
-      lazyLoading: {
-        type: "boolean",
-        title: "Lazy Load",
-        default: true,
-      },
-      // Controls how Vercel/next-image optimizes this image. "Off" serves the
-      // original file untouched; the numbered tiers map to a next/image `quality`.
-      // Kept in sync (by string value) with resolveImageQuality in
-      // components/ui/image-quality.ts. The app render path (blocks/rsc/Image.tsx)
-      // consumes it via resolveImageQuality; the SDK's editor-side <picture>/<img>
-      // above renders a plain image and does not emit the next/image quality.
-      imageQuality: imageQualityProp,
+      ...groupProps({
+        label: "Image",
+        properties: {
+          image: {
+            type: "string",
+            title: "Image",
+            default: PLACEHOLDER_IMAGE,
+            ui: { "ui:widget": "image" },
+          },
+          width: {
+            type: "string",
+            title: "Width",
+            default: "",
+            ui: { "ui:placeholder": "Enter width" },
+          },
+          height: {
+            type: "string",
+            title: "Height",
+            default: "",
+            ui: { "ui:placeholder": "Enter height" },
+          },
+          lazyLoading: {
+            type: "boolean",
+            title: "Lazy Load",
+            default: true,
+            description:
+              "Off = load right away. Inside a Repeater only the first item loads right away; the rest stay lazy.",
+          },
+          // Marks the one image the first viewport paints last (the LCP image):
+          // eager + fetchpriority=high. Off by default — several high-priority
+          // images on one page slow each other down.
+          highPriority: {
+            type: "boolean",
+            title: "High priority (LCP image)",
+            default: false,
+            description:
+              "Loads right away at high priority, even with Lazy Load on. Use on one image per page: the largest one visible on first paint.",
+          },
+          // Controls how Vercel/next-image optimizes this image. "Off" serves the
+          // original file untouched; the numbered tiers map to a next/image `quality`.
+          // Kept in sync (by string value) with resolveImageQuality in
+          // components/ui/image-quality.ts. The app render path (blocks/rsc/Image.tsx)
+          // consumes it via resolveImageQuality; the SDK's editor-side <picture>/<img>
+          // above renders a plain image and does not emit the next/image quality.
+          imageQuality: imageQualityProp,
+        },
+      }),
+      ...groupProps({
+        label: "Mobile",
+        defaultOpen: false,
+        properties: {
+          mobileImage: {
+            type: "string",
+            title: "Mobile Image",
+            default: "",
+            ui: { "ui:widget": "image" },
+          },
+          mobileWidth: {
+            type: "string",
+            title: "Mobile Width",
+            default: "",
+            ui: { "ui:placeholder": "Enter width" },
+          },
+          mobileHeight: {
+            type: "string",
+            title: "Mobile Height",
+            default: "",
+            ui: { "ui:placeholder": "Enter height" },
+          },
+        },
+      }),
     },
   }),
   aiProps: ["alt"],

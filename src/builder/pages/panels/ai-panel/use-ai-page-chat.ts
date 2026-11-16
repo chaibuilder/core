@@ -19,6 +19,7 @@ import { useSavePage } from "~/builder/hooks/use-save-page";
 import { partialBlocksListAtom, useCheckPartialCanAdd } from "~/builder/hooks/use-partial-blocks-store";
 import { AI_CREDITS_QUERY_KEY } from "~/builder/pages/constants/AI_CREDITS";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
+import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { useApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
 import { AI_OMITTED_HTML_SENTINEL } from "~/constants/AI_TOOL_HISTORY";
 import {
@@ -31,6 +32,7 @@ import {
   normalizeAiPosition,
 } from "~/server/chai-actions/ai/ask-ai/ai-edit-executors";
 import { ChaiBlock } from "~/types/common";
+import { buildInternalLinkResolver } from "~/utils/internal-link-refs";
 import { ACTIONS } from "../../constants/ACTIONS";
 import { useAIConfig } from "./ai-models-context";
 import { clearStreamCanvas, streamHtmlToCanvasForAdd, streamHtmlToCanvasForEdit } from "./canvas-stream-preview";
@@ -171,6 +173,7 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
   const bindProp = useBindProp();
   const partialBlocksList = useAtomValue(partialBlocksListAtom);
   const checkPartialCanAdd = useCheckPartialCanAdd();
+  const { data: websitePages } = useWebsitePrimaryPages();
 
   /**
    * AI emits partials as `<chai-partial-block partial-id='...'>` with no name,
@@ -183,6 +186,9 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
    * emitting an arbitrary partial-id (self-reference, cycle, too deep). Runs
    * the same can-add rules as the sidebar add/drop/paste paths; returns the
    * violation reason or null.
+   *
+   * resolveInternalLink turns a slug the model wrote for a site page into the
+   * `pageType:` reference the link picker stores, so the link survives slug changes.
    */
   const aiEditExecutorOptions = useMemo(
     () => ({
@@ -193,8 +199,9 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
         const { canAdd, reason } = checkPartialCanAdd(partialBlockId);
         return canAdd ? null : reason || "This partial block cannot be added to this page";
       },
+      resolveInternalLink: buildInternalLinkResolver(websitePages),
     }),
-    [checkPartialCanAdd, partialBlocksList],
+    [checkPartialCanAdd, partialBlocksList, websitePages],
   );
 
   /**
@@ -378,6 +385,7 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
             input.parentId,
             input.position,
             props ?? {},
+            aiEditExecutorOptions,
           );
           if ("error" in result) return { ok: false, error: result.error };
           addBlocks(result.insertedBlocks ?? [], result.parentId, result.position);
@@ -401,15 +409,7 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
           return { ok: false, error: `Unknown client tool: ${toolName}` };
       }
     },
-    [
-      addBlocks,
-      aiEditExecutorOptions,
-      bindProp,
-      dataBindingPaths,
-      removeBlocks,
-      replaceBlock,
-      scopedBlockId,
-    ],
+    [addBlocks, aiEditExecutorOptions, bindProp, dataBindingPaths, removeBlocks, replaceBlock, scopedBlockId],
   );
 
   const executeToolCallRef = useRef(executeToolCall);

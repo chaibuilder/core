@@ -3,6 +3,8 @@ import { z } from "zod";
 import { ActionError } from "~/server/chai-actions/action-error";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
+import { linkedUpstreamId } from "~/server/chai-builder/public/get-upstream-full-page";
+import { getConfigUpstreamPageSource } from "~/server/defaults/config-registry";
 
 export type GetDraftPageActionData = {
   id: string;
@@ -61,6 +63,8 @@ export class GetDraftPageAction extends ChaiBaseAction<GetDraftPageActionData, G
           blocks: targetTable.blocks,
           tracking: targetTable.tracking,
           globalJsonLds: targetTable.globalJsonLds,
+          upstream: targetTable.upstream,
+          useUpstream: targetTable.useUpstream,
         })
         .from(targetTable)
         .where(and(eq(targetTable.app, appId), eq(targetTable.id, id), isNull(targetTable.deletedAt)))
@@ -109,13 +113,29 @@ export class GetDraftPageAction extends ChaiBaseAction<GetDraftPageActionData, G
       blocks = (primaryPageData[0]?.blocks as any[]) ?? [];
     }
 
+    // A linked page shows what it renders: its upstream page's content, made this site's. Read-only:
+    // UPDATE_PAGE refuses its content until it is cloned.
+    const upstreamId = linkedUpstreamId(page);
+    const upstreamContent = upstreamId ? await this.readUpstreamContent(upstreamId, appId) : undefined;
+    if (upstreamId) blocks = upstreamContent?.blocks ?? [];
+
     return {
       ...page,
+      ...(upstreamId ? { seo: upstreamContent?.seo ?? {} } : {}),
       blocks,
       id,
       languagePageId: page.id,
       tracking: page.tracking ?? {},
       globalJsonLds: (page.globalJsonLds ?? []) as string[],
     };
+  }
+
+  /** The upstream page's content as this app's, or null when it is gone (it then renders a 404). */
+  private async readUpstreamContent(upstreamId: string, appId: string) {
+    try {
+      return (await getConfigUpstreamPageSource()?.getContent(upstreamId, { appId })) ?? null;
+    } catch (error) {
+      throw new ActionError("Failed to read upstream page", "UPSTREAM_LOOKUP_FAILED", 500, error);
+    }
   }
 }

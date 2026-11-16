@@ -1,32 +1,28 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ChaiRolesConfig } from "~/types/server-config";
+import { withChaiConfig } from "~/tests/setup/chai-config";
 import { DEFAULT_ROLE_MAPS } from "./default-roles";
-
-vi.mock("~/server/defaults/config-registry", () => ({
-  getConfigRoles: vi.fn(),
-  getConfigDefaultRoleGrants: vi.fn(() => ({})),
-}));
-
-import { getConfigDefaultRoleGrants, getConfigRoles } from "~/server/defaults/config-registry";
 import { getGlobalRoles } from "./get-role-permissions";
 
-const mockGetConfigRoles = vi.mocked(getConfigRoles);
-const mockGetConfigDefaultRoleGrants = vi.mocked(getConfigDefaultRoleGrants);
+/** Sets the resolved `roles` value on the real active config. */
+const setRoles = (roles: unknown) => withChaiConfig({ roles: roles as ChaiRolesConfig | undefined });
+/** Sets the resolved plugin-contributed `defaultRoleGrants` on the real active config. */
+const setGrants = (defaultRoleGrants: Record<string, string[]>) => withChaiConfig({ defaultRoleGrants });
 
 describe("getGlobalRoles", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetConfigDefaultRoleGrants.mockReturnValue({});
+    setGrants({});
   });
 
   it("returns DEFAULT_ROLE_MAPS when roles config is undefined", async () => {
-    mockGetConfigRoles.mockReturnValue(undefined);
+    setRoles(undefined);
     const result = await getGlobalRoles();
     expect(result).toBe(DEFAULT_ROLE_MAPS);
   });
 
   it("returns static roles map directly when provided in config", async () => {
     const staticRoles = { admin: { permissions: ["*"] }, viewer: { permissions: ["pages:read"] } };
-    mockGetConfigRoles.mockReturnValue(staticRoles);
+    setRoles(staticRoles);
     const result = await getGlobalRoles();
     expect(result).toBe(staticRoles);
   });
@@ -35,7 +31,7 @@ describe("getGlobalRoles", () => {
   it("awaits a plugin-installed loader and uses its map as-is", async () => {
     const loaded = { editor: { permissions: ["pages:read"] } };
     const loader = vi.fn(async () => loaded);
-    mockGetConfigRoles.mockReturnValue(loader);
+    setRoles(loader);
 
     const result = await getGlobalRoles();
     expect(loader).toHaveBeenCalledOnce();
@@ -43,13 +39,13 @@ describe("getGlobalRoles", () => {
   });
 
   it("falls back to defaults when the loader reports nothing stored (null)", async () => {
-    mockGetConfigRoles.mockReturnValue(async () => null);
+    setRoles(async () => null);
     const result = await getGlobalRoles();
     expect(result).toBe(DEFAULT_ROLE_MAPS);
   });
 
   it("keeps a loader's empty map (fail closed on loader errors)", async () => {
-    mockGetConfigRoles.mockReturnValue(async () => ({}));
+    setRoles(async () => ({}));
     const result = await getGlobalRoles();
     expect(result).toEqual({});
   });
@@ -57,7 +53,7 @@ describe("getGlobalRoles", () => {
   // `{ source: "custom" }` surviving resolution means no roles plugin ran.
   it("falls back to defaults and warns when source:custom has no engine", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    mockGetConfigRoles.mockReturnValue({ source: "custom" });
+    setRoles({ source: "custom" });
 
     const first = await getGlobalRoles();
     await getGlobalRoles();
@@ -71,13 +67,12 @@ describe("getGlobalRoles", () => {
 
 describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
-    mockGetConfigDefaultRoleGrants.mockReturnValue({});
+    setGrants({});
   });
 
   it("overlays contributed grants onto the no-config fallback", async () => {
-    mockGetConfigRoles.mockReturnValue(undefined);
-    mockGetConfigDefaultRoleGrants.mockReturnValue({ editor: ["redirects:read", "redirects:create"] });
+    setRoles(undefined);
+    setGrants({ editor: ["redirects:read", "redirects:create"] });
 
     const result = await getGlobalRoles();
     expect(result.editor?.permissions).toEqual(
@@ -86,8 +81,8 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
   });
 
   it("overlays contributed grants onto the loader's nothing-stored fallback", async () => {
-    mockGetConfigRoles.mockReturnValue(async () => null);
-    mockGetConfigDefaultRoleGrants.mockReturnValue({ viewer: ["revisions:read"] });
+    setRoles(async () => null);
+    setGrants({ viewer: ["revisions:read"] });
 
     const result = await getGlobalRoles();
     expect(result.viewer?.permissions).toContain("revisions:read");
@@ -95,8 +90,8 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
 
   it("does NOT overlay a literal role map from config", async () => {
     const staticRoles = { editor: { permissions: ["pages:read"] } };
-    mockGetConfigRoles.mockReturnValue(staticRoles);
-    mockGetConfigDefaultRoleGrants.mockReturnValue({ editor: ["redirects:read"] });
+    setRoles(staticRoles);
+    setGrants({ editor: ["redirects:read"] });
 
     const result = await getGlobalRoles();
     expect(result).toBe(staticRoles);
@@ -104,32 +99,32 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
   });
 
   it("does NOT overlay loader-provided roles", async () => {
-    mockGetConfigRoles.mockReturnValue(async () => ({ editor: { permissions: ["pages:read"] } }));
-    mockGetConfigDefaultRoleGrants.mockReturnValue({ editor: ["redirects:read"] });
+    setRoles(async () => ({ editor: { permissions: ["pages:read"] } }));
+    setGrants({ editor: ["redirects:read"] });
 
     const result = await getGlobalRoles();
     expect(result.editor?.permissions).toEqual(["pages:read"]);
   });
 
   it("leaves grant-all roles untouched", async () => {
-    mockGetConfigRoles.mockReturnValue(undefined);
-    mockGetConfigDefaultRoleGrants.mockReturnValue({ admin: ["redirects:read"] });
+    setRoles(undefined);
+    setGrants({ admin: ["redirects:read"] });
 
     const result = await getGlobalRoles();
     expect(result.admin?.permissions).toEqual(["*"]);
   });
 
   it("ignores grants for roles the defaults do not define", async () => {
-    mockGetConfigRoles.mockReturnValue(undefined);
-    mockGetConfigDefaultRoleGrants.mockReturnValue({ ghost: ["redirects:read"] });
+    setRoles(undefined);
+    setGrants({ ghost: ["redirects:read"] });
 
     const result = await getGlobalRoles();
     expect(result.ghost).toBeUndefined();
   });
 
   it("does not mutate DEFAULT_ROLE_MAPS", async () => {
-    mockGetConfigRoles.mockReturnValue(undefined);
-    mockGetConfigDefaultRoleGrants.mockReturnValue({ editor: ["redirects:read"] });
+    setRoles(undefined);
+    setGrants({ editor: ["redirects:read"] });
 
     await getGlobalRoles();
     expect(DEFAULT_ROLE_MAPS.editor?.permissions).not.toContain("redirects:read");

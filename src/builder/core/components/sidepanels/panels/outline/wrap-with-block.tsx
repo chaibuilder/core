@@ -3,7 +3,7 @@ import { has } from "lodash-es";
 import { Package } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { canAcceptChildBlock } from "~/builder/core/functions/block-helpers";
+import { canAcceptChildBlock, canAcceptInto, canMoveBlock } from "~/builder/core/functions/block-helpers";
 import { generateUUID } from "~/builder/core/functions/common-functions";
 import {
   useBlocksStore,
@@ -33,7 +33,7 @@ export const useWrapWithBlock = () => {
 
   const wrapInBlock = useCallback(
     (wrapperType: string) => {
-      if (!selectedBlock) return;
+      if (!selectedBlock || !canMoveBlock(selectedBlock)) return;
       const parentId = selectedBlock._parent;
       const siblings = blocks.filter((b) => (!parentId ? !b._parent : b._parent === parentId));
       const position = siblings.findIndex((b) => b._id === selectedBlock._id);
@@ -62,16 +62,15 @@ export const useWrapWithBlock = () => {
     [addBlocks, moveBlocks, selectedBlock, blocks, setBlockIds],
   );
 
-  const parentBlockType = selectedBlock?._parent
-    ? blocks.find((b) => b._id === selectedBlock._parent)?._type || ""
-    : "";
+  const parentBlock = selectedBlock?._parent ? blocks.find((b) => b._id === selectedBlock._parent) : undefined;
 
-  const isValidBlock = !!selectedBlock && selectedBlock._type !== "BODY";
+  // Wrapping re-parents the block, so it is a move.
+  const isValidBlock = !!selectedBlock && selectedBlock._type !== "BODY" && canMoveBlock(selectedBlock);
   const selectedType = selectedBlock?._type ?? "";
   const canWrapInBox =
-    isValidBlock && canAcceptChildBlock("Box", selectedType) && canAcceptChildBlock(parentBlockType, "Box");
+    isValidBlock && canAcceptChildBlock("Box", selectedType) && canAcceptInto(parentBlock, "Box", blocks);
   const canWrapInLink =
-    isValidBlock && canAcceptChildBlock("Link", selectedType) && canAcceptChildBlock(parentBlockType, "Link");
+    isValidBlock && canAcceptChildBlock("Link", selectedType) && canAcceptInto(parentBlock, "Link", blocks);
 
   return {
     canWrapInBox,

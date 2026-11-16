@@ -16,12 +16,14 @@ import CanvasArea from "~/builder/core/components/canvas/canvas-area";
 import { AddBlocksDialog } from "~/builder/core/components/layout/add-blocks-dialog";
 import { NoopComponent } from "~/builder/core/components/noop-component";
 import SettingsPanel from "~/builder/core/components/settings/settings-panel";
-import { DesignTokensIcon } from "~/builder/core/components/sidepanels/panels/design-tokens/DesignTokensIcon";
-import ThemeConfigPanel from "~/builder/core/components/sidepanels/panels/theme-configuration/theme-config-panel";
+import GlobalStylesPanel, {
+  useGlobalStylesTitle,
+} from "~/builder/core/components/sidepanels/panels/global-styles/global-styles-panel";
+import { THEME_PANEL_ID } from "~/builder/hooks/use-unsaved-theme";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { requestChaiPanelClose } from "~/builder/hooks/use-panel-close-guard";
 import { useSidebarActivePanel } from "~/builder/hooks/use-sidebar-active-panel";
-import { useActiveSettingsTab, useRightPanel } from "~/builder/hooks/use-theme";
+import { useRightPanel } from "~/builder/hooks/use-theme";
 import { ChaiSlot, useChaiSidebarPanels } from "~/builder/register-apis";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
@@ -29,8 +31,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "~/components/ui/sh
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "~/components/ui/tooltip";
 import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
 import { isDevelopment } from "~/utils/import-html/general";
-
-const ManageDesignTokens = React.lazy(() => import("../../design-tokens/manage-design-tokens"));
 
 const DEFAULT_PANEL_WIDTH = 280;
 
@@ -46,7 +46,7 @@ const RootLayout: ComponentType = () => {
   );
 
   const [panel, setRightPanel] = useRightPanel();
-  const [, setActiveSettingsTab] = useActiveSettingsTab();
+  const globalStylesTitle = useGlobalStylesTitle();
   const topPanels = useChaiSidebarPanels("top");
   const bottomPanels = useChaiSidebarPanels("bottom");
 
@@ -260,31 +260,16 @@ const RootLayout: ComponentType = () => {
                               <LightningBoltIcon className="rtl:ml-2" /> {t("AI Assistant")}
                             </div>
                           </>
-                        ) : panel === "design-tokens" ? (
-                          <div className="mb-1 flex w-full items-center justify-between gap-2">
-                            <span className="flex items-center gap-2">
-                              <DesignTokensIcon className="h-4 w-4 text-gray-600" />
-                              {t("Design Tokens")}
-                            </span>
-                            <Button
-                              onClick={() => {
-                                setActiveSettingsTab("styles");
-                                setRightPanel("block");
-                              }}
-                              variant="ghost"
-                              size="icon"
-                              className="text-xs">
-                              <Cross1Icon className="h-4 w-4 rtl:ml-2" />
-                            </Button>
-                          </div>
                         ) : panel === "theme" ? (
                           <div className="flex w-full items-center justify-between gap-2">
-                            <span className="flex items-center gap-2">
-                              <MixerHorizontalIcon className="h-4 w-4 text-gray-600" />
-                              {t("Theme Settings")}
-                            </span>
+                            <div className="flex min-w-0 items-center gap-1">
+                              <span className="flex items-center gap-2">
+                                <MixerHorizontalIcon className="h-4 w-4 text-gray-600" />
+                                {globalStylesTitle}
+                              </span>
+                            </div>
                             <Button
-                              onClick={() => setRightPanel("block")}
+                              onClick={() => requestChaiPanelClose(THEME_PANEL_ID, () => setRightPanel("block"))}
                               variant="ghost"
                               size="icon"
                               className="text-xs">
@@ -295,17 +280,9 @@ const RootLayout: ComponentType = () => {
                       </div>
                     </div>
                   </h2>
-                  <div className="flex h-full max-h-full w-full">
+                  <div className="flex h-full max-h-full min-h-0 w-full">
                     <Suspense fallback={<div>Loading...</div>}>
-                      {panel === "design-tokens" ? (
-                        <React.Suspense fallback={<div className="h-1/2 w-full animate-pulse"></div>}>
-                          <ManageDesignTokens />
-                        </React.Suspense>
-                      ) : panel === "theme" ? (
-                        <ThemeConfigPanel />
-                      ) : (
-                        <SettingsPanel />
-                      )}
+                      {panel === "theme" ? <GlobalStylesPanel /> : <SettingsPanel />}
                     </Suspense>
                   </div>
                 </div>

@@ -46,8 +46,7 @@
     "build": "NODE_OPTIONS='--max-old-space-size=6144' tsup --format esm,cjs && NODE_OPTIONS='--max-old-space-size=6144' node scripts/build-dts.mjs",
     "build:dts": "NODE_OPTIONS='--max-old-space-size=6144' node scripts/build-dts.mjs",
     "test": "vitest --run",
-    "test:integration": "vitest --run --config vitest.config.integration.ts",
-    "test:integration:watch": "vitest --config vitest.config.integration.ts",
+    "test:watch": "vitest",
     "db:test:generate": "drizzle-kit generate --config drizzle.config.test.ts",
     "db:test:studio": "drizzle-kit studio --config drizzle.config.test.ts",
     "lint": "eslint src/",
@@ -174,6 +173,7 @@
   "peerDependencies": {
     "@ai-sdk/openai-compatible": ">=2.0.0",
     "@libsql/client": ">=0.14.0",
+    "@modelcontextprotocol/sdk": ">=1.26.0 <2",
     "@next/third-parties": ">=15.3.0",
     "@openrouter/ai-sdk-provider": ">=2.0.0",
     "@tailwindcss/postcss": "^4.0.0",
@@ -184,7 +184,8 @@
     "react": ">=19.0.0",
     "react-dom": ">=19.0.0",
     "tailwindcss": "^4.0.0",
-    "workers-ai-provider": ">=3.0.0"
+    "workers-ai-provider": ">=3.0.0",
+    "pg": ">=8.0.0"
   },
   "peerDependenciesMeta": {
     "@ai-sdk/openai-compatible": {
@@ -215,6 +216,12 @@
       "optional": true
     },
     "workers-ai-provider": {
+      "optional": true
+    },
+    "@modelcontextprotocol/sdk": {
+      "optional": true
+    },
+    "pg": {
       "optional": true
     }
   },
@@ -291,6 +298,7 @@
     "react-i18next": "16.2.4",
     "sonner": "2.0.7",
     "streamdown": "2.5.0",
+    "virtual-react-json-diff": "1.0.20",
     "xss": "1.0.15",
     "zod": "4.3.5"
   },
@@ -300,6 +308,7 @@
     "@commitlint/config-conventional": "21.2.2",
     "@faker-js/faker": "10.5.0",
     "@libsql/client": "0.17.3",
+    "@modelcontextprotocol/sdk": "1.26.0",
     "@next/third-parties": "^16.2.10",
     "@openrouter/ai-sdk-provider": "2.10.0",
     "@payloadcms/ui": "^3.86.0",
@@ -325,6 +334,7 @@
     "msw": "2.14.6",
     "next": "^16.3.3",
     "payload": "^3.89.0",
+    "pg": "8.16.3",
     "postgres": "3.4.9",
     "prettier": "3.8.3",
     "prettier-plugin-tailwindcss": "0.7.4",

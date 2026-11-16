@@ -3,11 +3,11 @@
 import { formatDate } from "~/utils/vendor/format-date";
 import { isArray, isPlainObject, isString, map, mapValues, startsWith, trim } from "lodash-es";
 import { Check, Copy, FileJson } from "lucide-react";
-import { ReactElement, useId, useMemo, useState } from "react";
-import { Diff, Hunk, parseDiff } from "react-diff-view";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { VirtualDiffViewer, type VirtualDiffViewerRef } from "virtual-react-json-diff";
+import { useBuilderColorScheme } from "~/builder/hooks/use-builder-color-scheme";
 import { useRevisionComparison } from "~/builder/pages/hooks/use-revision-comparison";
 import { useChaiUserInfo } from "~/builder/pages/hooks/utils/use-chai-user-info";
-import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
 import { Loading } from "~/components/ui/loader";
@@ -23,7 +23,7 @@ const RevisionTag = ({ version }: { version: { uid: string; label: string; item:
 
   return (
     <span
-      className={`flex min-h-8 items-center gap-x-2 rounded border bg-surface px-2 text-xs text-foreground shadow-lg`}>
+      className={`bg-surface text-foreground flex min-h-8 items-center gap-x-2 rounded border px-2 text-xs shadow-lg`}>
       <div
         className={
           "h-full items-center rounded px-1.5 py-0.5 capitalize" +
@@ -31,13 +31,13 @@ const RevisionTag = ({ version }: { version: { uid: string; label: string; item:
         }>
         {version.label}
       </div>
-      <div className="py-1 text-xs font-light leading-none">
+      <div className="py-1 text-xs leading-none font-light">
         <div>
           <span className="font-light">{isDraft ? "Currently editing" : "Published by"}</span>
           {!isDraft && <span className="pl-1 font-medium">{user?.name || "Unknown"}</span>}
         </div>
         {item?.createdAt && (
-          <div className="pt-0.5 text-[10px] font-light leading-tight text-muted">
+          <div className="text-muted pt-0.5 text-[10px] leading-tight font-light">
             {formatDate(item.createdAt, "dd MMM yyyy, h:mm a")}
           </div>
         )}
@@ -50,103 +50,6 @@ const RevisionTag = ({ version }: { version: { uid: string; label: string; item:
 const Tags = ({ version }: { version: { uid: string; label: string; item: any } }) => {
   return <RevisionTag version={version} />;
 };
-
-// Function to generate git diff format from JSON objects
-function generateGitDiff(oldData: any, newData: any, filename: string = "data.json"): string {
-  const oldJson = JSON.stringify(oldData, null, 2);
-  const newJson = JSON.stringify(newData, null, 2);
-
-  const oldLines = oldJson.split("\n");
-  const newLines = newJson.split("\n");
-
-  let diff = `--- a/${filename}\n`;
-  diff += `+++ b/${filename}\n`;
-
-  // Create a more sophisticated diff
-  const changes: string[] = [];
-  let i = 0,
-    j = 0;
-
-  // Main loop runs while both sides have lines; leftovers are flushed below.
-  // Coercing out-of-bounds reads to "" would make a genuine trailing empty
-  // line match past-the-end and be misclassified as unchanged.
-  while (i < oldLines.length && j < newLines.length) {
-    const oldLine = oldLines[i];
-    const newLine = newLines[j];
-
-    if (oldLine === newLine) {
-      changes.push(` ${oldLine}`);
-      i++;
-      j++;
-    } else {
-      // Find the next matching line
-      let oldMatch = -1,
-        newMatch = -1;
-
-      // Bounded look-ahead keeps the diff O(N·window) instead of O(N²) — block
-      // payloads run to thousands of lines and this executes on the main thread.
-      // Changes further apart than the window still produce a correct diff, just
-      // with longer insert/delete runs.
-      const maxLookAhead = 100;
-
-      // Look ahead in old lines
-      for (let k = i + 1; k < Math.min(oldLines.length, i + 1 + maxLookAhead); k++) {
-        if (newLines[j] === oldLines[k]) {
-          oldMatch = k;
-          break;
-        }
-      }
-
-      // Look ahead in new lines
-      for (let k = j + 1; k < Math.min(newLines.length, j + 1 + maxLookAhead); k++) {
-        if (oldLines[i] === newLines[k]) {
-          newMatch = k;
-          break;
-        }
-      }
-
-      if (oldMatch !== -1 && (newMatch === -1 || oldMatch - i <= newMatch - j)) {
-        // Remove lines from old
-        for (let k = i; k < oldMatch; k++) {
-          changes.push(`-${oldLines[k]}`);
-        }
-        i = oldMatch;
-      } else if (newMatch !== -1) {
-        // Add lines to new
-        for (let k = j; k < newMatch; k++) {
-          changes.push(`+${newLines[k]}`);
-        }
-        j = newMatch;
-      } else {
-        // No match found, replace current line
-        changes.push(`-${oldLine}`);
-        changes.push(`+${newLine}`);
-        i++;
-        j++;
-      }
-    }
-  }
-
-  // Flush whatever remains on either side as pure deletions/additions
-  while (i < oldLines.length) {
-    changes.push(`-${oldLines[i]}`);
-    i++;
-  }
-  while (j < newLines.length) {
-    changes.push(`+${newLines[j]}`);
-    j++;
-  }
-
-  // Add hunk header
-  const oldCount = oldLines.length;
-  const newCount = newLines.length;
-  diff += `@@ -1,${oldCount} +1,${newCount} @@\n`;
-
-  // Add all changes
-  diff += changes.join("\n") + "\n";
-
-  return diff;
-}
 
 // * Deep parse JSON
 function deepParseJSON(input: any, strict = false): any {
@@ -186,6 +89,16 @@ function deepParseJSON(input: any, strict = false): any {
 
   // * Return any other values as-is
   return input;
+}
+
+/**
+ * VirtualDiffViewer only accepts an object (or array) on each side. A compare key
+ * can still resolve to a scalar or be missing entirely (e.g. a revision without
+ * `tracking`), so wrap those instead of handing the viewer a value it can't walk.
+ */
+function toDiffValue(value: any): object {
+  if (isPlainObject(value) || isArray(value)) return value;
+  return { value: value ?? null };
 }
 
 /**
@@ -229,60 +142,51 @@ const getCompareOptions = (leftData: any, rightData: any) => {
   return options;
 };
 
+// VirtualDiffViewer renders its own chrome (search bar + pane titles, and a
+// "Hide All Expanded Lines" button once anything is expanded) around the
+// virtualized list, and the `height` prop sizes the list alone. Measuring the
+// chrome keeps the whole viewer inside the dialog instead of overflowing it.
+const DIFF_CHROME_SELECTOR =
+  ":scope > .diff-viewer-container > .json-diff-header, :scope > .diff-viewer-container > .hide-all-button";
+
 /**
- *
- * @param changes
- * @returns Data without common data
+ * Returns a ref callback for the box the viewer fills, plus the pixel height its
+ * virtualized list should get. A state-held node (rather than a ref) is what makes
+ * the observers attach when the viewer mounts after the comparison finishes loading.
  */
-const withHiddenCommonData = (changes: any[], contextLines: number = 3): any[] => {
-  const keepIndexes = new Set<number>();
+function useDiffListHeight() {
+  const [node, setNode] = useState<HTMLDivElement | null>(null);
+  const [height, setHeight] = useState(0);
 
-  // Find indexes of non-normal lines (real changes)
-  const changeIndexes = changes
-    .map((change, index) => ({ change, index }))
-    .filter(({ change }) => change.type !== "normal")
-    .map(({ index }) => index);
+  useEffect(() => {
+    if (!node) return;
 
-  // Add context lines around each change
-  changeIndexes.forEach((i) => {
-    const start = Math.max(0, i - contextLines);
-    const end = Math.min(changes.length - 1, i + contextLines);
-    for (let j = start; j <= end; j++) {
-      keepIndexes.add(j);
-    }
-  });
+    let frame = 0;
+    const measure = () => {
+      // Coalesce into a frame: setting the height resizes the list, which feeds
+      // straight back into the observer below.
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const chrome = Array.from(node.querySelectorAll<HTMLElement>(DIFF_CHROME_SELECTOR));
+        const overhead = chrome.reduce((total, element) => total + element.offsetHeight, 0);
+        setHeight(Math.max(0, Math.round(node.clientHeight - overhead)));
+      });
+    };
 
-  // Collect filtered changes and detect gaps for hidden lines
-  const result: any[] = [];
-  let prevIndex = -1;
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    // The viewer's own root grows when its chrome changes; the outer box does not.
+    if (node.firstElementChild) observer.observe(node.firstElementChild);
+    measure();
 
-  changes.forEach((change, index) => {
-    if (keepIndexes.has(index)) {
-      // If there's a gap from prevIndex to current index, insert hidden entry
-      if (prevIndex !== -1 && index - prevIndex > 1) {
-        const hiddenFrom = changes[prevIndex].lineNumber != null ? changes[prevIndex].lineNumber + 1 : prevIndex + 2;
-        const hiddenTo = changes[index].lineNumber != null ? changes[index].lineNumber - 1 : index;
-        result.push({
-          // Unique negative line number so react-diff-view's change key
-          // ('D' + lineNumber) never collides between markers or real lines
-          lineNumber: -(result.length + 1),
-          content: (
-            <Badge className="pointer-events-none w-60 -translate-x-1/2 cursor-default border-none bg-transparent py-1 shadow-none">
-              <span className="rounded border border-border bg-surface px-3 py-1 text-[11px] font-light leading-none text-muted-foreground">
-                No changes from <span className="font-mono">{hiddenFrom}</span> to{" "}
-                <span className="font-mono">{hiddenTo}</span>
-              </span>
-            </Badge>
-          ),
-        });
-      }
-      result.push(change);
-      prevIndex = index;
-    }
-  });
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [node]);
 
-  return result;
-};
+  return [setNode, height] as const;
+}
 
 interface JsonDiffViewerProps {
   open: boolean;
@@ -300,10 +204,13 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
   const idPrefix = useId();
 
   const [copiedSide, setCopiedSide] = useState<"left" | "right" | null>(null);
-  const [viewType, setViewType] = useState<"split" | "unified">("split");
   const [showRawData, setShowRawData] = useState(false);
   const [hideCommonData, setHideCommonData] = useState(true);
   const [compareType, setCompareType] = useState("blocks");
+
+  const { isDarkMode } = useBuilderColorScheme();
+  const viewerRef = useRef<VirtualDiffViewerRef | null>(null);
+  const [setDiffContainer, diffListHeight] = useDiffListHeight();
 
   const { data: comparisonData, isLoading } = useRevisionComparison(version1, version2);
 
@@ -316,29 +223,24 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
     return { leftData, rightData, options };
   }, [comparisonData, compareType]);
 
-  const gitDiffText = useMemo(() => {
-    if (!leftData || !rightData) return "";
-    return generateGitDiff(leftData, rightData);
-  }, [leftData, rightData]);
+  const oldValue = useMemo(() => toDiffValue(leftData), [leftData]);
+  const newValue = useMemo(() => toDiffValue(rightData), [rightData]);
 
-  const parsedDiff = useMemo(() => {
-    if (!gitDiffText) return [];
-    try {
-      return parseDiff(gitDiffText);
-    } catch (error) {
-      console.error("Failed to parse diff:", error);
-      return [];
-    }
-  }, [gitDiffText]);
+  // The viewer renders equal rows for identical input, so the "no differences"
+  // state is decided here. Serialising both sides matches how the diff is built:
+  // anything that survives a round-trip identically has nothing to show.
+  const hasDifferences = useMemo(() => JSON.stringify(oldValue) !== JSON.stringify(newValue), [oldValue, newValue]);
 
-  // Identical versions produce a hunk of only 'normal' lines; rendering the Diff table
-  // then puts the empty-state <div> inside a <table>, so detect this case up front and
-  // skip the table entirely.
-  const hasDifferences = useMemo(
-    () =>
-      parsedDiff.some((file) => file.hunks?.some((hunk) => hunk.changes?.some((change) => change.type !== "normal"))),
-    [parsedDiff],
-  );
+  // Unchanged stretches are collapsed by the viewer by default; the toggle drives
+  // them through the imperative handle. Re-run when the compared data changes,
+  // since a fresh diff starts collapsed again.
+  useEffect(() => {
+    if (showRawData || !hasDifferences) return;
+    const viewer = viewerRef.current;
+    if (!viewer) return;
+    if (hideCommonData) viewer.collapseAll();
+    else viewer.expandAll();
+  }, [hideCommonData, showRawData, hasDifferences, oldValue, newValue]);
 
   const copyToClipboard = async (data: any, side: "left" | "right") => {
     try {
@@ -376,17 +278,6 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
               <div className="flex w-max items-center justify-end gap-2 divide-x-2 rounded-md border p-1.5">
                 <div className="flex items-center gap-2 px-2">
                   <Switch
-                    id={`${idPrefix}-diff-split-view`}
-                    disabled={showRawData}
-                    checked={showRawData ? true : viewType === "split"}
-                    onCheckedChange={(checked) => setViewType(checked ? "split" : "unified")}
-                  />
-                  <label htmlFor={`${idPrefix}-diff-split-view`} className="cursor-pointer text-xs font-normal">
-                    Split View
-                  </label>
-                </div>
-                <div className="flex items-center gap-2 px-2">
-                  <Switch
                     id={`${idPrefix}-diff-raw-data`}
                     aria-labelledby={`${idPrefix}-diff-raw-data-label`}
                     checked={showRawData}
@@ -400,6 +291,7 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
                   <Switch
                     id={`${idPrefix}-diff-hide-common`}
                     aria-labelledby={`${idPrefix}-diff-hide-common-label`}
+                    disabled={showRawData}
                     checked={hideCommonData}
                     onCheckedChange={(checked) => setHideCommonData(checked)}
                   />
@@ -428,45 +320,29 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
                 </div>
               </div>
               {!showRawData ? (
-                <ScrollArea className="h-full overflow-y-auto rounded-lg border bg-white text-black">
-                  {parsedDiff.length === 0 || !hasDifferences ? (
+                <div
+                  // Remount on the empty-state switch so the measuring hook re-observes
+                  // the viewer's root rather than the element it replaced.
+                  key={hasDifferences ? "diff" : "empty"}
+                  ref={setDiffContainer}
+                  className="h-full overflow-hidden rounded-lg border">
+                  {!hasDifferences ? (
                     <div className="flex h-full min-h-80 items-center justify-center p-6">
-                      <div className="text-center text-muted-foreground">
+                      <div className="text-muted-foreground text-center">
                         <FileJson className="mx-auto mb-2 h-8 w-8 opacity-50" />
-                        <p>
-                          {parsedDiff.length === 0
-                            ? "No differences found or unable to parse diff"
-                            : "These versions are identical — no differences found"}
-                        </p>
+                        <p>These versions are identical — no differences found</p>
                       </div>
                     </div>
                   ) : (
-                    <div>
-                      {parsedDiff.map((file, index) => (
-                        <div key={index} className="relative mb-4">
-                          <Diff
-                            key={hideCommonData ? "hide-common-data" : "show-common-data"}
-                            viewType={viewType}
-                            diffType={file.type}
-                            hunks={file.hunks}
-                            className="rounded-lg text-xs">
-                            {(hunks) =>
-                              hunks
-                                .map((hunk, hunkIndex) => {
-                                  const changes = hideCommonData ? withHiddenCommonData(hunk.changes) : hunk.changes;
-                                  // A <div> here would sit inside the <Diff> <table>; the
-                                  // identical-versions case is handled above via hasDifferences.
-                                  if (changes?.length === 0) return null;
-                                  return <Hunk key={hunkIndex} hunk={{ ...hunk, changes }} />;
-                                })
-                                .filter((element): element is ReactElement => element !== null)
-                            }
-                          </Diff>
-                        </div>
-                      ))}
-                    </div>
+                    <VirtualDiffViewer
+                      ref={viewerRef}
+                      oldValue={oldValue}
+                      newValue={newValue}
+                      height={diffListHeight}
+                      theme={isDarkMode ? "github-dark" : "github-light"}
+                    />
                   )}
-                </ScrollArea>
+                </div>
               ) : (
                 <div className="grid h-full grid-cols-2 gap-3 rounded-lg border">
                   <div className="relative flex min-h-0 flex-col border-r">
@@ -476,8 +352,8 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
                         Copy
                       </Button>
                     </div>
-                    <ScrollArea className="flex-1 rounded-lg bg-surface p-2 text-foreground">
-                      <pre className="whitespace-pre-wrap font-mono text-xs">{formatJson(leftData)}</pre>
+                    <ScrollArea className="bg-surface text-foreground flex-1 rounded-lg p-2">
+                      <pre className="font-mono text-xs whitespace-pre-wrap">{formatJson(leftData)}</pre>
                     </ScrollArea>
                   </div>
 
@@ -488,8 +364,8 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
                         Copy
                       </Button>
                     </div>
-                    <ScrollArea className="flex-1 rounded-lg bg-surface p-2 text-foreground">
-                      <pre className="whitespace-pre-wrap font-mono text-xs">{formatJson(rightData)}</pre>
+                    <ScrollArea className="bg-surface text-foreground flex-1 rounded-lg p-2">
+                      <pre className="font-mono text-xs whitespace-pre-wrap">{formatJson(rightData)}</pre>
                     </ScrollArea>
                   </div>
                 </div>

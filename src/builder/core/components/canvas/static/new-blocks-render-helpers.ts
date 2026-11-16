@@ -1,26 +1,38 @@
-import { cloneDeep, forEach, get, isArray, isEmpty, isString, keys, memoize, startsWith } from "lodash-es";
+import { cloneDeep, forEach, get, isArray, isEmpty, isString, keys, startsWith } from "lodash-es";
 import { twMerge } from "cnfast";
 import { getSplitChaiClasses } from "~/builder/hooks/get-split-classes";
 import { CHAI_BUILT_IN_DESIGN_TOKENS } from "~/constants/BUILTIN_TOKENS";
 import { DESIGN_TOKEN_PREFIX, STYLES_KEY } from "~/constants/STRINGS";
-import { getRegisteredChaiBlock } from "~/registry";
+import {
+  getBlockSchema,
+  getRegisteredChaiBlock,
+  memoizeByRegisteredType,
+  registerMemoizedBlockGetter,
+} from "~/registry";
 import { ChaiBlockConfig } from "~/types/blocks";
 import { ChaiBlock } from "~/types/common";
 import { ChaiDesignTokens } from "~/types/types";
 import { toReactDomAttributes } from "~/utils/react-dom-attributes";
+import { stripStoplessGradientClasses } from "~/utils/strip-stopless-gradient";
 
 export function applyLanguage(_block: ChaiBlock, selectedLang: string, chaiBlock: ChaiBlockConfig) {
   const i18nProps = get(chaiBlock, "i18nProps", []) as string[];
   if (isEmpty(selectedLang) || !isArray(i18nProps) || isEmpty(i18nProps)) return _block;
+  const defaultProps = get(chaiBlock, "i18nDefaultProps", []) as string[];
 
   let nextBlock: ChaiBlock | null = null;
 
   i18nProps.forEach((key) => {
     if (!isString(key) || isEmpty(key)) return;
-    if (!Object.prototype.hasOwnProperty.call(_block, key)) return;
+    // A default-owned prop may only carry translations (`prop-en`), never a bare value.
+    if (!Object.prototype.hasOwnProperty.call(_block, key) && !defaultProps.includes(key)) return;
     const fallbackValue = get(_block, key);
     const value = get(_block, `${key}-${selectedLang}`, "");
-    const resolvedValue = isString(fallbackValue)
+    const resolvedValue = defaultProps.includes(key)
+      ? (isString(value) ? !isEmpty(value.trim()) : !isEmpty(value))
+        ? value
+        : undefined
+      : isString(fallbackValue)
       ? isString(value) && !isEmpty(value.trim())
         ? value.trimStart() || fallbackValue
         : fallbackValue
@@ -88,12 +100,18 @@ const resolveTokenValue = (value: string | undefined, designTokens: ChaiDesignTo
     .join(" ");
 };
 
-const getMergedDesignTokens = memoize(
-  (designTokens: ChaiDesignTokens): ChaiDesignTokens => ({
-    ...CHAI_BUILT_IN_DESIGN_TOKENS,
-    ...designTokens,
-  }),
-);
+// WeakMap, not lodash memoize: render paths pass a fresh designTokens object per
+// request (and `getBlockTagAttributes` defaults to a fresh `{}` per call), so a
+// strong identity-keyed cache never hits and grows unbounded on warm instances.
+const mergedDesignTokensCache = new WeakMap<ChaiDesignTokens, ChaiDesignTokens>();
+const getMergedDesignTokens = (designTokens: ChaiDesignTokens): ChaiDesignTokens => {
+  let merged = mergedDesignTokensCache.get(designTokens);
+  if (!merged) {
+    merged = { ...CHAI_BUILT_IN_DESIGN_TOKENS, ...designTokens };
+    mergedDesignTokensCache.set(designTokens, merged);
+  }
+  return merged;
+};
 
 const classNamesCache = new WeakMap<ChaiDesignTokens, Map<string, string>>();
 const blockTagAttributesCache = new WeakMap<
@@ -139,7 +157,14 @@ export const generateClassNames = (styles: string, designTokens: ChaiDesignToken
     .split(" ")
     .filter((token) => !token.startsWith(DESIGN_TOKEN_PREFIX))
     .join(" ");
-  return twMerge.apply(null, [baseClasses, ...tokenValues, nonTokenClasses]);
+  // Drop stopless gradient directions from the combined class set BEFORE the
+  // cnfast merge. cnfast groups `bg-gradient-to-*` with `bg-{color}`, so an
+  // author-saved gradient direction with no color stops would otherwise evict
+  // the solid background (base or design-token color) and blank the element.
+  // Evaluating stops across base + tokens + user together lets base stops back a
+  // user direction; see stripStoplessGradientClasses.
+  const merged = stripStoplessGradientClasses([baseClasses, ...tokenValues, nonTokenClasses].join(" "));
+  return twMerge(merged);
 };
 
 function getElementAttrs(block: ChaiBlock, key: string) {
@@ -197,13 +222,20 @@ export function getBlockTagAttributes(
   return styles;
 }
 
-export const getBlockRuntimeProps: (blockType: string) => Record<string, unknown> = memoize((blockType: string) => {
+export const getBlockRuntimeProps = memoizeByRegisteredType((blockType: string) => {
   const chaiBlock = getRegisteredChaiBlock(blockType) as any;
-  const schema = chaiBlock?.props?.schema ?? {};
-  const props = get(schema, "properties", {});
+  // Route the block-schema lookup through the shared `getBlockSchema` helper
+  // (`~/registry`, here `props?.schema`) so it lives in one place. Guard with
+  // `?? {}` because `getBlockSchema` is not null-safe for an unregistered block
+  // type.
+  const props = get(getBlockSchema(chaiBlock ?? {}), "properties", {});
   // return key value with value has runtime: true
   return Object.fromEntries(Object.entries(props).filter(([, value]) => get(value, "runtime", false)));
 });
+// Opt into the registry's memo-invalidation so re-registration / HMR evicts
+// this cache too (a plain memoize would otherwise cache {} for a type queried
+// before it registered, and never refresh it).
+registerMemoizedBlockGetter("getBlockRuntimeProps", getBlockRuntimeProps);
 
 export const applyLimit = (data: unknown, block: ChaiBlock): typeof data => {
   // Only operate on arrays

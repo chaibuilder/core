@@ -21,10 +21,10 @@ export type ChaiMediaManagerTab = {
   /** Tab body, rendered when this tab is active. */
   content: React.ComponentType<ChaiMediaManagerTabContentProps>;
   /**
-   * Visibility gate, called with the active `mediaManager` config from the
-   * server. Defaults to visible.
+   * Visibility gate, called with the active `mediaManager` config and feature
+   * flags from the server. Defaults to visible.
    */
-  enabled?: (mediaManagerConfig: Record<string, any>) => boolean;
+  enabled?: (mediaManagerConfig: Record<string, any>, features: Record<string, any>) => boolean;
 };
 
 // Export for testing purposes
@@ -38,9 +38,12 @@ export const registerChaiMediaManagerTab = (id: string, tab: Omit<ChaiMediaManag
   set(MEDIA_MANAGER_TABS, [id], { id, ...tab });
 };
 
-export const useChaiMediaManagerTabs = (mediaManagerConfig: Record<string, any>): ChaiMediaManagerTab[] => {
+export const useChaiMediaManagerTabs = (
+  mediaManagerConfig: Record<string, any>,
+  features: Record<string, any>,
+): ChaiMediaManagerTab[] => {
   return useMemo(
-    () => values(MEDIA_MANAGER_TABS).filter((tab) => tab.enabled?.(mediaManagerConfig) !== false),
-    [mediaManagerConfig],
+    () => values(MEDIA_MANAGER_TABS).filter((tab) => tab.enabled?.(mediaManagerConfig, features) !== false),
+    [mediaManagerConfig, features],
   );
 };

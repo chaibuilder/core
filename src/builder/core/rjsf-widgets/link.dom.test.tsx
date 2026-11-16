@@ -2,38 +2,25 @@
  * @vitest-environment happy-dom
  */
 import { FieldProps } from "@rjsf/utils";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { useState } from "react";
+import { TooltipProvider } from "~/components/ui/tooltip";
+import { renderInBuilder } from "~/tests/builder/render-in-builder";
 import { LinkField } from "./link";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
+// The builder root layout supplies the TooltipProvider the data-binding selector needs.
+const render = (ui: React.ReactElement) =>
+  renderInBuilder(<TooltipProvider>{ui}</TooltipProvider>, {
+    builderProps: {
+      languages: [],
+      fallbackLang: "en",
+      pageTypes: [{ type: "page", label: "Page" }],
+      searchPageTypeItems: async () => [],
+    },
+  });
 
-vi.mock("~/builder/hooks/use-languages", () => ({
-  useLanguages: () => ({
-    selectedLang: "en",
-    fallbackLang: "en",
-    languages: [],
-  }),
-}));
-
-vi.mock("~/builder/hooks/use-builder-prop", () => ({
-  useBuilderProp: (prop: string, defaultValue?: unknown) => {
-    if (prop === "pageTypes") return [{ type: "page", label: "Page" }];
-    if (prop === "searchPageTypeItems") return async () => [];
-    return defaultValue;
-  },
-}));
-
-vi.mock("./binding-editor/binding-editor-widget", () => ({
-  BindingTextField: () => null,
-  useBindingInputEnabled: () => false,
-}));
-
-vi.mock("./data-binding-selector", () => ({
-  DataBindingSelector: () => null,
-}));
+/** The link-type `<select>`; the data-binding selector is a combobox too. */
+const typeSelect = () => document.querySelector<HTMLSelectElement>('select[name="type"]')!;
 
 type LinkFormData = { type: string; href: string; target: string };
 
@@ -61,7 +48,7 @@ describe("LinkField type select focus", () => {
   it("focuses the href input when the link type changes", async () => {
     render(<ControlledLinkField initial={{ type: "url", href: "", target: "self" }} />);
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "email" } });
+    fireEvent.change(typeSelect(), { target: { value: "email" } });
 
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByPlaceholderText("Enter details"));
@@ -71,7 +58,7 @@ describe("LinkField type select focus", () => {
   it("focuses the page search input when type changes to pageType", async () => {
     render(<ControlledLinkField initial={{ type: "url", href: "", target: "self" }} />);
 
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "pageType" } });
+    fireEvent.change(typeSelect(), { target: { value: "pageType" } });
 
     await waitFor(() => {
       expect(document.activeElement).toBe(screen.getByPlaceholderText("Search pages"));

@@ -44,4 +44,6 @@ export const seoPanel = {
   position: "top" as const,
   width: 600,
   view: "modal" as const,
+  // Opens read-only on a view-only page.
+  readOnly: true,
 };

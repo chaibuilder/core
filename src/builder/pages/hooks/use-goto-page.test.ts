@@ -1,48 +1,54 @@
 /**
  * @vitest-environment happy-dom
  */
-import { renderHook } from "@testing-library/react";
+import type { QueryClient } from "@tanstack/react-query";
+import { act, waitFor } from "@testing-library/react";
+import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
+import { useIsPublishing } from "~/builder/pages/hooks/pages/mutations";
 import { useGotoPage } from "~/builder/pages/hooks/use-goto-page";
+import { createTestQueryClient, renderHookInBuilder } from "~/tests/builder/render-in-builder";
 
-const mockChangePage = vi.fn();
-const mockUpdateBlockIdInUrl = vi.fn();
-const mockIsPublishing = vi.fn(() => false);
+/** Puts a real, never-settling PUBLISH_CHANGES mutation in flight. */
+const startPublishing = (queryClient: QueryClient) => {
+  act(() => {
+    void queryClient
+      .getMutationCache()
+      .build(queryClient, { mutationKey: [ACTIONS.PUBLISH_CHANGES], mutationFn: () => new Promise(() => {}) })
+      .execute(undefined);
+  });
+};
 
-vi.mock("~/builder/pages/hooks/use-change-page", () => ({
-  useChangePage: () => mockChangePage,
-}));
-
-vi.mock("~/builder/hooks/use-block-selection-query-sync", () => ({
-  updateBlockIdInUrl: (blockId: string | null) => mockUpdateBlockIdInUrl(blockId),
-}));
-
-vi.mock("~/builder/pages/hooks/pages/mutations", () => ({
-  useIsPublishing: () => mockIsPublishing(),
-}));
+const currentParams = () => new URLSearchParams(window.location.search);
 
 describe("useGotoPage", () => {
   beforeEach(() => {
-    mockChangePage.mockClear();
-    mockUpdateBlockIdInUrl.mockClear();
-    mockIsPublishing.mockReturnValue(false);
+    window.history.replaceState({}, "", "/?page=page-1&bid=old-block");
+  });
+
+  afterEach(() => {
+    window.history.replaceState({}, "", "/");
   });
 
   it("navigates to the requested page", () => {
-    const { result } = renderHook(() => useGotoPage());
+    const { result } = renderHookInBuilder(() => useGotoPage());
 
-    result.current({ pageId: "page-2", blockId: "block-1" });
+    act(() => result.current({ pageId: "page-2", blockId: "block-1" }));
 
-    expect(mockChangePage).toHaveBeenCalledWith("page-2");
-    expect(mockUpdateBlockIdInUrl).toHaveBeenCalledWith("block-1");
+    expect(currentParams().get("page")).toBe("page-2");
+    expect(currentParams().get("bid")).toBe("block-1");
   });
 
-  it("does not switch pages while a publish is in flight", () => {
-    mockIsPublishing.mockReturnValue(true);
-    const { result } = renderHook(() => useGotoPage());
+  it("does not switch pages while a publish is in flight", async () => {
+    const queryClient = createTestQueryClient();
+    const { result } = renderHookInBuilder(() => ({ gotoPage: useGotoPage(), isPublishing: useIsPublishing() }), {
+      queryClient,
+    });
+    startPublishing(queryClient);
+    await waitFor(() => expect(result.current.isPublishing).toBe(true));
 
-    result.current({ pageId: "page-2" });
+    act(() => result.current.gotoPage({ pageId: "page-2" }));
 
-    expect(mockChangePage).not.toHaveBeenCalled();
-    expect(mockUpdateBlockIdInUrl).not.toHaveBeenCalled();
+    expect(currentParams().get("page")).toBe("page-1");
+    expect(currentParams().get("bid")).toBe("old-block");
   });
 });

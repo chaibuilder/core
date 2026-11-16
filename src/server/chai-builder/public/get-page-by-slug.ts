@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, ne, notInArray, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, notInArray, or, type SQL } from "drizzle-orm";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { getInitializedState } from "../state";
 import { withChaiCache } from "./cache-utils";
@@ -25,73 +25,75 @@ function dynamicPrimaryPageIds(table: AppPagesTable, appId: string) {
     .where(and(eq(table.app, appId), eq(table.dynamic, true), isNull(table.primaryPage)));
 }
 
+/**
+ * The one query both routing lookups run, and the one place a failure is handled.
+ * A failed query is not "no page at this slug": returning [] would fall through to
+ * dynamic matching (resolving the URL to the wrong template) or to PAGE_NOT_FOUND
+ * (a 404 the route cache keeps), and the routing entry is persisted with no expiry.
+ * A throw is never persisted.
+ */
+async function selectRoutingPages(table: AppPagesTable, where: SQL | undefined): Promise<PageRoutingMetadata[]> {
+  const { data, error } = await safeQuery(() =>
+    db
+      .select({
+        id: table.id,
+        name: table.name,
+        slug: table.slug,
+        lang: table.lang,
+        primaryPage: table.primaryPage,
+        pageType: table.pageType,
+        dynamic: table.dynamic,
+        dynamicSlugCustom: table.dynamicSlugCustom,
+        parent: table.parent,
+        upstream: table.upstream,
+        useUpstream: table.useUpstream,
+      })
+      .from(table)
+      .where(where),
+  );
+
+  if (error) throw new Error("FAILED_TO_RESOLVE_PAGE", { cause: error });
+
+  return data ?? [];
+}
+
 async function fetchStaticPagesBySlugs(
   appId: string,
   draftMode: boolean,
   slugs: string[],
 ): Promise<PageRoutingMetadata[]> {
   const table = draftMode ? schema.appPages : schema.appPagesOnline;
-  const { data } = await safeQuery(() =>
-    db
-      .select({
-        id: table.id,
-        name: table.name,
-        slug: table.slug,
-        lang: table.lang,
-        primaryPage: table.primaryPage,
-        pageType: table.pageType,
-        dynamic: table.dynamic,
-        dynamicSlugCustom: table.dynamicSlugCustom,
-        parent: table.parent,
-      })
-      .from(table)
-      .where(
-        and(
-          eq(table.app, appId),
-          inArray(table.slug, slugs),
-          isNull(table.deletedAt),
-          // Folders only claim a URL segment for their children — visiting a
-          // folder's own slug is a 404, so they never resolve.
-          or(isNull(table.pageType), ne(table.pageType, "_folder")),
-          or(eq(table.dynamic, false), isNull(table.dynamic)),
-          or(isNull(table.primaryPage), notInArray(table.primaryPage, dynamicPrimaryPageIds(table, appId))),
-        ),
-      ),
+  return selectRoutingPages(
+    table,
+    and(
+      eq(table.app, appId),
+      inArray(table.slug, slugs),
+      isNull(table.deletedAt),
+      // Folders only claim a URL segment for their children — visiting a
+      // folder's own slug is a 404, so they never resolve.
+      or(isNull(table.pageType), ne(table.pageType, "_folder")),
+      or(eq(table.dynamic, false), isNull(table.dynamic)),
+      or(isNull(table.primaryPage), notInArray(table.primaryPage, dynamicPrimaryPageIds(table, appId))),
+    ),
   );
-
-  return data ?? [];
 }
 
 async function fetchDynamicPageCandidates(appId: string, draftMode: boolean): Promise<PageRoutingMetadata[]> {
   const table = draftMode ? schema.appPages : schema.appPagesOnline;
-  const { data } = await safeQuery(() =>
-    db
-      .select({
-        id: table.id,
-        name: table.name,
-        slug: table.slug,
-        lang: table.lang,
-        primaryPage: table.primaryPage,
-        pageType: table.pageType,
-        dynamic: table.dynamic,
-        dynamicSlugCustom: table.dynamicSlugCustom,
-        parent: table.parent,
-      })
-      .from(table)
-      .where(
-        and(
-          eq(table.app, appId),
-          or(eq(table.dynamic, true), inArray(table.primaryPage, dynamicPrimaryPageIds(table, appId))),
-          isNull(table.deletedAt),
-          // Same rule as the static path: a folder never answers its own URL.
-          // Without this, a folder row carrying `dynamic` resolves here instead
-          // and renders the page the static exclusion exists to prevent.
-          or(isNull(table.pageType), ne(table.pageType, "_folder")),
-        ),
-      ),
+  const candidates = await selectRoutingPages(
+    table,
+    and(
+      eq(table.app, appId),
+      or(eq(table.dynamic, true), inArray(table.primaryPage, dynamicPrimaryPageIds(table, appId))),
+      isNull(table.deletedAt),
+      // Same rule as the static path: a folder never answers its own URL.
+      // Without this, a folder row carrying `dynamic` resolves here instead
+      // and renders the page the static exclusion exists to prevent.
+      or(isNull(table.pageType), ne(table.pageType, "_folder")),
+    ),
   );
 
-  return inheritDynamicFlagsFromPrimary(data ?? []);
+  return inheritDynamicFlagsFromPrimary(candidates);
 }
 
 /**

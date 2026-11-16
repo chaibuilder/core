@@ -187,9 +187,13 @@ const RteColorPicker = ({ editor, from, menuRef }: { editor: any; from?: "settin
       from={from!}
       menuRef={menuRef}
       trigger={
-        <div className={cn("relative flex items-center", getActiveClasses(editor, isActive, from!))} title="Text Color">
+        <div
+          className={cn("relative flex items-center", getActiveClasses(editor, isActive, from!), {
+            "p-0.5": from === "settings",
+          })}
+          title="Text Color">
           <div
-            className="h-4 w-4 rounded-full border"
+            className={cn("rounded-full border", from === "settings" ? "h-3.5 w-3.5" : "h-4 w-4")}
             style={{
               backgroundColor: currentTextColor ? currentTextColor : from === "canvas" ? "#FFFFFF" : "#000000",
             }}

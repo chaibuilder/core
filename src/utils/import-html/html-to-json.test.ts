@@ -322,3 +322,54 @@ describe("getBlocksFromHTML - input value attribute", () => {
     expect(blocks[0].defaultValue).toBeUndefined();
   });
 });
+
+describe("getBlocksFromHTML — links", () => {
+  test("an anchor becomes a Link block carrying its href and target", async () => {
+    const [block] = await getBlocksFromHTML('<a href="/about" target="_blank">About</a>');
+    expect(block._type).toBe("Link");
+    expect(block.link).toEqual({ href: "/about", target: "_blank" });
+  });
+
+  test("a pageType: href is tagged as a page reference", async () => {
+    const ref = "pageType:page:11111111-1111-4111-8111-111111111111";
+    const [block] = await getBlocksFromHTML(`<a href="${ref}">About</a>`);
+    expect(block.link).toEqual({ href: ref, type: "pageType" });
+
+  });
+});
+
+describe("getBlocksFromHTML - style element", () => {
+  test("strips AI-HTML span wrappers from the CSS", async () => {
+    const html =
+      "<style bid='css'><span class='text-black' bid='t1'><span data-block-id='t0'>.a>b{color:red}</span></span></style>";
+
+    const text = (await getBlocksFromHTML(html)).find((b) => b._type === "Text");
+
+    expect(text?.content).toBe(".a>b{color:red}");
+  });
+
+  test("keeps plain CSS as is", async () => {
+    const css = '.a>b{content:"a  b";color:red}\n.x{content:"\\2603"}';
+    const text = (await getBlocksFromHTML(`<style>${css}</style>`)).find((b) => b._type === "Text");
+
+    expect(text?.content).toBe(css);
+  });
+});
+
+// FormButton renders its `label` prop only; its text used to land in a Text
+// child that never shows, leaving the default label ("Submit") on the page.
+describe("getBlocksFromHTML — form buttons", () => {
+  it("takes a submit button's text as its label, with no child block", async () => {
+    const blocks = await getBlocksFromHTML(
+      '<form><input type="email" placeholder="Courriel"><button type="submit">Soumettre</button></form>',
+    );
+    const button = blocks.find((b) => b._type === "FormButton")!;
+    expect(button.label).toBe("Soumettre");
+    expect(blocks.filter((b) => b._parent === button._id)).toEqual([]);
+  });
+
+  it("takes a submit input's value as its label", async () => {
+    const blocks = await getBlocksFromHTML('<form><input type="submit" value="Envoyer"></form>');
+    expect(blocks.find((b) => b._type === "FormButton")!.label).toBe("Envoyer");
+  });
+});

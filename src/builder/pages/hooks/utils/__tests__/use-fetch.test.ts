@@ -1,22 +1,39 @@
 /**
  * @vitest-environment happy-dom
  */
-import { renderHook, waitFor } from "@testing-library/react";
-import { usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
-import { fetchAPI } from "~/builder/pages/utils/fetch-api";
+import { waitFor } from "@testing-library/react";
 import {
   registerChaiFetchInterceptor,
   resetChaiFetchInterceptorsForTests,
 } from "~/builder/register-apis/register-chai-fetch-interceptor";
+import { mockChaiAction } from "~/tests/builder/msw";
+import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
 import { useFetch } from "../use-fetch";
 
-vi.mock("~/builder/pages/utils/fetch-api");
-vi.mock("~/builder/pages/hooks/project/use-builder-prop");
-describe("useFetch", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+const API_URL = "http://localhost/chai/api";
+
+type CapturedRequest = { url: string; headers: Headers; action: string; data: any };
+
+/**
+ * Answers `action` on the real endpoint and records what actually went over the wire: the URL, the
+ * headers and the `{ action, data }` body the hook sent.
+ */
+const captureAction = (action: string, reply: unknown = { success: true }) => {
+  const requests: CapturedRequest[] = [];
+  const mocked = mockChaiAction(action, async (data, request) => {
+    requests.push({ url: request.url, headers: request.headers, action, data });
+    return reply;
+  });
+  return { ...mocked, requests };
+};
+
+/** Renders the real hook with the host's pages props (getAccessToken / beforeRequest / onLogout). */
+const renderFetch = (pagesProps: Record<string, unknown> = {}) =>
+  renderHookInBuilder(() => useFetch(), {
+    pagesProps: { apiUrl: API_URL, getAccessToken: vi.fn(async () => "mock-token"), onLogout: vi.fn(), ...pagesProps },
   });
 
+describe("useFetch", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     resetChaiFetchInterceptorsForTests();
@@ -25,24 +42,10 @@ describe("useFetch", () => {
   describe("beforeRequest Hook Integration", () => {
     it("should call beforeRequest hook when provided", async () => {
       const mockBeforeRequest = vi.fn(async ({ action, data }) => ({ action, data }));
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      captureAction("TEST_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
-
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: { test: "value" } });
+      await result.current(API_URL, { action: "TEST_ACTION", data: { test: "value" } });
 
       expect(mockBeforeRequest).toHaveBeenCalledWith({
         action: "TEST_ACTION",
@@ -52,25 +55,11 @@ describe("useFetch", () => {
 
     it("should pass correct action and data to beforeRequest", async () => {
       const mockBeforeRequest = vi.fn(async ({ action, data }) => ({ action, data }));
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
-
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
-
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
+      captureAction("GENERATE_SEO_FIELD");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
       const testData = { field: "title", keyword: "test" };
-      await fetch("https://api.test.com", { action: "GENERATE_SEO_FIELD", data: testData });
+      await result.current(API_URL, { action: "GENERATE_SEO_FIELD", data: testData });
 
       expect(mockBeforeRequest).toHaveBeenCalledWith({
         action: "GENERATE_SEO_FIELD",
@@ -83,31 +72,12 @@ describe("useFetch", () => {
         action,
         data: { ...data, modified: true, extra: "field" },
       }));
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      const server = captureAction("TEST_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
+      await result.current(API_URL, { action: "TEST_ACTION", data: { original: "value" } });
 
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: { original: "value" } });
-
-      expect(fetchAPI).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "TEST_ACTION", data: { original: "value", modified: true, extra: "field" } },
-        expect.any(Object),
-        undefined,
-      );
+      expect(server.calls).toEqual([{ original: "value", modified: true, extra: "field" }]);
     });
 
     it("should use modified action from beforeRequest", async () => {
@@ -115,49 +85,28 @@ describe("useFetch", () => {
         action: "MODIFIED_ACTION",
         data,
       }));
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      const original = captureAction("ORIGINAL_ACTION");
+      const modified = captureAction("MODIFIED_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
+      await result.current(API_URL, { action: "ORIGINAL_ACTION", data: {} });
 
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "ORIGINAL_ACTION", data: {} });
-
-      expect(fetchAPI).toHaveBeenCalledWith(
-        "https://api.test.com?action=modified_action",
-        { action: "MODIFIED_ACTION", data: {} },
-        expect.any(Object),
-        undefined,
-      );
+      expect(original.calls).toHaveLength(0);
+      expect(modified.requests).toHaveLength(1);
+      expect(modified.requests[0].url).toBe(`${API_URL}?action=modified_action`);
+      expect(modified.requests[0].data).toEqual({});
     });
 
     it("should cancel request when beforeRequest returns null", async () => {
       const mockBeforeRequest = vi.fn(async () => null);
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      vi.spyOn(console, "log").mockImplementation(() => {});
+      const server = captureAction("TEST_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      const response = await fetch("https://api.test.com", { action: "TEST_ACTION", data: {} });
+      const response = await result.current(API_URL, { action: "TEST_ACTION", data: {} });
 
       expect(response).toBeNull();
-      expect(fetchAPI).not.toHaveBeenCalled();
+      expect(server.calls).toHaveLength(0);
     });
 
     it("should handle async beforeRequest (Promise return)", async () => {
@@ -167,32 +116,13 @@ describe("useFetch", () => {
             setTimeout(() => resolve({ action, data: { ...data, async: true } }), 10);
           }),
       );
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      const server = captureAction("TEST_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
-
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: { test: "value" } });
+      await result.current(API_URL, { action: "TEST_ACTION", data: { test: "value" } });
 
       await waitFor(() => {
-        expect(fetchAPI).toHaveBeenCalledWith(
-          expect.any(String),
-          { action: "TEST_ACTION", data: { test: "value", async: true } },
-          expect.any(Object),
-          undefined,
-        );
+        expect(server.calls).toEqual([{ test: "value", async: true }]);
       });
     });
 
@@ -201,31 +131,12 @@ describe("useFetch", () => {
         action,
         data: { ...data, sync: true },
       }));
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      const server = captureAction("TEST_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
+      await result.current(API_URL, { action: "TEST_ACTION", data: { test: "value" } });
 
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: { test: "value" } });
-
-      expect(fetchAPI).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "TEST_ACTION", data: { test: "value", sync: true } },
-        expect.any(Object),
-        undefined,
-      );
+      expect(server.calls).toEqual([{ test: "value", sync: true }]);
     });
   });
 
@@ -234,62 +145,26 @@ describe("useFetch", () => {
       const mockBeforeRequest = vi.fn(async () => {
         throw new Error("beforeRequest error");
       });
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
-
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
-
+      const server = captureAction("TEST_ACTION");
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
       // Should continue with original request despite error
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: {} });
+      await result.current(API_URL, { action: "TEST_ACTION", data: {} });
 
       expect(consoleErrorSpy).toHaveBeenCalledWith("Error in beforeRequest hook:", expect.any(Error));
-      expect(fetchAPI).toHaveBeenCalled();
-
-      consoleErrorSpy.mockRestore();
+      expect(server.calls).toHaveLength(1);
     });
 
     it("should not break when beforeRequest returns invalid data", async () => {
       const mockBeforeRequest = vi.fn(async () => "invalid" as any);
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
-
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
-
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
+      const server = captureAction("TEST_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
       // Should use original request when return is invalid
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: { test: "value" } });
+      await result.current(API_URL, { action: "TEST_ACTION", data: { test: "value" } });
 
-      expect(fetchAPI).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "TEST_ACTION", data: { test: "value" } },
-        expect.any(Object),
-        undefined,
-      );
+      expect(server.calls).toEqual([{ test: "value" }]);
     });
 
     it("should log errors from beforeRequest appropriately", async () => {
@@ -297,95 +172,39 @@ describe("useFetch", () => {
       const mockBeforeRequest = vi.fn(async () => {
         throw testError;
       });
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
-
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
-
+      captureAction("TEST_ACTION");
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: {} });
+      await result.current(API_URL, { action: "TEST_ACTION", data: {} });
 
       expect(consoleErrorSpy).toHaveBeenCalledWith("Error in beforeRequest hook:", testError);
-
-      consoleErrorSpy.mockRestore();
     });
 
     it("should continue with original request if beforeRequest fails", async () => {
       const mockBeforeRequest = vi.fn(async () => {
         throw new Error("Hook failed");
       });
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
-
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
-
+      const server = captureAction("TEST_ACTION");
       vi.spyOn(console, "error").mockImplementation(() => {});
-
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
       const originalData = { test: "original" };
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: originalData });
+      await result.current(API_URL, { action: "TEST_ACTION", data: originalData });
 
-      expect(fetchAPI).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "TEST_ACTION", data: originalData },
-        expect.any(Object),
-        undefined,
-      );
+      expect(server.calls).toEqual([originalData]);
     });
   });
 
   describe("Edge Cases", () => {
     it("should handle beforeRequest returning undefined", async () => {
       const mockBeforeRequest = vi.fn(async () => undefined as any);
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      const server = captureAction("TEST_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
+      await result.current(API_URL, { action: "TEST_ACTION", data: { test: "value" } });
 
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: { test: "value" } });
-
-      expect(fetchAPI).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "TEST_ACTION", data: { test: "value" } },
-        expect.any(Object),
-        undefined,
-      );
+      expect(server.calls).toEqual([{ test: "value" }]);
     });
 
     it("should handle beforeRequest modifying only action", async () => {
@@ -393,31 +212,14 @@ describe("useFetch", () => {
         action: "NEW_ACTION",
         data,
       }));
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      const server = captureAction("NEW_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
+      await result.current(API_URL, { action: "OLD_ACTION", data: { test: "value" } });
 
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "OLD_ACTION", data: { test: "value" } });
-
-      expect(fetchAPI).toHaveBeenCalledWith(
-        "https://api.test.com?action=new_action",
-        { action: "NEW_ACTION", data: { test: "value" } },
-        expect.any(Object),
-        undefined,
-      );
+      expect(server.requests).toHaveLength(1);
+      expect(server.requests[0].url).toBe(`${API_URL}?action=new_action`);
+      expect(server.requests[0].data).toEqual({ test: "value" });
     });
 
     it("should handle beforeRequest modifying only data", async () => {
@@ -425,53 +227,20 @@ describe("useFetch", () => {
         action,
         data: { modified: "data" },
       }));
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      const server = captureAction("TEST_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
+      await result.current(API_URL, { action: "TEST_ACTION", data: { original: "value" } });
 
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: { original: "value" } });
-
-      expect(fetchAPI).toHaveBeenCalledWith(
-        expect.any(String),
-        { action: "TEST_ACTION", data: { modified: "data" } },
-        expect.any(Object),
-        undefined,
-      );
+      expect(server.calls).toEqual([{ modified: "data" }]);
     });
 
     it("should handle beforeRequest with empty data object", async () => {
       const mockBeforeRequest = vi.fn(async ({ action, data }) => ({ action, data }));
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
+      captureAction("TEST_ACTION");
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
-
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
-
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: {} });
+      await result.current(API_URL, { action: "TEST_ACTION", data: {} });
 
       expect(mockBeforeRequest).toHaveBeenCalledWith({
         action: "TEST_ACTION",
@@ -484,127 +253,87 @@ describe("useFetch", () => {
         action,
         data: { ...data, modified: true },
       }));
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "beforeRequest") return mockBeforeRequest;
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
-
-      const mockResponse = {
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { success: true } })),
-      };
-      vi.mocked(fetchAPI).mockResolvedValue(mockResponse as any);
-
-      const { result } = renderHook(() => useFetch());
-      const fetch = result.current;
+      const server = captureAction("TEST_ACTION");
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      const { result } = renderFetch({ beforeRequest: mockBeforeRequest });
 
       const customHeaders = { "X-Custom-Header": "test-value" };
       const abortController = new AbortController();
 
-      await fetch("https://api.test.com", { action: "TEST_ACTION", data: { test: "value" } }, customHeaders, false, {
+      await result.current(API_URL, { action: "TEST_ACTION", data: { test: "value" } }, customHeaders, false, {
         signal: abortController.signal,
       });
 
-      expect(fetchAPI).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(Object),
-        {
-          ...customHeaders,
-          Authorization: "Bearer mock-token",
-        },
-        { signal: abortController.signal },
-      );
+      expect(server.requests).toHaveLength(1);
+      expect(server.requests[0].headers.get("x-custom-header")).toBe("test-value");
+      expect(server.requests[0].headers.get("authorization")).toBe("Bearer mock-token");
+      expect(server.requests[0].data).toEqual({ test: "value", modified: true });
+
+      // The signal reaches the real fetch: an aborted one stops the request before it is sent.
+      abortController.abort();
+      await expect(
+        result.current(API_URL, { action: "TEST_ACTION", data: {} }, customHeaders, false, {
+          signal: abortController.signal,
+        }),
+      ).rejects.toThrow();
+      expect(server.requests).toHaveLength(1);
     });
   });
-  describe("fetch interceptors", () => {
-    const mockProps = () => {
-      vi.mocked(usePagesProp).mockImplementation((key: string) => {
-        if (key === "getAccessToken") return vi.fn(async () => "mock-token");
-        if (key === "onLogout") return vi.fn();
-        return undefined;
-      });
-    };
 
+  describe("fetch interceptors", () => {
     it("merges interceptor headers under the caller's headers and Authorization", async () => {
-      mockProps();
       registerChaiFetchInterceptor("chai:test", {
         headers: ({ action }) => ({ "x-hint": `for-${action}`, "X-Custom-Header": "from-interceptor" }),
       });
-      vi.mocked(fetchAPI).mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: {} })),
-      } as any);
+      const server = captureAction("GET_PAGES", {});
+      const { result } = renderFetch();
 
-      const { result } = renderHook(() => useFetch());
-      await result.current("https://api.test.com", { action: "GET_PAGES", data: {} }, { "X-Custom-Header": "caller" });
+      await result.current(API_URL, { action: "GET_PAGES", data: {} }, { "X-Custom-Header": "caller" });
 
-      expect(fetchAPI).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(Object),
-        { "x-hint": "for-GET_PAGES", "X-Custom-Header": "caller", Authorization: "Bearer mock-token" },
-        undefined,
-      );
+      const { headers } = server.requests[0];
+      expect(headers.get("x-hint")).toBe("for-GET_PAGES");
+      expect(headers.get("x-custom-header")).toBe("caller");
+      expect(headers.get("authorization")).toBe("Bearer mock-token");
     });
 
     it("wins over interceptor headers spelled in a different case", async () => {
-      mockProps();
       registerChaiFetchInterceptor("chai:test", {
         headers: () => ({ authorization: "Bearer from-interceptor", "x-custom-header": "from-interceptor" }),
       });
-      vi.mocked(fetchAPI).mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: {} })),
-      } as any);
+      const server = captureAction("GET_PAGES", {});
+      const { result } = renderFetch();
 
-      const { result } = renderHook(() => useFetch());
-      await result.current("https://api.test.com", { action: "GET_PAGES", data: {} }, { "X-Custom-Header": "caller" });
+      await result.current(API_URL, { action: "GET_PAGES", data: {} }, { "X-Custom-Header": "caller" });
 
-      // One Authorization, one custom header: the interceptor's spellings were replaced, not kept.
-      expect(fetchAPI).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.any(Object),
-        { "X-Custom-Header": "caller", Authorization: "Bearer mock-token" },
-        undefined,
-      );
+      // One Authorization, one custom header: the interceptor's spellings were replaced, not kept
+      // (a duplicate would reach the server joined as "a, b").
+      const { headers } = server.requests[0];
+      expect(headers.get("authorization")).toBe("Bearer mock-token");
+      expect(headers.get("x-custom-header")).toBe("caller");
     });
 
     it("hands the parsed body to onResponse on success and on 401", async () => {
-      mockProps();
       const onResponse = vi.fn();
       registerChaiFetchInterceptor("chai:test", { onResponse });
       vi.spyOn(console, "log").mockImplementation(() => {});
+      const { result } = renderFetch();
 
-      vi.mocked(fetchAPI).mockResolvedValueOnce({
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { a: 1 }, license: { state: "valid" } })),
-      } as any);
-      const { result } = renderHook(() => useFetch());
-      await result.current("https://api.test.com", { action: "GET_PAGES", data: {} });
+      mockChaiAction("GET_PAGES", { a: 1 });
+      await result.current(API_URL, { action: "GET_PAGES", data: {} });
 
       expect(onResponse).toHaveBeenCalledWith({
         action: "GET_PAGES",
         status: 200,
-        body: { ok: true, data: { a: 1 }, license: { state: "valid" } },
+        body: { ok: true, data: { a: 1 } },
       });
 
-      vi.mocked(fetchAPI).mockResolvedValueOnce({
-        ok: false,
-        status: 401,
-        json: vi.fn(async () => ({ ok: false, error: { status: 401, message: "nope", code: "UNAUTHORIZED" } })),
-      } as any);
-      await result.current("https://api.test.com", { action: "GET_PAGES", data: {} });
+      mockChaiAction("GET_PAGES", { status: 401, message: "nope", code: "UNAUTHORIZED" }, { ok: false, status: 401 });
+      await result.current(API_URL, { action: "GET_PAGES", data: {} });
 
       expect(onResponse).toHaveBeenLastCalledWith(expect.objectContaining({ status: 401 }));
     });
 
     it("logs and ignores a throwing interceptor so the request still succeeds", async () => {
-      mockProps();
       const consoleErrorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
       registerChaiFetchInterceptor("chai:broken", {
         headers: () => {
@@ -614,30 +343,26 @@ describe("useFetch", () => {
           throw new Error("response boom");
         },
       });
-      vi.mocked(fetchAPI).mockResolvedValue({
-        ok: true,
-        status: 200,
-        json: vi.fn(async () => ({ ok: true, data: { fine: true } })),
-      } as any);
+      captureAction("GET_PAGES", { fine: true });
+      const { result } = renderFetch();
 
-      const { result } = renderHook(() => useFetch());
-      const response = await result.current("https://api.test.com", { action: "GET_PAGES", data: {} });
+      const response = await result.current(API_URL, { action: "GET_PAGES", data: {} });
 
       expect(response).toEqual(expect.objectContaining({ fine: true }));
       expect(consoleErrorSpy).toHaveBeenCalledTimes(2);
     });
 
     it("skips onResponse for streaming responses", async () => {
-      mockProps();
       const onResponse = vi.fn();
       registerChaiFetchInterceptor("chai:test", { onResponse });
-      const streaming = { ok: true, status: 200, body: "stream" };
-      vi.mocked(fetchAPI).mockResolvedValue(streaming as any);
+      captureAction("AI_CHAT", {});
+      const { result } = renderFetch();
 
-      const { result } = renderHook(() => useFetch());
-      const response = await result.current("https://api.test.com", { action: "AI_CHAT", data: {} }, {}, true);
+      const response = await result.current(API_URL, { action: "AI_CHAT", data: {} }, {}, true);
 
-      expect(response).toBe(streaming);
+      // The raw Response comes back unread.
+      expect(response).toBeInstanceOf(Response);
+      expect((response as Response).bodyUsed).toBe(false);
       expect(onResponse).not.toHaveBeenCalled();
     });
   });

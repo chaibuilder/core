@@ -8,8 +8,12 @@ import React from "react";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
 import { canAcceptChildBlock } from "~/builder/core/functions/block-helpers";
 import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
+import { registerTestBlocks } from "~/tests/builder/blocks";
 import { ChaiBlock } from "~/types/common";
 import { useWrapWithBlock } from "./wrap-with-block";
+
+// A Box that accepts any child, so wrapping is actually on offer.
+registerTestBlocks({ type: "Box", canAcceptBlock: () => true });
 
 type AtomTuple = [WritableAtom<any, any[], any>, any];
 
@@ -82,6 +86,29 @@ describe("useWrapWithBlock", () => {
       });
 
       expect(result.current.shouldRender).toBe(result.current.canWrapInBox || result.current.canWrapInLink);
+    });
+  });
+
+  describe("per-instance action rules", () => {
+    const renderWith = (block: ChaiBlock) =>
+      renderHook(() => useWrapWithBlock(), {
+        wrapper: ({ children }) => (
+          <TestProvider
+            initialValues={[
+              [presentBlocksAtom, [block]],
+              [selectedBlockIdsAtom, [block._id]],
+            ]}>
+            {children}
+          </TestProvider>
+        ),
+      });
+
+    it("offers wrapping for an unflagged block", () => {
+      expect(renderWith({ _id: "nav", _type: "Box" }).result.current.shouldRender).toBe(true);
+    });
+
+    it("does not offer wrapping for a block flagged _canMove: false", () => {
+      expect(renderWith({ _id: "nav", _type: "Box", _canMove: false }).result.current.shouldRender).toBe(false);
     });
   });
 

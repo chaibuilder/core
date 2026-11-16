@@ -1,26 +1,11 @@
 import { getInitializedState, getInitializedStateWithUser } from "~/server/chai-builder/state";
-import { getPermissionCatalog } from "~/server/rbac/permission-catalog";
-import { hasPermission, intersectPermissions } from "~/server/rbac/permissions";
+import { resolveEffectivePermissions } from "~/server/rbac/effective-permissions";
+import { hasPermission } from "~/server/rbac/permissions";
 import { ActionError } from "./action-error";
 import { getActionAuthPolicy } from "./action-policies";
 import { type ChaiActionResult, toActionError, toActionErrorPayload } from "./action-result";
-import { getChaiAction } from "./actions-registery";
+import { getChaiActionInstance } from "./actions-registery";
 import type { ChaiAction, ChaiActionContext, ChaiUserAccess } from "./chai-action-interface";
-
-/** Concrete (non-wildcard) permission keys — the only ones an intersection can match on. */
-function concreteKeys(list: string[]): string[] {
-  return list.filter((key) => key !== "*" && !key.endsWith(":*"));
-}
-
-/**
- * `intersectPermissions` expands wildcards against a catalog, so anything outside that catalog
- * (host-defined keys) would silently vanish from `["*"] ∩ [...]`. Base is the runtime catalog
- * (built-ins + plugin-registered keys), widened further with the concrete keys named by
- * either side so host keys never registered anywhere stay intersectable.
- */
-function delegationCatalog(granted: string[], delegated: string[]): string[] {
-  return [...new Set([...getPermissionCatalog(), ...concreteKeys(granted), ...concreteKeys(delegated)])];
-}
 
 /**
  * Applies the delegation ceiling: a credential can never exceed the permissions delegated to it,
@@ -28,40 +13,38 @@ function delegationCatalog(granted: string[], delegated: string[]): string[] {
  */
 function clampToDelegated(userAccess: ChaiUserAccess, delegated: string[] | null): ChaiUserAccess {
   if (delegated === null) return userAccess;
-  const granted = userAccess.permissions ?? [];
-  return {
-    ...userAccess,
-    permissions: intersectPermissions(granted, delegated, delegationCatalog(granted, delegated)),
-  };
+  return { ...userAccess, permissions: resolveEffectivePermissions(userAccess.permissions ?? [], delegated) };
 }
 
-/** Resolves the static or function-form `requiredPermission` for an action. */
-function resolveRequiredPermission(
+/**
+ * Resolves the static or function-form `requiredPermission` for an action into the
+ * list of keys the caller must hold *all* of. An empty list means authenticated-only.
+ */
+export function resolveRequiredPermissions(
   action: ChaiAction<any, any>,
   data: unknown,
   context: ChaiActionContext,
-): string | null {
-  const required = action.requiredPermission;
-  if (!required) return null;
-  if (typeof required === "function") {
-    return required(data, context) ?? null;
-  }
-  return required;
+): string[] {
+  const declared = action.requiredPermission;
+  if (!declared) return [];
+  const required = typeof declared === "function" ? declared(data, context) : declared;
+  if (!required) return [];
+  return (Array.isArray(required) ? required : [required]).filter(Boolean);
 }
 
 /** Throws 403 when the action declares a permission the user (effectively) lacks. */
 function enforcePermission(action: ChaiAction<any, any>, data: unknown, context: ChaiActionContext): void {
-  const required = resolveRequiredPermission(action, data, context);
-  if (!required) return;
   const granted = context.userAccess?.permissions ?? null;
-  if (!hasPermission(granted, required)) {
-    throw new ActionError(`Missing permission: ${required}`, "FORBIDDEN", 403);
+  for (const required of resolveRequiredPermissions(action, data, context)) {
+    if (!hasPermission(granted, required)) {
+      throw new ActionError(`Missing permission: ${required}`, "FORBIDDEN", 403);
+    }
   }
 }
 
 export async function dispatchChaiAction(name: string, data: unknown): Promise<unknown> {
   try {
-    const action = getChaiAction(name);
+    const action = getChaiActionInstance(name);
     if (!action) {
       throw new ActionError(`Action ${name} not found`, "ACTION_NOT_FOUND", 404);
     }
@@ -91,12 +74,14 @@ export async function dispatchChaiAction(name: string, data: unknown): Promise<u
         delegatedPermissions,
         delegatedScopes: delegatedPermissions,
         userAccess,
+        surface: state.surface,
       };
     } else {
       const state = getInitializedState();
       context = {
         appId: state.appId as string,
         action: name,
+        surface: state.surface,
       };
     }
 

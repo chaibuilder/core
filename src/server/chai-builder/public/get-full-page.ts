@@ -105,7 +105,13 @@ async function fetchFullPage(
         .limit(1),
     );
 
-    if (error || !pageResult || pageResult.length === 0) {
+    // A failed query must not read as a missing page: PAGE_NOT_FOUND becomes a 404
+    // the route cache keeps, while a thrown error is a 500 retried on the next request.
+    if (error) {
+      throw new Error("FAILED_TO_FETCH_PAGE", { cause: error });
+    }
+
+    if (!pageResult || pageResult.length === 0) {
       throw new Error("PAGE_NOT_FOUND");
     }
 
@@ -136,7 +142,7 @@ async function fetchFullPage(
   );
 
   if (blocksError) {
-    throw new Error("FAILED_TO_FETCH_PAGE_BLOCKS");
+    throw new Error("FAILED_TO_FETCH_PAGE_BLOCKS", { cause: blocksError });
   }
 
   // Build a map of pageId -> blocks. Soft-deleted partials (in trash) are

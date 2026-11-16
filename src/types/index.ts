@@ -21,6 +21,7 @@ export * from "~/types/collections";
 export * from "~/types/common";
 export type { ChaiPageProps } from "~/types/common";
 export * from "~/types/db";
+export * from "~/types/design-system";
 export * from "~/types/media";
 export * from "~/types/page-metadata";
 export * from "~/types/pages";

@@ -42,10 +42,25 @@ export const AI_EDIT_TOOL_DESCRIPTIONS = {
     "Retrieve all available partial blocks (global reusable sections such as header, footer, navigation). " +
     "Call this before building a full page layout or when the user asks to include a global section. " +
     "Returns each partial's ID, name, and description. Use the ID in <chai-partial-block partial-id='ID'>.",
+  get_pages_list:
+    "List the site's pages: each page's name, slug, page type and linkRef. Call this before linking to another " +
+    "page of the site, and use the returned linkRef as the href — never the slug.",
   get_page_outline:
     "Get the compact outline of a page: one line per block as `bid | type | name | text`, indented by nesting. " +
     "Call this first to understand a page's structure, then read_block_html for the blocks you want to edit.",
 } as const;
+
+/**
+ * How both surfaces must author links to site pages. Executors back this up by
+ * rewriting a slug that matches a known page, but only a reference the model
+ * wrote itself is guaranteed to point at the page it meant.
+ */
+export const AI_INTERNAL_LINK_RULES = [
+  "Link to a page of this site with its linkRef from get_pages_list as the href, e.g. <a href=\"pageType:page:PAGE_ID\">. Never write the page's slug: slugs change, a linkRef always resolves to the page's current URL.",
+  "An existing href beginning with pageType: is such a reference. Preserve it exactly unless the user asks to point the link somewhere else.",
+  "References work only as the href of a standalone <a> or <button> element. A link inside running text (an <a> within a <p>, heading or list text) is kept as HTML and never resolved — write the page's path there.",
+  "Use a plain path only for a route that is not in get_pages_list. External URLs, mailto:, tel: and #anchor hrefs are written as usual.",
+] as const;
 
 /**
  * Per-tool input field records (excluding the surface-specific `task`/`url`

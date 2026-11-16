@@ -1,24 +1,35 @@
 import { getParentAndPosition } from "~/builder/hooks/use-add-block";
+import { registerTestBlocks } from "~/tests/builder/blocks";
 import { ChaiBlock } from "~/types/common";
 
-vi.mock("~/builder/core/functions/block-helpers", () => ({
-  canAcceptChildBlock: vi.fn(),
-  canBeNestedInside: vi.fn(),
-}));
+// Real registry entries. `canAcceptChildBlock` reads `canAcceptBlock` from the parent's registration
+// (unregistered or absent => false); `canBeNestedInside` reads `canBeNested` from the child's
+// registration (unregistered or absent => true).
+registerTestBlocks(
+  // accepts every child
+  { type: "Box", canAcceptBlock: () => true },
+  { type: "Section", canAcceptBlock: () => true },
+  // registered, but accepts no children
+  { type: "Leaf" },
+  { type: "LeafSection" },
+  { type: "LeafBox" },
+  // a child that may only be nested directly inside a Box
+  { type: "BoxOnlyText", canBeNested: (parentType: string) => parentType === "Box" },
+  // depth-limited blocks
+  { type: "TopLevelOnly", maxDepth: 0 },
+  { type: "OneLevelDeep", maxDepth: 1 },
+  { type: "Unlimited", maxDepth: -1 },
+);
 
-import { canAcceptChildBlock, canBeNestedInside } from "~/builder/core/functions/block-helpers";
-
-const mockCanAcceptChildBlock = canAcceptChildBlock as ReturnType<typeof vi.fn>;
-const mockCanBeNestedInside = canBeNestedInside as ReturnType<typeof vi.fn>;
+// Form-like page: two root sections, the first holding a form with a field.
+const FORM_PAGE: ChaiBlock[] = [
+  { _id: "section-1", _type: "Section" },
+  { _id: "form", _type: "Box", _parent: "section-1" },
+  { _id: "field", _type: "Box", _parent: "form" },
+  { _id: "section-2", _type: "Section" },
+];
 
 describe("getParentAndPosition", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-    // Default: all blocks can accept children and be nested inside
-    mockCanAcceptChildBlock.mockReturnValue(true);
-    mockCanBeNestedInside.mockReturnValue(true);
-  });
-
   describe("when no parent and no selection", () => {
     it("returns undefined parentBlockId and undefined insertPosition", () => {
       const allBlocks: ChaiBlock[] = [{ _id: "block-1", _type: "Box" }];
@@ -71,29 +82,22 @@ describe("getParentAndPosition", () => {
 
   describe("when candidate cannot accept child (walks up the tree)", () => {
     it("walks up to the parent when the selected block cannot accept the child", () => {
-      mockCanAcceptChildBlock.mockImplementation((parentType: string) => parentType === "Box");
-      mockCanBeNestedInside.mockReturnValue(true);
-
       const allBlocks: ChaiBlock[] = [
         { _id: "box", _type: "Box" },
-        { _id: "text", _type: "Text", _parent: "box" },
+        { _id: "text", _type: "Leaf", _parent: "box" },
       ];
-      // "text" cannot accept "Text" (canAcceptChildBlock returns false for "Text" parent)
-      // "box" can accept it
+      // "text" (Leaf) cannot accept children; "box" can
       const result = getParentAndPosition("Text", allBlocks, ["text"]);
 
       expect(result.parentBlockId).toBe("box");
     });
 
     it("inserts after the previously-traversed sibling when walking up", () => {
-      mockCanAcceptChildBlock.mockImplementation((parentType: string) => parentType === "Box");
-      mockCanBeNestedInside.mockReturnValue(true);
-
       const allBlocks: ChaiBlock[] = [
         { _id: "box", _type: "Box" },
-        { _id: "sibling-1", _type: "Text", _parent: "box" },
-        { _id: "sibling-2", _type: "Text", _parent: "box" },
-        { _id: "sibling-3", _type: "Text", _parent: "box" },
+        { _id: "sibling-1", _type: "Leaf", _parent: "box" },
+        { _id: "sibling-2", _type: "Leaf", _parent: "box" },
+        { _id: "sibling-3", _type: "Leaf", _parent: "box" },
       ];
       // Start from sibling-2 (index 1 in siblings). After walking up, the new block
       // should be inserted after sibling-2, i.e. at index 2.
@@ -104,13 +108,10 @@ describe("getParentAndPosition", () => {
     });
 
     it("walks all the way to root when no ancestor can accept the child", () => {
-      mockCanAcceptChildBlock.mockReturnValue(false);
-      mockCanBeNestedInside.mockReturnValue(true);
-
       const allBlocks: ChaiBlock[] = [
-        { _id: "section", _type: "Section" },
-        { _id: "box", _type: "Box", _parent: "section" },
-        { _id: "text", _type: "Text", _parent: "box" },
+        { _id: "section", _type: "LeafSection" },
+        { _id: "box", _type: "LeafBox", _parent: "section" },
+        { _id: "text", _type: "Leaf", _parent: "box" },
       ];
       const result = getParentAndPosition("Text", allBlocks, ["text"]);
 
@@ -118,14 +119,11 @@ describe("getParentAndPosition", () => {
     });
 
     it("computes root-level insertPosition after walking to root", () => {
-      mockCanAcceptChildBlock.mockReturnValue(false);
-      mockCanBeNestedInside.mockReturnValue(true);
-
       // Three root-level blocks; user selects section-2
       const allBlocks: ChaiBlock[] = [
-        { _id: "section-1", _type: "Section" },
-        { _id: "section-2", _type: "Section" },
-        { _id: "section-3", _type: "Section" },
+        { _id: "section-1", _type: "LeafSection" },
+        { _id: "section-2", _type: "LeafSection" },
+        { _id: "section-3", _type: "LeafSection" },
       ];
       const result = getParentAndPosition("Text", allBlocks, ["section-2"]);
 
@@ -137,32 +135,91 @@ describe("getParentAndPosition", () => {
 
   describe("canBeNestedInside constraint", () => {
     it("skips a parent when canBeNestedInside returns false even if canAcceptChildBlock is true", () => {
-      mockCanAcceptChildBlock.mockReturnValue(true);
-      // Only allow nesting when parent is "Box"
-      mockCanBeNestedInside.mockImplementation((parentType: string) => parentType === "Box");
-
+      // every ancestor accepts children, but BoxOnlyText may only be nested inside a Box
       const allBlocks: ChaiBlock[] = [
         { _id: "box", _type: "Box" },
         { _id: "section", _type: "Section", _parent: "box" },
-        { _id: "text", _type: "Text", _parent: "section" },
+        { _id: "text", _type: "Section", _parent: "section" },
       ];
-      // "section" accepts children but canBeNestedInside returns false for Section,
-      // so it should walk up to "box"
-      const result = getParentAndPosition("Text", allBlocks, ["text"]);
+      const result = getParentAndPosition("BoxOnlyText", allBlocks, ["text"]);
 
       expect(result.parentBlockId).toBe("box");
     });
   });
 
+  describe("maxDepth constraint", () => {
+    it("maxDepth 0 climbs out of a deep selection to root, right after its top-level ancestor", () => {
+      const result = getParentAndPosition("TopLevelOnly", FORM_PAGE, ["field"]);
+
+      expect(result.parentBlockId).toBeUndefined();
+      expect(result.insertPosition).toBe(1);
+    });
+
+    it("maxDepth 0 with a root section selected goes after that section", () => {
+      const result = getParentAndPosition("TopLevelOnly", FORM_PAGE, ["section-2"]);
+
+      expect(result.parentBlockId).toBeUndefined();
+      expect(result.insertPosition).toBe(2);
+    });
+
+    it("maxDepth 0 with nothing selected appends to root", () => {
+      const result = getParentAndPosition("TopLevelOnly", FORM_PAGE, [], undefined, -1);
+
+      expect(result.parentBlockId).toBeUndefined();
+      expect(result.insertPosition).toBe(-1);
+    });
+
+    it("maxDepth 0 replaces the panel's -1 position once it climbs", () => {
+      const result = getParentAndPosition("TopLevelOnly", FORM_PAGE, ["field"], undefined, -1);
+
+      expect(result.parentBlockId).toBeUndefined();
+      expect(result.insertPosition).toBe(1);
+    });
+
+    it("maxDepth 0 replaces a position meant for the too-deep provided parent", () => {
+      const result = getParentAndPosition("TopLevelOnly", FORM_PAGE, [], "form", 0);
+
+      expect(result.parentBlockId).toBeUndefined();
+      expect(result.insertPosition).toBe(1);
+    });
+
+    it("maxDepth 1 nests inside a selected root section", () => {
+      const result = getParentAndPosition("OneLevelDeep", FORM_PAGE, ["section-1"], undefined, -1);
+
+      expect(result.parentBlockId).toBe("section-1");
+      expect(result.insertPosition).toBe(-1);
+    });
+
+    it("maxDepth 1 climbs from a depth-2 selection to the root section, after the form", () => {
+      const result = getParentAndPosition("OneLevelDeep", FORM_PAGE, ["field"], undefined, -1);
+
+      expect(result.parentBlockId).toBe("section-1");
+      expect(result.insertPosition).toBe(1);
+    });
+
+    it("maxDepth -1 nests into the selection exactly like an unlimited block", () => {
+      const unlimited = getParentAndPosition("Unlimited", FORM_PAGE, ["field"], undefined, -1);
+      const unset = getParentAndPosition("Text", FORM_PAGE, ["field"], undefined, -1);
+
+      expect(unlimited).toEqual({ parentBlockId: "field", insertPosition: -1 });
+      expect(unset).toEqual(unlimited);
+    });
+
+    it("an explicit maxDepth argument overrides the registered one", () => {
+      // Box is registered without a limit; library blocks pass their limit this way.
+      const result = getParentAndPosition("Box", FORM_PAGE, ["field"], undefined, -1, 0);
+
+      expect(result.parentBlockId).toBeUndefined();
+      expect(result.insertPosition).toBe(1);
+    });
+  });
+
   describe("providedPosition overrides auto-computed position", () => {
     it("does not overwrite insertPosition when providedPosition is given", () => {
-      mockCanAcceptChildBlock.mockImplementation((parentType: string) => parentType === "Box");
-      mockCanBeNestedInside.mockReturnValue(true);
-
       const allBlocks: ChaiBlock[] = [
         { _id: "box", _type: "Box" },
-        { _id: "sibling-1", _type: "Text", _parent: "box" },
-        { _id: "sibling-2", _type: "Text", _parent: "box" },
+        { _id: "sibling-1", _type: "Leaf", _parent: "box" },
+        { _id: "sibling-2", _type: "Leaf", _parent: "box" },
       ];
       // Even though sibling-2 is at index 1, providedPosition=0 should be respected
       const result = getParentAndPosition("Text", allBlocks, ["sibling-2"], undefined, 0);
@@ -184,16 +241,12 @@ describe("getParentAndPosition", () => {
 
   describe("deep tree traversal", () => {
     it("traverses multiple levels to find a valid ancestor", () => {
-      // Box -> Section -> Div -> Text (selected)
-      // Only Box can accept Text
-      mockCanAcceptChildBlock.mockImplementation((parentType: string) => parentType === "Box");
-      mockCanBeNestedInside.mockReturnValue(true);
-
+      // Box -> Section -> Div -> Text (selected); only Box can accept children
       const allBlocks: ChaiBlock[] = [
         { _id: "box", _type: "Box" },
-        { _id: "section", _type: "Section", _parent: "box" },
-        { _id: "div", _type: "Div", _parent: "section" },
-        { _id: "text", _type: "Text", _parent: "div" },
+        { _id: "section", _type: "LeafSection", _parent: "box" },
+        { _id: "div", _type: "LeafBox", _parent: "section" },
+        { _id: "text", _type: "Leaf", _parent: "div" },
       ];
       const result = getParentAndPosition("NewText", allBlocks, ["text"]);
 

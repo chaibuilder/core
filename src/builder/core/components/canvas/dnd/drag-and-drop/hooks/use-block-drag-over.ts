@@ -28,8 +28,9 @@ import {
 import { getOrientation } from "~/builder/core/components/canvas/dnd/getOrientation";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
 import { builderStore } from "~/builder/atoms/store";
-import { canAcceptChildBlock } from "~/builder/core/functions/block-helpers";
+import { canAcceptChildBlock, canAcceptInto } from "~/builder/core/functions/block-helpers";
 import { useCanvasIframe } from "~/builder/hooks/use-canvas-iframe";
+import type { ChaiBlock } from "~/types/common";
 
 // Leaf block types that cannot accept children
 const LEAF_BLOCK_TYPES = [
@@ -305,7 +306,10 @@ export const useBlockDragOver = () => {
           return;
         }
 
-        isValid = canAcceptChildBlock(targetBlockType, draggedBlockType);
+        const targetBlock = allBlocks.find((block: ChaiBlock) => block._id === targetBlockId);
+        isValid = targetBlock
+          ? canAcceptInto(targetBlock, draggedBlockType, allBlocks)
+          : canAcceptChildBlock(targetBlockType, draggedBlockType);
       } else {
         // For before/after, validate with parent
         let parentElement = element.parentElement;
@@ -316,6 +320,7 @@ export const useBlockDragOver = () => {
         if (parentElement) {
           parentBlockType = parentElement.getAttribute("data-block-type") || "Box";
         }
+        const parentBlock = allBlocks.find((block: ChaiBlock) => block._id === parentElement?.getAttribute("data-block-id"));
 
         // CRITICAL: Prevent circular reference when dropping as sibling
         if (draggedBlockId && !canDropAsSiblingWithoutCircularReference(draggedBlockId, targetBlockId, allBlocks)) {
@@ -323,7 +328,9 @@ export const useBlockDragOver = () => {
           return;
         }
 
-        isValid = canAcceptChildBlock(parentBlockType, draggedBlockType);
+        isValid = parentBlock
+          ? canAcceptInto(parentBlock, draggedBlockType, allBlocks)
+          : canAcceptChildBlock(parentBlockType, draggedBlockType);
       }
 
       // If not valid, keep last position

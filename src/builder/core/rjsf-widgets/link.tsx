@@ -4,6 +4,7 @@ import { FieldProps } from "@rjsf/utils";
 import { get, isEmpty, map, split, startsWith } from "lodash-es";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { cn } from "~/builder/core/utils/cn";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { Checkbox } from "~/components/ui/checkbox";
@@ -16,10 +17,13 @@ const PageTypeField = ({
   href,
   onChange,
   inputRef,
+  resultsClassName,
 }: {
   href: string;
   onChange: (href: string) => void;
   inputRef?: React.RefObject<HTMLInputElement | null>;
+  /** Overrides the results list's floating layout, e.g. inside a scrolling popover. */
+  resultsClassName?: string;
 }) => {
   const { t } = useTranslation();
   const searchPageTypeItems = useBuilderProp("searchPageTypeItems", (_: string, __: any) => []);
@@ -144,7 +148,11 @@ const PageTypeField = ({
       </div>
 
       {(loading || !isEmpty(pageTypeItems) || (isSearching && isEmpty(pageTypeItems))) && (
-        <div className="bg-surface absolute z-40 mt-0.5 max-h-40 w-full max-w-[250px] overflow-y-auto rounded-md border border-border shadow-lg">
+        <div
+          className={cn(
+            "bg-surface absolute z-40 mt-0.5 max-h-40 w-full max-w-[250px] overflow-y-auto rounded-md border border-border shadow-lg",
+            resultsClassName,
+          )}>
           {loading ? (
             <div className="space-y-1 p-2">
               <div className="h-6 w-full animate-pulse rounded bg-muted/10" />
@@ -183,7 +191,7 @@ const PageTypeField = ({
   );
 };
 
-const LinkField = ({ schema, formData, onChange, name }: FieldProps) => {
+const LinkField = ({ schema, formData, onChange, name, preField = null, showHeader = true }: FieldProps) => {
   const { t } = useTranslation();
   const { type = "pageType", href = "", target = "self" } = formData ?? {};
   const pageTypes = useBuilderProp("pageTypes", []);
@@ -223,46 +231,63 @@ const LinkField = ({ schema, formData, onChange, name }: FieldProps) => {
 
   return (
     <div>
-      <div className="mb-1.5 flex items-center justify-between gap-x-2">
-        <Label>
-          {schema?.title ?? "Link"}
-          <span className="pl-1 text-[9px] text-muted-foreground">{currentLanguage}</span>
-        </Label>
-        <DataBindingSelector
-          schema={schema}
-          spacing="none"
-          onChange={(value) => {
-            onChange({
-              ...formData,
-              href: value,
-              ...(linkType === "pageType" ? { type: "url" } : {}),
-            });
-          }}
-          id={hrefFieldId}
-          formData={formData}
-        />
-      </div>
-      <div className="flex flex-col gap-y-2.5">
-        <select
-          className="flex h-8 w-full rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-          name="type"
-          value={type}
-          onChange={(e) => onChange({ ...formData, type: e.target.value })}>
-          {map(
-            [
-              ...(!isEmpty(pageTypes) ? [{ const: "pageType", title: t("Goto Page") }] : []),
-              { const: "url", title: t("Open URL") },
-              { const: "email", title: t("Compose Email") },
-              { const: "telephone", title: t("Call Phone") },
-              { const: "scroll", title: t("Scroll to element") },
-            ],
-            (opt) => (
-              <option key={opt.const} value={opt.const}>
-                {opt.title}
-              </option>
-            ),
+      {showHeader && (
+        <div className="flex items-center justify-between gap-x-2">
+          <Label>
+            {schema?.title ?? "Link"}
+            <span className="pl-1 text-[9px] text-muted-foreground">{currentLanguage}</span>
+          </Label>
+          <DataBindingSelector
+            schema={schema}
+            spacing="none"
+            onChange={(value) => {
+              onChange({
+                ...formData,
+                href: value,
+                ...(linkType === "pageType" ? { type: "url" } : {}),
+              });
+            }}
+            id={hrefFieldId}
+            formData={formData}
+          />
+        </div>
+      )}
+      {preField}
+      <div className="flex flex-col gap-y-1.5">
+        <div className="flex items-center gap-x-2">
+          <select
+            className="flex h-8 w-full min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            name="type"
+            value={type}
+            onChange={(e) => onChange({ ...formData, type: e.target.value })}>
+            {map(
+              [
+                ...(!isEmpty(pageTypes) ? [{ const: "pageType", title: t("Goto Page") }] : []),
+                { const: "url", title: t("Open URL") },
+                { const: "email", title: t("Compose Email") },
+                { const: "telephone", title: t("Call Phone") },
+                { const: "scroll", title: t("Scroll to element") },
+              ],
+              (opt) => (
+                <option key={opt.const} value={opt.const}>
+                  {opt.title}
+                </option>
+              ),
+            )}
+          </select>
+          {linkType === "url" && (
+            <div className="flex shrink-0 items-center gap-x-1.5 text-muted-foreground" title={t("Open in new tab")}>
+              <Checkbox
+                id={`root.${name}.target`}
+                checked={target === "_blank"}
+                onCheckedChange={(checked) => onChange({ ...formData, target: checked ? "_blank" : "_self" })}
+              />
+              <Label htmlFor={`root.${name}.target`} className="!mb-0 whitespace-nowrap pb-0 text-xs">
+                {t("New tab")}
+              </Label>
+            </div>
           )}
-        </select>
+        </div>
         {linkType === "pageType" && !isEmpty(pageTypes) ? (
           <PageTypeField
             href={href}
@@ -293,19 +318,9 @@ const LinkField = ({ schema, formData, onChange, name }: FieldProps) => {
             placeholder={t(type === "url" ? "Enter URL" : type === "scroll" ? "#ElementID" : "Enter details")}
           />
         )}
-        {linkType === "url" && (
-          <div className="flex items-center gap-x-2 text-muted-foreground">
-            <Checkbox
-              id={`root.${name}.target`}
-              checked={target === "_blank"}
-              onCheckedChange={(checked) => onChange({ ...formData, target: checked ? "_blank" : "_self" })}
-            />
-            <Label htmlFor={`root.${name}.target`}>{t("Open in new tab")}</Label>
-          </div>
-        )}
       </div>
     </div>
   );
 };
 
-export { LinkField };
+export { LinkField, PageTypeField };

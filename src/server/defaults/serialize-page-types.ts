@@ -33,6 +33,7 @@ export async function serializePageTypesForClient(pageTypes: ChaiPageTypeEntry[]
       pluralName: typeof pageType.pluralName === "function" ? await pageType.pluralName() : pageType.pluralName,
       ...(pageType.editUrl ? { editUrl: pageType.editUrl } : {}),
       ...(pageType.createUrl ? { createUrl: pageType.createUrl } : {}),
+      ...(isFunction(pageType.defaultTrackingInfo) ? { trackingDefault: pageType.defaultTrackingInfo() } : {}),
       ...(isFunction(pageType.defaultSeo) ? { defaultSeo: pageType.defaultSeo() } : {}),
       ...(isFunction(pageType.defaultJSONLD) ? { defaultJSONLD: pageType.defaultJSONLD() } : {}),
     })),

@@ -1,9 +1,20 @@
+import { canDeleteBlock } from "~/builder/core/functions/block-helpers";
 import { generateUUID } from "~/builder/core/functions/common-functions";
 import { getAllRegisteredChaiBlocks, getRegisteredChaiBlock } from "~/registry";
 import { hasOnlyRegisteredChaiPipes, isValidBindingTemplate, parseBindingExpression } from "~/render/binding-pipes";
 import type { ChaiBlock } from "~/types/common";
-import { getParentAndPosition, insertBlocksAtPosition, removeNestedBlocks, replaceBlock } from "~/utils/blocks-tree-ops";
+import {
+  getParentAndPosition,
+  insertBlocksAtPosition,
+  removeNestedBlocks,
+  replaceBlock,
+} from "~/utils/blocks-tree-ops";
 import { getBlocksFromHTML, mergeBlocksWithExisting } from "~/utils/import-html/html-to-json";
+import {
+  rewriteInternalLinks,
+  rewriteInternalLinksInProps,
+  type InternalLinkResolver,
+} from "~/utils/internal-link-refs";
 import type { AiDataBindingPaths } from "./ai-edit-page-prompt-context";
 
 type ImportedBlock = ChaiBlock & { _bid?: string };
@@ -11,6 +22,13 @@ type ImportedBlock = ChaiBlock & { _bid?: string };
 export type AiEditExecutorOptions = {
   partialBlockNames?: Record<string, string | undefined>;
   validatePartialReference?: (partialBlockId: string) => string | null;
+  /**
+   * Two-way mapping between page paths and stable `pageType:<type>:<id>`
+   * references. Slugs change; references do not — so a Link/Button href that
+   * matches a page is stored as its reference, while a reference embedded in
+   * text content (never resolved at render) is turned back into a path.
+   */
+  resolveInternalLink?: InternalLinkResolver;
 };
 
 export type AiEditExecutorSuccess = {
@@ -32,6 +50,10 @@ export const RESERVED_AI_PROPS = new Set([
   "_parent",
   "_index",
   "_name",
+  "_canDelete",
+  "_canMove",
+  "_canDuplicate",
+  "_slot",
   "__proto__",
   "constructor",
   "prototype",
@@ -150,7 +172,9 @@ const prepareImportedBlocks = (
     if (error) return { error };
   }
 
-  return { blocks: prepared };
+  return {
+    blocks: options.resolveInternalLink ? rewriteInternalLinks(prepared, options.resolveInternalLink) : prepared,
+  };
 };
 
 const duplicateIdError = (id: string): string =>
@@ -222,9 +246,7 @@ export const applyEditBlock = async (
 
   // Reattach every preserved bid before merging. Imported blocks receive fresh
   // temporary _ids, so parent pointers must be remapped with them.
-  const idByImportedId = new Map(
-    prepared.blocks.map((block) => [block._id, block._bid || block._id]),
-  );
+  const idByImportedId = new Map(prepared.blocks.map((block) => [block._id, block._bid || block._id]));
   const reattached = prepared.blocks.map((block) => ({
     ...block,
     _id: idByImportedId.get(block._id) as string,
@@ -307,6 +329,7 @@ export const applyAddCustomBlock = (
   parentIdInput?: unknown,
   positionInput?: unknown,
   props: Record<string, unknown> = {},
+  options: AiEditExecutorOptions = {},
 ): AiEditExecutorResult => {
   if (!getRegisteredChaiBlock(type)) {
     const validTypes = validCustomBlockTypes();
@@ -320,11 +343,14 @@ export const applyAddCustomBlock = (
   const target = resolveInsertTarget(blocks, type, parentId, position);
   if ("error" in target) return target;
 
+  const sanitizedProps = sanitizeAiProps(props);
   const block: ChaiBlock = {
     _id: generateUUID(),
     _type: type,
     _parent: target.parentId,
-    ...sanitizeAiProps(props),
+    ...(options.resolveInternalLink
+      ? rewriteInternalLinksInProps(sanitizedProps, options.resolveInternalLink)
+      : sanitizedProps),
   };
   return {
     blocks: insertBlocksAtPosition(blocks, [block], target.parentId, target.position),
@@ -367,6 +393,10 @@ export const applyRemoveBlocks = (blocks: ChaiBlock[], ids: string[]): AiEditExe
     return {
       error: `No blocks found for bids: ${skippedIds.join(", ")} — call get_page_outline for valid bids.`,
     };
+  }
+  const lockedIds = removableIds.filter((id) => !canDeleteBlock(blocks.find((block) => block._id === id)));
+  if (lockedIds.length > 0) {
+    return { error: `These blocks have can-delete="false" and cannot be removed: ${lockedIds.join(", ")}.` };
   }
   return {
     blocks: removeNestedBlocks(blocks, removableIds),

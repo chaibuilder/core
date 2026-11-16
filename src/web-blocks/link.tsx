@@ -48,9 +48,14 @@ const LinkBlock = (props: ChaiBlockComponentProps<LinkBlockProps>) => {
     }
   }
 
+  // Never promote `content` to aria-label: with nested children the visible
+  // text lives in those children while `content` still holds the schema
+  // default ("Link text goes here"), so it would override the real accessible
+  // name; without children `content` IS the rendered text, so a label is
+  // redundant. An author-set aria-label still flows through the spreads.
   if (children) {
     return (
-      <a aria-label={content} href={link?.href || "#/"} target={link?.target} {...blockProps} {...styles}>
+      <a href={link?.href || "#/"} target={link?.target} {...blockProps} {...styles}>
         {children}
       </a>
     );
@@ -63,7 +68,6 @@ const LinkBlock = (props: ChaiBlockComponentProps<LinkBlockProps>) => {
       ...styles,
       href: link?.href || "#",
       target: link?.target || "_self",
-      "aria-label": content,
     },
     content,
   );

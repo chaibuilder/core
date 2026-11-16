@@ -1,23 +1,30 @@
 import { pickOnlyAIProps } from "~/builder/hooks/use-ask-ai";
-import { getRegisteredChaiBlock } from "~/registry";
+import { registerTestBlocks } from "~/tests/builder/blocks";
 import { ChaiBlock } from "~/types/common";
 
-// Mock the runtime module
-vi.mock("~/registry", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("~/registry")>();
-  return {
-    ...actual,
-    getRegisteredChaiBlock: vi.fn(),
-  };
-});
-
-const mockGetRegisteredChaiBlock = getRegisteredChaiBlock as any;
+// Real registry entries, one type per aiProps configuration. "UnknownBlock" is never registered.
+registerTestBlocks(
+  { type: "NoAiPropsBlock", aiProps: [] },
+  "NoAiPropsDefinedBlock", // registered without an aiProps key
+  { type: "ContentBlock", aiProps: ["content"] },
+  { type: "ContentTitleBlock", aiProps: ["content", "title"] },
+  { type: "SettingsBlock", aiProps: ["enabled", "count", "config"] },
+  { type: "CoreKeysAiBlock", aiProps: ["_id", "_type", "_parent", "content"] },
+  { type: "MixedBlock", aiProps: ["content", "title"] },
+  { type: "HeadingBlock", aiProps: ["content", "title"] },
+  { type: "ParagraphBlock", aiProps: ["content"] },
+  { type: "ButtonBlock", aiProps: [] },
+  { type: "TextBlock", aiProps: ["content"] },
+  { type: "ImageBlock", aiProps: ["alt"] },
+  { type: "DivBlock", aiProps: [] },
+  { type: "ContainerBlock", aiProps: ["title"] },
+  { type: "Heading", aiProps: ["content"] },
+  { type: "Paragraph", aiProps: ["content"] },
+  { type: "Image", aiProps: ["alt"] },
+  { type: "Button", aiProps: ["text"] },
+);
 
 describe("pickOnlyAIProps", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   describe("basic functionality", () => {
     it("should return an empty array when given empty blocks array", () => {
       const result = pickOnlyAIProps([], "en", false);
@@ -28,14 +35,10 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "NoAiPropsBlock",
           content: "test content",
         },
       ];
-
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: [], // No AI props defined
-      });
 
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([]);
@@ -45,21 +48,17 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentTitleBlock",
           content: "test content",
           title: "test title",
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content", "title"],
-      });
-
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentTitleBlock",
           content: "test content",
           title: "test title",
         },
@@ -70,22 +69,18 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           _parent: "parent1",
           content: "test content",
           nonAiProp: "should not be included",
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content"],
-      });
-
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           _parent: "parent1",
           content: "test content",
         },
@@ -96,21 +91,17 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           _parent: "",
           content: "test content",
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content"],
-      });
-
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "test content",
         },
       ]);
@@ -122,22 +113,18 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentTitleBlock",
           content: "default content",
           "content-es": "contenido en español",
           title: "default title",
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content", "title"],
-      });
-
       const result = pickOnlyAIProps(blocks, "es", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentTitleBlock",
           content: "contenido en español",
           title: "default title",
         },
@@ -148,21 +135,17 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "default content",
           "content-es": "   ", // empty/whitespace value
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content"],
-      });
-
       const result = pickOnlyAIProps(blocks, "es", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "default content",
         },
       ]);
@@ -172,20 +155,16 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "default content",
         },
       ];
-
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content"],
-      });
 
       const result = pickOnlyAIProps(blocks, "fr", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "default content",
         },
       ]);
@@ -195,22 +174,18 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "SettingsBlock",
           enabled: true,
           count: 42,
           config: { key: "value" },
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["enabled", "count", "config"],
-      });
-
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "SettingsBlock",
           enabled: true,
           count: 42,
           config: { key: "value" },
@@ -224,21 +199,17 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "default content",
           "content-es": "contenido en español",
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content"],
-      });
-
       const result = pickOnlyAIProps(blocks, "es", true);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "default content", // Should use default, not Spanish version
         },
       ]);
@@ -248,21 +219,17 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "default content",
           "content-es": "contenido en español",
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content"],
-      });
-
       const result = pickOnlyAIProps(blocks, "es", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "contenido en español",
         },
       ]);
@@ -279,8 +246,6 @@ describe("pickOnlyAIProps", () => {
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue(null);
-
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([]);
     });
@@ -289,14 +254,10 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "NoAiPropsDefinedBlock",
           content: "test content",
         },
       ];
-
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        // No aiProps property
-      });
 
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([]);
@@ -306,14 +267,10 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "NoAiPropsBlock",
           content: "test content",
         },
       ];
-
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: [],
-      });
 
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([]);
@@ -342,11 +299,6 @@ describe("pickOnlyAIProps", () => {
           action: "submit",
         },
       ];
-
-      mockGetRegisteredChaiBlock
-        .mockReturnValueOnce({ aiProps: ["content", "title"] }) // HeadingBlock
-        .mockReturnValueOnce({ aiProps: ["content"] }) // ParagraphBlock
-        .mockReturnValueOnce({ aiProps: [] }); // ButtonBlock - no AI props
 
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
@@ -384,11 +336,6 @@ describe("pickOnlyAIProps", () => {
         },
       ];
 
-      mockGetRegisteredChaiBlock
-        .mockReturnValueOnce({ aiProps: ["content"] }) // TextBlock
-        .mockReturnValueOnce({ aiProps: ["alt"] }) // ImageBlock
-        .mockReturnValueOnce({ aiProps: [] }); // DivBlock - no AI props
-
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
         {
@@ -410,21 +357,17 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentTitleBlock",
           content: undefined,
           title: "test title",
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content", "title"],
-      });
-
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentTitleBlock",
           content: "", // get() with default "" returns empty string when undefined
           title: "test title",
         },
@@ -435,21 +378,17 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentTitleBlock",
           content: null,
           title: "test title",
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content", "title"],
-      });
-
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentTitleBlock",
           content: null,
           title: "test title",
         },
@@ -460,20 +399,16 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "test content",
         },
       ];
-
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content"],
-      });
 
       const result = pickOnlyAIProps(blocks, "", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "test content",
         },
       ]);
@@ -483,22 +418,19 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "CoreKeysAiBlock",
           _parent: "parent1",
           content: "test content",
         },
       ];
 
       // Even if aiProps includes core properties, they should be skipped in the loop
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["_id", "_type", "_parent", "content"],
-      });
 
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "CoreKeysAiBlock",
           _parent: "parent1",
           content: "test content",
         },
@@ -509,21 +441,17 @@ describe("pickOnlyAIProps", () => {
       const blocks: ChaiBlock[] = [
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "default content",
           "content-es": "  contenido con espacios  ",
         },
       ];
 
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content"],
-      });
-
       const result = pickOnlyAIProps(blocks, "es", false);
       expect(result).toEqual([
         {
           _id: "block1",
-          _type: "TestBlock",
+          _type: "ContentBlock",
           content: "contenido con espacios",
         },
       ]);
@@ -552,11 +480,6 @@ describe("pickOnlyAIProps", () => {
         },
       ];
 
-      mockGetRegisteredChaiBlock
-        .mockReturnValueOnce({ aiProps: ["title"] }) // ContainerBlock
-        .mockReturnValueOnce({ aiProps: ["content"] }) // TextBlock
-        .mockReturnValueOnce({ aiProps: ["alt"] }); // ImageBlock
-
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
         {
@@ -579,44 +502,24 @@ describe("pickOnlyAIProps", () => {
       ]);
     });
 
-    it("should handle blocks where getRegisteredChaiBlock throws an error", () => {
-      const blocks: ChaiBlock[] = [
-        {
-          _id: "block1",
-          _type: "ErrorBlock",
-          content: "test content",
-        },
-      ];
-
-      mockGetRegisteredChaiBlock.mockImplementation(() => {
-        throw new Error("Block not found");
-      });
-
-      expect(() => pickOnlyAIProps(blocks, "en", false)).toThrow("Block not found");
-    });
-
     it("should handle large number of blocks efficiently", () => {
       const blocks: ChaiBlock[] = Array.from({ length: 100 }, (_, i) => ({
         _id: `block${i}`,
-        _type: "TestBlock",
+        _type: "ContentBlock",
         content: `Content ${i}`,
         title: `Title ${i}`,
       }));
-
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content"],
-      });
 
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toHaveLength(100);
       expect(result[0]).toEqual({
         _id: "block0",
-        _type: "TestBlock",
+        _type: "ContentBlock",
         content: "Content 0",
       });
       expect(result[99]).toEqual({
         _id: "block99",
-        _type: "TestBlock",
+        _type: "ContentBlock",
         content: "Content 99",
       });
     });
@@ -633,10 +536,6 @@ describe("pickOnlyAIProps", () => {
           metadata: { key: "non-AI metadata" },
         },
       ];
-
-      mockGetRegisteredChaiBlock.mockReturnValue({
-        aiProps: ["content", "title"], // Only these are AI props
-      });
 
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
@@ -677,12 +576,6 @@ describe("pickOnlyAIProps", () => {
           content: "This is the second paragraph with more content.",
         },
       ];
-
-      mockGetRegisteredChaiBlock
-        .mockReturnValueOnce({ aiProps: ["content"] }) // Heading
-        .mockReturnValueOnce({ aiProps: ["content"] }) // Paragraph
-        .mockReturnValueOnce({ aiProps: ["alt"] }) // Image
-        .mockReturnValueOnce({ aiProps: ["content"] }); // Paragraph
 
       const result = pickOnlyAIProps(blocks, "en", false);
       expect(result).toEqual([
@@ -729,9 +622,6 @@ describe("pickOnlyAIProps", () => {
       ];
 
       // Test English
-      mockGetRegisteredChaiBlock
-        .mockReturnValueOnce({ aiProps: ["content"] }) // Heading
-        .mockReturnValueOnce({ aiProps: ["text"] }); // Button
 
       const resultEn = pickOnlyAIProps(blocks, "en", false);
       expect(resultEn).toEqual([
@@ -747,12 +637,6 @@ describe("pickOnlyAIProps", () => {
         },
       ]);
 
-      // Test Spanish - need to reset mocks
-      mockGetRegisteredChaiBlock.mockClear();
-      mockGetRegisteredChaiBlock
-        .mockReturnValueOnce({ aiProps: ["content"] }) // Heading
-        .mockReturnValueOnce({ aiProps: ["text"] }); // Button
-
       const resultEs = pickOnlyAIProps(blocks, "es", false);
       expect(resultEs).toEqual([
         {
@@ -766,12 +650,6 @@ describe("pickOnlyAIProps", () => {
           text: "Haz clic aquí",
         },
       ]);
-
-      // Test French - need to reset mocks
-      mockGetRegisteredChaiBlock.mockClear();
-      mockGetRegisteredChaiBlock
-        .mockReturnValueOnce({ aiProps: ["content"] }) // Heading
-        .mockReturnValueOnce({ aiProps: ["text"] }); // Button
 
       const resultFr = pickOnlyAIProps(blocks, "fr", false);
       expect(resultFr).toEqual([

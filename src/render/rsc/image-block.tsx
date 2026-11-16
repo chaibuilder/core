@@ -37,7 +37,10 @@ export const ImageBlock = (
     height: shouldUseFill ? undefined : parseInt(height),
     width: shouldUseFill ? undefined : parseInt(width),
     style: shouldUseFill ? { objectFit: "cover" } : undefined,
-    unoptimized: false, // Disable Next.js image optimization to avoid issues with external URLs
+    // Bypass the Vercel/Next.js image optimizer: the file is served directly from the
+    // origin. next/image is kept only for its layout/sizing behavior (fill, width/height,
+    // loading), not for re-encoding, so no image ever routes through /_next/image.
+    unoptimized: true,
   });
 
   if (shouldUseFill) {

@@ -61,6 +61,14 @@ export const parseMultipartActionBody = async (req: Request): Promise<HttpChaiAc
   // and bytes agree perfectly.
   const declaredMime = file.type && file.type !== "application/octet-stream" ? file.type : undefined;
 
+  // Optional client-rendered preview (a video's first frame). Validated by the
+  // action like the file itself; its type is the canvas encoder's, never trusted.
+  const thumbnail = form.get("thumbnail");
+  const thumbnailPart =
+    thumbnail && typeof thumbnail !== "string"
+      ? { thumbnail: new Uint8Array(await thumbnail.arrayBuffer()), thumbnailMimeType: thumbnail.type || undefined }
+      : {};
+
   return {
     action,
     // Spread meta first: `file`, `name` and `mimeType` are derived from the
@@ -70,6 +78,7 @@ export const parseMultipartActionBody = async (req: Request): Promise<HttpChaiAc
       file: new Uint8Array(await file.arrayBuffer()),
       name: typeof meta.name === "string" && meta.name ? meta.name : file.name,
       mimeType: declaredMime,
+      ...thumbnailPart,
     },
   };
 };

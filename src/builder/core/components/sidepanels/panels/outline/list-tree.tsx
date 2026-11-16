@@ -33,12 +33,13 @@ import { MakePartialBlockModal } from "~/builder/core/components/sidepanels/pane
 import { Node } from "~/builder/core/components/sidepanels/panels/outline/node";
 import { SaveToLibraryModal } from "~/builder/core/components/sidepanels/panels/outline/upsert-library-block-modal";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
-import { canAcceptChildBlock } from "~/builder/core/functions/block-helpers";
+import { canAcceptInto, canMoveBlock, canMoveBlocks } from "~/builder/core/functions/block-helpers";
 import { cn } from "~/builder/core/functions/common-functions";
 import { pubsub } from "~/builder/core/pubsub";
 import { useBlocksStoreUndoableActions } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { isPartialBlockType } from "~/builder/hooks/partial-blocks";
 import { useBlockKeyboardCommands } from "~/builder/hooks/use-block-keyboard-commands";
+import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useCutBlockIds } from "~/builder/hooks/use-cut-blockIds";
 import { usePermissions } from "~/builder/hooks/use-permissions";
 import { usePubSubListener } from "~/builder/hooks/use-pub-sub";
@@ -64,6 +65,7 @@ const useCanMove = () => {
     const blocks = builderStore.get(presentBlocksAtom) as ChaiBlock[];
     const blocksById = new Map(blocks.map((block) => [block._id, block]));
     const blockType = first(ids.map((id) => blocksById.get(id)?._type));
+    if (!canMoveBlocks(ids, blocks)) return false;
     if (!newParentId) {
       // Root level drop — any block can be dropped here
       return !!blockType;
@@ -71,7 +73,7 @@ const useCanMove = () => {
     const newParentType = blocksById.get(newParentId);
     if (!newParentType) return false;
     if (!blockType) return false;
-    return canAcceptChildBlock(newParentType._type, blockType);
+    return canAcceptInto(newParentType, blockType, blocks);
   }, []);
 };
 
@@ -149,6 +151,7 @@ const useTreeScrollWidth = (treeData: any) => {
 
 const ListTree = () => {
   const [treeData] = useAtom(treeDSBlocks);
+  const partialBlocksEnabled = useBuilderProp("flags.partialBlocks", true);
   const [ids, setIds] = useSelectedBlockIds();
   const blockCommands = useBlockKeyboardCommands();
   const [cutBlocksIds] = useCutBlockIds();
@@ -222,15 +225,15 @@ const ListTree = () => {
       }
 
       const targetParentId = targetBlock?._parent || "canvas";
-      const parentType = allBlocks.find((block) => block._id === targetBlock?._parent)?._type || "";
-      const canDropInside = isCanvas || canAcceptChildBlock(targetBlock?._type || "", draggedBlockType);
+      const parentBlock = allBlocks.find((block) => block._id === targetBlock?._parent);
+      const canDropInside = isCanvas || canAcceptInto(targetBlock, draggedBlockType, allBlocks);
       const position: OutlineDropPosition = isCanvas
         ? "inside"
         : getOutlineDropPosition(event.clientY, target.getBoundingClientRect(), canDropInside);
       const isValid =
         position === "inside"
           ? canDropInside && canDropWithoutCircularReference(draggedBlock._id, targetBlockId, allBlocks)
-          : canAcceptChildBlock(parentType, draggedBlockType) &&
+          : canAcceptInto(parentBlock, draggedBlockType, allBlocks) &&
             canDropAsSiblingWithoutCircularReference(draggedBlock._id, targetBlockId, allBlocks);
 
       if (!isValid) {
@@ -444,7 +447,7 @@ const ListTree = () => {
     ({ parentNode, dragNodes }) => {
       return (
         parentNode?.data._type === ROOT_TEMP_KEY ||
-        !canAcceptChildBlock(parentNode?.data._type, dragNodes[0]?.data._type)
+        !canAcceptInto(parentNode?.data, dragNodes[0]?.data._type, builderStore.get(presentBlocksAtom) as ChaiBlock[])
       );
     },
     [],
@@ -725,6 +728,7 @@ const ListTree = () => {
                 rowClassName="flex items-center h-full w-full outline-none"
                 onRename={onRename}
                 disableEdit={(data: any) => isPartialBlockType(data?._type)}
+                disableDrag={(data: any) => !canMoveBlock(data)}
                 openByDefault={false}
                 onMove={onMove}
                 data={filteredTreeData}
@@ -747,7 +751,7 @@ const ListTree = () => {
         <div ref={outlineDropCursorRef} className="bg-primary pointer-events-none absolute z-20 hidden" />
       </div>
       <SaveToLibraryModal />
-      <MakePartialBlockModal />
+      {partialBlocksEnabled && <MakePartialBlockModal />}
       <PasteAtRootContextMenu parentContext={parentContext} setParentContext={setParentContext} />
     </>
   );

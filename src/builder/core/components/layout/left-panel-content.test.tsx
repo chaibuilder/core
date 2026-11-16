@@ -1,15 +1,12 @@
 /**
  * @vitest-environment happy-dom
  */
-import { render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { dragAndDropAtom } from "~/builder/core/components/canvas/dnd/drag-and-drop/hooks/use-drag-and-drop";
 import type { ChaiSidebarPanel } from "~/builder/register-apis/register-chai-sidebar-panel";
-
-const mocks = vi.hoisted(() => ({ draggedBlock: null as any }));
-
-vi.mock("jotai", () => ({ atom: (value: unknown) => value, useAtomValue: () => mocks.draggedBlock }));
-vi.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
-
+import { renderInBuilder } from "~/tests/builder/render-in-builder";
+import type { ChaiBlock } from "~/types/common";
 import { INCOMING_PANEL_TRANSITION, LeftPanelContent, OUTGOING_PANEL_TRANSITION } from "./left-panel-content";
 
 const panelItem = (id: string, label: string, testId: string): ChaiSidebarPanel =>
@@ -26,8 +23,11 @@ const addBlocksPanelItem = panelItem("add-block", "Add Blocks", "add-blocks-pane
 const outlinePanelItem = panelItem("outline", "", "outline-panel");
 const imagesPanelItem = panelItem("images", "Images", "images-panel");
 
-const renderContent = (props: Partial<React.ComponentProps<typeof LeftPanelContent>> = {}) =>
-  render(
+const renderContent = (
+  props: Partial<React.ComponentProps<typeof LeftPanelContent>> = {},
+  draggedBlock: Partial<ChaiBlock> | null = null,
+) =>
+  renderInBuilder(
     <LeftPanelContent
       activePanel="add-block"
       activePanelItem={addBlocksPanelItem}
@@ -36,13 +36,10 @@ const renderContent = (props: Partial<React.ComponentProps<typeof LeftPanelConte
       panelSwap={null}
       {...props}
     />,
+    { seed: (s) => s.set(dragAndDropAtom, draggedBlock as ChaiBlock | null) },
   );
 
 describe("LeftPanelContent", () => {
-  beforeEach(() => {
-    mocks.draggedBlock = null;
-  });
-
   it("renders the active panel on its own", () => {
     renderContent();
 
@@ -51,8 +48,9 @@ describe("LeftPanelContent", () => {
   });
 
   it("keeps Add Blocks mounted while its block is dragged, so the drag source survives", () => {
-    mocks.draggedBlock = { type: "Box" };
-    renderContent({ activePanel: "outline", activePanelItem: outlinePanelItem, panelSwap: "add-block" });
+    renderContent({ activePanel: "outline", activePanelItem: outlinePanelItem, panelSwap: "add-block" }, {
+      type: "Box",
+    } as Partial<ChaiBlock>);
 
     // Both layers are present: Add Blocks slides out while Outline slides in.
     expect(screen.getByTestId("add-blocks-panel")).toBeTruthy();
@@ -60,12 +58,10 @@ describe("LeftPanelContent", () => {
   });
 
   it("takes the outgoing Add Blocks layer out of reach once it has slid away", () => {
-    mocks.draggedBlock = { type: "Box" };
-    const { container } = renderContent({
-      activePanel: "outline",
-      activePanelItem: outlinePanelItem,
-      panelSwap: "add-block",
-    });
+    const { container } = renderContent(
+      { activePanel: "outline", activePanelItem: outlinePanelItem, panelSwap: "add-block" },
+      { type: "Box" } as Partial<ChaiBlock>,
+    );
 
     const addBlocksLayer = container.querySelector('[aria-hidden="true"]');
     expect(addBlocksLayer).toBeTruthy();

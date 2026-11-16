@@ -3,9 +3,16 @@ import { Fragment } from "react";
 import { adjustSpacingInContentBlocks } from "~/builder/core/components/canvas/static/adjust-spacing-in-blocks";
 import { RenderBlock } from "./block-renderer";
 import { getChildBlocks, hasChildBlocks } from "./children-index";
+import { getBlockSlots, matchesBlockSlot } from "./block-slots";
 import { RenderChaiBlocksProps } from "./render-chai-blocks-sdk";
 
 const DEFAULT_SLOT_KEY = "";
+
+// A Repeater laid out as a horizontal scroller: its cards past the first sit
+// sideways off-screen, which `loading="lazy"` does not defer (Chrome's lazy
+// threshold applies horizontally too), so the Image block holds their src back
+// until they approach. Vertical Repeaters keep native lazy loading.
+const HORIZONTAL_SCROLLER = /\b(?:overflow-x-(?:auto|scroll)|snap-x)\b/;
 
 function resolvePageSlotContent(
   slotName: string,
@@ -18,13 +25,14 @@ function resolvePageSlotContent(
 
 export const RenderBlocks = (
   props: RenderChaiBlocksProps & {
-    repeaterData?: { index: number; dataKey: string };
+    repeaterData?: { index: number; dataKey: string; scrollsX?: boolean };
     collectionItemData?: { itemKey: string };
     type?: string;
     repeaterSlot?: "emptyState" | "items";
+    blockSlot?: string;
   },
 ) => {
-  const { blocks, parent, repeaterData, type, slot, slots, slotState, repeaterSlot } = props;
+  const { blocks, parent, repeaterData, type, slot, slots, slotState, repeaterSlot, blockSlot } = props;
   // Children come from the one-pass parent index (see children-index.ts): the
   // previous full-array filter here plus the full-array `hasChildren` scan per
   // block made assembly O(n²) in page block count. The per-invocation
@@ -35,6 +43,7 @@ export const RenderBlocks = (
       getChildBlocks(blocks, parent),
       (block) =>
         has(block, "_id") &&
+        matchesBlockSlot(block, blockSlot) &&
         (repeaterSlot !== "emptyState" || block._type === "RepeaterEmptyState") &&
         (repeaterSlot !== "items" || block._type !== "RepeaterEmptyState"),
     ),
@@ -76,8 +85,28 @@ export const RenderBlocks = (
       return <Fragment key={block._id ? `${block._id}-${blockIndex}` : `slot-${blockIndex}`}>{content}</Fragment>;
     }
 
+    // Keyed children render once each into their own prop on the parent.
+    const slotProps = Object.fromEntries(
+      getBlockSlots(getChildBlocks(blocks, block._id)).map((key) => [
+        key,
+        <RenderBlocks
+          {...props}
+          key={key}
+          parent={block._id}
+          repeaterData={repeaterData}
+          type={block._type}
+          repeaterSlot={undefined}
+          blockSlot={key}
+        />,
+      ]),
+    );
+
     return (
-      <RenderBlock {...props} key={block._id ? `${block._id}-${blockIndex}` : `block-${blockIndex}`} block={block}>
+      <RenderBlock
+        {...props}
+        key={block._id ? `${block._id}-${blockIndex}` : `block-${blockIndex}`}
+        block={block}
+        slotProps={slotProps}>
         {({ _id, _type, repeaterItems, $repeaterItemsKey }) => {
           return _type === "Repeater" ? (
             // Empty collection → render the Empty State slot; otherwise render
@@ -85,20 +114,20 @@ export const RenderBlocks = (
             // out of the items slot (and everything else out of the empty slot)
             // by the repeaterSlot clauses in the block filter above.
             !isArray(repeaterItems) ? null : repeaterItems.length === 0 ? (
-              <RenderBlocks
-                {...props}
-                parent={block._id}
-                key={`${get(block, "_parent", "root")}-${block._id}-${blockIndex}-empty`}
-                repeaterSlot="emptyState"
-              />
+              <RenderBlocks {...props} parent={block._id} repeaterSlot="emptyState" blockSlot={undefined} />
             ) : (
               repeaterItems.map((_, index) => (
                 <RenderBlocks
                   {...props}
                   parent={block._id}
                   key={`${get(block, "_parent", "root")}-${block._id}-${blockIndex}-${index}`}
-                  repeaterData={{ index, dataKey: $repeaterItemsKey! }}
+                  repeaterData={{
+                    index,
+                    dataKey: $repeaterItemsKey!,
+                    scrollsX: HORIZONTAL_SCROLLER.test(String(get(block, "styles", ""))),
+                  }}
                   repeaterSlot="items"
+                  blockSlot={undefined}
                 />
               ))
             )
@@ -111,20 +140,26 @@ export const RenderBlocks = (
               <RenderBlocks
                 {...props}
                 parent={block._id}
-                key={`${get(block, "_parent", "root")}-${block._id}-${blockIndex}`}
                 collectionItemData={{ itemKey: `${$repeaterItemsKey!.slice(2, -2).trim()}.0` }}
                 type={block._type}
                 repeaterSlot={undefined}
+                blockSlot={undefined}
               />
             )
+          ) : get(block, "tag") === "style" ? (
+            // <style> only takes a string child: React SSR prints any element
+            // child as "[object Object]", so hydration hits a text mismatch.
+            filter(blocks, { _parent: _id, _type: "Text" })
+              .map((text) => text.content)
+              .join("")
           ) : hasChildren(_id) ? (
             <RenderBlocks
               {...props}
               parent={block._id}
-              key={`${get(block, "_parent", "root")}-${block._id}-${blockIndex}`}
               repeaterData={repeaterData}
               type={block._type}
               repeaterSlot={undefined}
+              blockSlot={undefined}
             />
           ) : null;
         }}

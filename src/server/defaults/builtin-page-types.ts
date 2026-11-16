@@ -14,6 +14,7 @@ export const BUILTIN_PAGE_TYPE: ChaiPageTypeEntry = {
 export const BUILTIN_GLOBAL_PARTIAL_TYPE: ChaiPageTypeEntry = {
   key: "global",
   name: "Global Block",
+  pluralName: "Global Blocks",
   helpText: "A global block can be reused in multiple pages.",
   icon: GLOBAL_ICON,
   partial: true,

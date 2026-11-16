@@ -53,14 +53,14 @@ const RichTextEditorFieldComp = ({ blockId, id, placeholder, value, onChange, on
   };
 
   const rteElement = (
-    <div id={`chai-rte-${id}`} ref={rteRef} className="mt-1 rounded-md border border-input">
+    <div id={`chai-rte-${id}`} ref={rteRef} className="rounded-md border border-input">
       <RteMenubar editor={editor} onExpand={() => setIsModalOpen(true)} />
       <EditorContent
         key={id}
         editor={editor}
         id={id}
         placeholder={placeholder}
-        className={`-mt-1 overflow-auto placeholder:font-light ${isModalOpen ? "max-h-[500px] min-h-[400px] rounded-b-md bg-background text-foreground" : "max-h-[200px] min-h-[100px] rounded-b-md bg-background text-foreground"}`}
+        className={`-mt-1 overflow-auto placeholder:font-light ${isModalOpen ? "max-h-[500px] min-h-[400px] rounded-b-md bg-background text-foreground" : "max-h-[200px] min-h-[80px] rounded-b-md bg-background text-foreground"}`}
       />
     </div>
   );
@@ -93,3 +93,4 @@ const RichTextEditorField = (props: WidgetProps) => {
 };
 
 export { RichTextEditorField as RTEField };
+

@@ -1,10 +1,16 @@
 import { parse, stringify } from "himalaya";
 import { kebabCase } from "lodash-es";
-import { canAddChildBlock } from "~/builder/core/functions/block-helpers";
+import { canAddChildBlock, getBlockActionAttrs, getSlotAcceptAttrs } from "~/builder/core/functions/block-helpers";
 import { STYLES_KEY } from "~/constants/STRINGS";
 import { getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlock } from "~/types/common";
 import { CORE_BLOCKS_SET } from "~/utils/core-blocks";
+import {
+  encodeStyleText,
+  preserveStyleText,
+  STYLE_TEXT_ENCODING,
+  STYLE_TEXT_ENCODING_ATTR,
+} from "~/utils/style-text-transport";
 
 /**
  * Server-side inverse of `getBlocksFromHTML` — turns a blocks JSON array into
@@ -41,19 +47,18 @@ const text = (content: string): HimalayaNode => ({ type: "text", content });
  * props (any key) round-trip generically — mirroring the builder client
  * exporter (use-blocks-html-for-ai `transformNode`).
  */
-const CUSTOM_STRUCTURAL_KEYS = new Set(["_id", "_type", "_parent", "_index"]);
+const CUSTOM_STRUCTURAL_KEYS = new Set([
+  "_id",
+  "_type",
+  "_parent",
+  "_index",
+  "_canDelete",
+  "_canMove",
+  "_canDuplicate",
+]);
 
 /** Types whose `content` string is rendered as a single text child. */
-const TEXT_CONTENT_TYPES = new Set([
-  "Heading",
-  "Span",
-  "Button",
-  "FormButton",
-  "Label",
-  "ListItem",
-  "Link",
-  "Text",
-]);
+const TEXT_CONTENT_TYPES = new Set(["Heading", "Span", "Button", "FormButton", "Label", "ListItem", "Link", "Text"]);
 
 /** Extract the tailwind class string from a `#styles:,<classes>` styles value. */
 const classFromStyles = (styles: unknown): string => {
@@ -65,8 +70,7 @@ const classFromStyles = (styles: unknown): string => {
 /** kebab-case a block prop key, preserving a leading underscore (mirrors transformNode). */
 const attrKeyFor = (key: string): string => (key.startsWith("_") ? "_" + kebabCase(key.slice(1)) : kebabCase(key));
 
-const attrValueFor = (value: unknown): string =>
-  typeof value === "string" ? value : JSON.stringify(value);
+const attrValueFor = (value: unknown): string => (typeof value === "string" ? value : JSON.stringify(value));
 
 /** Common attributes every emitted element carries: class, bid, chai-name, styles_attrs. */
 const baseAttrs = (block: ChaiBlock): Array<{ key: string; value: string }> => {
@@ -81,6 +85,7 @@ const baseAttrs = (block: ChaiBlock): Array<{ key: string; value: string }> => {
     }
   }
   attrs.push({ key: "bid", value: block._id });
+  attrs.push(...getBlockActionAttrs(block));
   return attrs;
 };
 
@@ -192,7 +197,10 @@ const typeSpecificAttrs = (block: ChaiBlock): Array<{ key: string; value: string
 const buildCoreNode = (block: ChaiBlock, childNodes: HimalayaNode[]): HimalayaNode => {
   const b = block as any;
   const tag = coreTagName(block);
-  const attrs = [...typeSpecificAttrs(block), ...baseAttrs(block)];
+  const attrs = [...typeSpecificAttrs(block), ...baseAttrs(block)].filter(
+    (attr) => tag !== "style" || attr.key !== STYLE_TEXT_ENCODING_ATTR,
+  );
+  if (tag === "style") attrs.push({ key: STYLE_TEXT_ENCODING_ATTR, value: STYLE_TEXT_ENCODING });
 
   // Select: children are <option> elements derived from the options array.
   if (block._type === "Select" && Array.isArray(b.options)) {
@@ -266,7 +274,7 @@ const lucideIconName = (icon: unknown): string | null => {
   return names.find((n: string) => !n.endsWith("-icon")) ?? names[0].replace(/-icon$/, "");
 };
 
-const buildCustomNode = (block: ChaiBlock, childNodes: HimalayaNode[]): HimalayaNode => {
+const buildCustomNode = (block: ChaiBlock, childNodes: HimalayaNode[], parentType?: string): HimalayaNode => {
   const tagName = `chai-${kebabCase(block._type)}`;
   const attrs: Array<{ key: string; value: string }> = [{ key: "chai-type", value: block._type }];
 
@@ -297,14 +305,8 @@ const buildCustomNode = (block: ChaiBlock, childNodes: HimalayaNode[]): Himalaya
   const blockDef = getRegisteredChaiBlock(block._type);
   if (blockDef?.description) attrs.push({ key: "about-this-component", value: blockDef.description });
 
-  if (blockDef?.canMove) {
-    const canMove = typeof blockDef.canMove === "function" ? blockDef.canMove() : blockDef.canMove;
-    attrs.push({ key: "can-move", value: String(canMove) });
-  }
-  if (blockDef?.canDelete) {
-    const canDelete = typeof blockDef.canDelete === "function" ? blockDef.canDelete() : blockDef.canDelete;
-    attrs.push({ key: "can-delete", value: String(canDelete) });
-  }
+  attrs.push(...getBlockActionAttrs(block));
+  attrs.push(...getSlotAcceptAttrs(block, parentType));
 
   if (iconName) attrs.push({ key: "icon-name", value: iconName });
 
@@ -312,14 +314,21 @@ const buildCustomNode = (block: ChaiBlock, childNodes: HimalayaNode[]): Himalaya
   return el(tagName, attrs, children);
 };
 
-const buildNode = (block: ChaiBlock, byParent: Map<string | null, ChaiBlock[]>): HimalayaNode => {
+const buildNode = (block: ChaiBlock, byParent: Map<string | null, ChaiBlock[]>, parentType?: string): HimalayaNode => {
   const children = byParent.get(block._id) ?? [];
-  const childNodes = children.map((child) => buildNode(child, byParent));
+  // <style> content is raw text: a Text child emitted as <span> would be
+  // re-imported as part of the CSS.
+  const isStyle = (block as any).tag === "style";
+  const childNodes = children.map((child) =>
+    isStyle && child._type === "Text"
+      ? text(encodeStyleText(String((child as any).content ?? "")))
+      : buildNode(child, byParent, block._type),
+  );
 
   if (CORE_BLOCKS_SET.has(block._type)) {
     return buildCoreNode(block, childNodes);
   }
-  return buildCustomNode(block, childNodes);
+  return buildCustomNode(block, childNodes, parentType);
 };
 
 /**
@@ -337,13 +346,13 @@ export const blocksToAiHtml = (blocks: ChaiBlock[], rootIds?: string[]): string 
     else byParent.set(key, [block]);
   }
 
-  const roots = rootIds
-    ? blocks.filter((b) => rootIds.includes(b._id))
-    : byParent.get(null) ?? [];
+  const roots = rootIds ? blocks.filter((b) => rootIds.includes(b._id)) : (byParent.get(null) ?? []);
 
   const nodes = roots.map((block) => buildNode(block, byParent));
-  return stringify(nodes)
-    .replace(/#styles:,/g, "#styles:")
-    .replace(/\s+/g, " ")
-    .trim();
+  return preserveStyleText(stringify(nodes), (html) =>
+    html
+      .replace(/#styles:,/g, "#styles:")
+      .replace(/\s+/g, " ")
+      .trim(),
+  );
 };

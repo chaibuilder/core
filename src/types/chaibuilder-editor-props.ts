@@ -14,6 +14,8 @@ export type ChaiLibraryBlock<T = Record<string, any>> = {
   preview?: string;
   tags?: string[];
   description?: string;
+  /** Overrides `libraryGroupMaxDepth` for this block. See `ChaiBlockConfig.maxDepth`. */
+  maxDepth?: number;
 } & T;
 
 export type ChaiLibrary<T = Record<string, any>> = {
@@ -111,7 +113,10 @@ export type ChaiTheme = {
     aqua?: [HexColor, HexColor];
     "aqua-foreground"?: [HexColor, HexColor];
   };
+  siteLayout?: ChaiSiteLayout;
 };
+
+export type ChaiSiteLayout = "fluid" | "container" | "narrow";
 
 export type ChaiThemePresetConfig = {
   /**
@@ -132,6 +137,8 @@ export type ChaiThemePreset = Record<string, Partial<ChaiTheme> | ChaiThemePrese
 
 export interface ChaiBuilderEditorProps {
   children?: React.ReactNode;
+  /** Hosts treated as internal by the site's rich-text renderer, including production and preview hosts. */
+  internalLinkHosts?: string[];
   /**
    * Goto page callback
    */
@@ -163,11 +170,33 @@ export interface ChaiBuilderEditorProps {
   themePresets?: ChaiThemePreset[];
 
   /**
+   * Render the theme panel's token controls read-only — visible, showing their real values, and
+   * not editable.
+   *
+   * Deliberately generic, and deliberately the host's call: the editor cannot know *why* a theme
+   * is not the author's to change (an organisation-wide style owns it, a parent account locked it,
+   * a plan tier gates it), and every one of those answers lives outside the editor. Whoever sets this is expected
+   * to enforce it server-side too — this prop is presentation, never the guarantee.
+   */
+  themeReadOnly?: boolean;
+
+  /**
+   * Hover copy for `themeReadOnly`. Names *who* owns these values; a disabled control with no
+   * explanation reads as broken and produces a bug report.
+   */
+  themeReadOnlyReason?: string;
+
+  /**
+   * Open the page view-only: the canvas can be looked at and scrolled but not clicked, the side
+   * panels are hidden, nothing saves, and SEO opens read-only. `reason` is shown above the canvas,
+   * with `action` beside it. Presentation only: the server must refuse the page's edits itself.
+   */
+  readOnly?: { reason: string; action?: React.ReactNode } | null;
+
+  /**
    * Theme
    */
   theme?: ChaiTheme;
-
-
 
   /**
    * Builder theme
@@ -258,7 +287,9 @@ export interface ChaiBuilderEditorProps {
    * Get partial blocks
    * @returns {Record<string, { type: string; name: string; description?: string; tags?: string[] }>}
    */
-  getPartialBlocks?: () => Promise<Record<string, { type: string; name: string; description?: string; tags?: string[] }>>;
+  getPartialBlocks?: () => Promise<
+    Record<string, { type: string; name: string; description?: string; tags?: string[] }>
+  >;
 
   /**
    * Get all blocks of a partial block
@@ -349,16 +380,35 @@ export interface ChaiBuilderEditorProps {
     dataBinding?: boolean;
     importHtml?: boolean;
     importTheme?: boolean;
+    partialBlocks?: boolean;
     gotoSettings?: boolean;
     dragAndDrop?: boolean;
     validateStructure?: boolean;
     designTokens?: boolean;
     resetSeoToDefault?: boolean;
     pagesManager?: boolean;
+    chaiBranding?: boolean;
+    /** Linked pages that render a host-supplied upstream page. Default off. */
+    upstreamPages?: boolean;
     animation?: boolean;
-    /** When true, builder can create `_layout` pages and add PageSlot blocks on them. Default off. */
     layoutPages?: boolean;
+    siteLayout?: boolean;
   };
+
+  /**
+   * `maxDepth` for UI library blocks, keyed by library group (lowercase, e.g.
+   * `{ footer: 0 }` keeps footers at the top level). A library block inserts a
+   * tree of plain blocks, so its placement cannot come from a block type.
+   * A block's own `maxDepth` wins. See `ChaiBlockConfig.maxDepth`.
+   */
+  libraryGroupMaxDepth?: Record<string, number>;
+
+  /**
+   * Panel widths in pixels for the pro layout. `left` is the default width of the
+   * left sidebar panels (a panel registered with its own `width` keeps it); `right`
+   * is the settings panel. Omitted values fall back to 280.
+   */
+  panelWidth?: { left?: number; right?: number };
 
   //TODO: Move to registerChaiStructureRules()
   structureRules?: StructureRule[];
@@ -376,6 +426,10 @@ export interface ChaiBuilderEditorProps {
       trash?: string | Record<string, string>;
       dataBinding?: string | Record<string, string>;
       ai?: string | Record<string, string>;
+      library?: string | Record<string, string>;
+      blocks?: string | Record<string, string>;
+      /** What a page another site's page is shown from is called, e.g. "System Page". Singular. */
+      upstreamPage?: string | Record<string, string>;
     };
   };
 

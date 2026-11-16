@@ -51,6 +51,7 @@ export class UpdatePageMetadataAction extends ChaiBaseAction<
         where: and(eq(schema.appPages.id, data.id), eq(schema.appPages.app, appId)),
         columns: {
           id: true,
+          changes: true,
         },
       }),
     );
@@ -63,11 +64,17 @@ export class UpdatePageMetadataAction extends ChaiBaseAction<
       throw new ActionError("Page not found", "PAGE_NOT_FOUND");
     }
 
-    // Update page metadata
+    // Also flag the page as pending publish with "Updated" (UPDATE_PAGE's
+    // generic marker), or a metadata-only edit never shows in the publish
+    // dialog. Existing markers are kept.
+    // ponytail: read-then-write, a concurrent save's marker can be lost; move
+    // to a DB-side jsonb merge if that shows up.
+    const existing = Array.isArray(originalPage.changes) ? (originalPage.changes as string[]) : [];
+    const changes = existing.includes("Updated") ? existing : [...existing, "Updated"];
     const { error: updateError } = await safeQuery(() =>
       db
         .update(schema.appPages)
-        .set({ metadata: data.metadata })
+        .set({ metadata: data.metadata, changes })
         .where(and(eq(schema.appPages.id, data.id), eq(schema.appPages.app, appId))),
     );
 

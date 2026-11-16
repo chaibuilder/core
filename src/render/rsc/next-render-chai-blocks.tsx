@@ -1,9 +1,10 @@
-import { isEmpty } from "lodash-es";
+import { isEmpty, isPlainObject } from "lodash-es";
 import type { ReactNode } from "react";
 import { setChaiBlockComponent } from "~/registry";
 import { ChaiBlockComponentProps, ChaiDesignTokens, ChaiPageProps, ChaiStyles } from "~/types";
 import type { ChaiFullPage } from "~/types/pages";
 import { applyDesignTokens } from "~/utils";
+import { buildPageBindingData } from "~/utils/page-binding-data";
 import { BlockErrorBoundaryComponent, RenderChaiBlocksSDK } from "../render-chai-blocks-sdk";
 import { ButtonBlock } from "./button-block";
 import { ImageBlock } from "./image-block";
@@ -108,7 +109,10 @@ export const NextJSRenderChaiBlocks = async ({
     "RenderChaiBlocks.renderSDK",
     async () => (
       <RenderChaiBlocksSDK
-        externalData={{...pageData, page: pageProps}}
+        externalData={{
+          ...pageData,
+          page: { ...(isPlainObject(pageData.page) ? (pageData.page as Record<string, unknown>) : {}), ...buildPageBindingData(pageProps) },
+        }}
         designTokens={tokens}
         blocks={blocks}
         fallbackLang={settings?.fallbackLang}

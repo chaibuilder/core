@@ -1,3 +1,4 @@
+import { V3_COMPAT_CSS } from "./tailwind-v3-compat";
 import { TAILWIND_V4_STYLESHEETS } from "./tailwind-v4-stylesheets.generated";
 
 type TailwindConfig = {
@@ -125,15 +126,18 @@ const processWithTailwindV4 = async ({
   includeBaseStyles,
   config,
   candidates,
+  extraCss = "",
 }: {
   compile: TailwindV4Compile;
   includeBaseStyles: boolean;
   config: TailwindConfig;
   candidates: string[];
+  extraCss?: string;
 }) => {
-  const css = includeBaseStyles
-    ? `@config "${TAILWIND_CONFIG_ID}";\n@import "tailwindcss";`
-    : `@config "${TAILWIND_CONFIG_ID}";\n@import "tailwindcss/theme";\n@import "tailwindcss/utilities";`;
+  const baseCss = includeBaseStyles
+    ? `@config "${TAILWIND_CONFIG_ID}";\n@import "tailwindcss";\n${V3_COMPAT_CSS}`
+    : `@config "${TAILWIND_CONFIG_ID}";\n@import "tailwindcss/theme";\n@import "tailwindcss/utilities";\n${V3_COMPAT_CSS}`;
+  const css = extraCss ? `${baseCss}\n${extraCss}` : baseCss;
 
   const createCompiler = () =>
     compile(css, {
@@ -257,11 +261,13 @@ export const compileTailwindCss = async ({
   safelist = [],
   includeBaseStyles = false,
   config,
+  extraCss,
 }: {
   markupStrings: string[];
   safelist?: string[];
   includeBaseStyles?: boolean;
   config: TailwindConfig;
+  extraCss?: string;
 }) => {
   const tailwindModule = (await import("tailwindcss")) as unknown as {
     compile?: TailwindV4Compile;
@@ -278,5 +284,6 @@ export const compileTailwindCss = async ({
     includeBaseStyles,
     config,
     candidates: extractTailwindCandidates(markupStrings, safelist),
+    extraCss,
   });
 };

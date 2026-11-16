@@ -11,8 +11,6 @@ import { imagesPanel, imagesPanelId } from "./images-panel";
 import { seoPanel, seoPanelId } from "./seo-panel";
 import { userInfoPanel, userInfoPanelId } from "./user-info";
 
-export const DEFAULT_PANEL_WIDTH = 280;
-
 const OutlineButton = ({ isActive, show }: { isActive: boolean; show: () => void; panelId: string }) => {
   const { t } = useTranslation();
   // The panel is registered with an empty label on purpose (Outline renders
@@ -61,7 +59,6 @@ export const registerChaiPanels = () => {
     position: "top",
     order: CHAI_SIDEBAR_PANEL_ORDER.ADD_BLOCKS,
     isInternal: true,
-    width: DEFAULT_PANEL_WIDTH,
     panel: () => <AddBlocksPanel showHeading={false} fromSidebar={true} parentId={undefined} position={-1} />,
   });
 
@@ -72,7 +69,6 @@ export const registerChaiPanels = () => {
     position: "top",
     order: CHAI_SIDEBAR_PANEL_ORDER.OUTLINE,
     isInternal: true,
-    width: DEFAULT_PANEL_WIDTH,
     panel: Outline,
   });
   registerChaiSidebarPanel(imagesPanelId, { ...imagesPanel, order: CHAI_SIDEBAR_PANEL_ORDER.IMAGES });

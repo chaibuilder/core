@@ -39,6 +39,11 @@ export const CHAI_ASSET_TYPES: Record<ChaiAssetCategory, ChaiAssetCategorySpec> 
       svg: ["image/svg+xml"],
       tiff: ["image/tiff"],
       tif: ["image/tiff"],
+      // Favicons. Nothing optimizes or measures an ICO (`optimizeImageBuffer`
+      // and `getImageDimensions` both pass it through), but a host that lets an
+      // admin upload a site favicon has nowhere else to put it: the `uploads`
+      // option can only narrow this whitelist, never extend it.
+      ico: ["image/x-icon", "image/vnd.microsoft.icon"],
     },
   },
   video: {
@@ -69,6 +74,10 @@ export const CHAI_ASSET_TYPES: Record<ChaiAssetCategory, ChaiAssetCategorySpec> 
       pptx: ["application/vnd.openxmlformats-officedocument.presentationml.presentation"],
       txt: ["text/plain"],
       csv: ["text/csv", "application/csv", "text/plain"],
+      // Browsers disagree on the mime type for markdown (and some report none),
+      // so all three spellings are accepted; `text/markdown` is the canonical
+      // one stored and served.
+      md: ["text/markdown", "text/x-markdown", "text/plain"],
     },
   },
 };
@@ -128,9 +137,13 @@ export const MIME_PREFIXES_BY_CATEGORY: Record<ChaiAssetCategory, string[]> = {
 
 /** Lowercased extension without the dot, or `""` when the name has none. */
 export const extensionOf = (name: string): string => {
-  const base = name.split(/[?#]/)[0];
-  const parts = base.split(".");
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : "";
+  // URL-style names carry `?`/`#` after the extension; local names may carry
+  // `#` before the dot (`Capture #3.png`). Prefer the last dot before a suffix,
+  // else any dot, and read the extension up to the next suffix character.
+  const suffixAt = name.search(/[?#]/);
+  const beforeSuffix = suffixAt === -1 ? -1 : name.lastIndexOf(".", suffixAt);
+  const dot = beforeSuffix !== -1 ? beforeSuffix : name.lastIndexOf(".");
+  return dot === -1 ? "" : name.slice(dot + 1).split(/[?#]/)[0].toLowerCase();
 };
 
 /** Category owning an extension, or `undefined` when not on the whitelist. */

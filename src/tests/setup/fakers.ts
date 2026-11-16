@@ -1,17 +1,6 @@
 import { faker } from "@faker-js/faker";
-import { readFileSync } from "fs";
 import { nanoid } from "nanoid";
-import { join } from "path";
-
-const GLOBAL_APP_ID_FILE = join(process.cwd(), ".global-app-id");
-
-function getGlobalAppId(): string {
-  try {
-    return readFileSync(GLOBAL_APP_ID_FILE, "utf-8");
-  } catch (_error) {
-    throw new Error("Global test app not initialized. Ensure globalSetup has run.");
-  }
-}
+import { TEST_APP_ID } from "./test-app";
 
 export const fake = {
   apps: (overrides = {}) => ({
@@ -46,7 +35,7 @@ export const fake = {
 
   appPages: (overrides = {}) => ({
     id: faker.string.uuid(),
-    app: getGlobalAppId(),
+    app: TEST_APP_ID,
     name: faker.lorem.words(3),
     slug: `/slug-${nanoid(8)}`,
     lang: "",
@@ -60,21 +49,9 @@ export const fake = {
     ...overrides,
   }),
 
-  appRedirects: (overrides = {}) => ({
-    id: faker.string.uuid(),
-    app: getGlobalAppId(),
-    fromPath: `/from-${nanoid(8)}`,
-    toPath: `/to-${nanoid(8)}`,
-    permanent: true,
-    active: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    ...overrides,
-  }),
-
   appPagesOnline: (overrides = {}) => ({
     id: faker.string.uuid(),
-    app: getGlobalAppId(),
+    app: TEST_APP_ID,
     name: faker.lorem.words(3),
     slug: `/slug-${nanoid(8)}`,
     lang: "",
@@ -94,16 +71,6 @@ export const fake = {
     url: faker.image.url(),
     type: "image",
     createdAt: new Date().toISOString(),
-    ...overrides,
-  }),
-
-  appDomains: (overrides = {}) => ({
-    id: faker.string.uuid(),
-    subdomain: `${faker.word.noun()}-${nanoid(6)}`,
-    createdAt: new Date().toISOString(),
-    hosting: "vercel",
-    hostingProjectId: "env",
-    domainConfigured: false,
     ...overrides,
   }),
 
@@ -149,6 +116,27 @@ export const fake = {
     apiKey: faker.string.uuid(),
     status: "ACTIVE",
     createdAt: new Date().toISOString(),
+    ...overrides,
+  }),
+
+  roles: (overrides = {}) => ({
+    id: faker.string.uuid(),
+    createdAt: new Date().toISOString(),
+    name: `role-${nanoid(8)}`,
+    label: null,
+    permissions: [],
+    isSystem: false,
+    ...overrides,
+  }),
+
+  appUsers: (overrides = {}) => ({
+    id: faker.string.uuid(),
+    createdAt: new Date().toISOString(),
+    app: TEST_APP_ID,
+    user: faker.string.uuid(),
+    role: "editor",
+    permissions: null,
+    status: "active",
     ...overrides,
   }),
 

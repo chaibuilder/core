@@ -73,6 +73,7 @@ export function resolveChaiBuilderConfig(rawInput: ChaiBuilderServerConfigInput)
     onPageNotFound: input.onPageNotFound ?? DEFAULT_CHAI_BUILDER_SERVER_CONFIG.onPageNotFound,
     resolveDynamicTemplateTie:
       input.resolveDynamicTemplateTie ?? DEFAULT_CHAI_BUILDER_SERVER_CONFIG.resolveDynamicTemplateTie,
+    upstreamPageSource: input.upstreamPageSource ?? DEFAULT_CHAI_BUILDER_SERVER_CONFIG.upstreamPageSource,
     pageTypes: mergeByKey(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.pageTypes, input.pageTypes, (entry) => entry.key),
     collections: mergeByKey(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.collections, input.collections, (entry) => entry.id),
     chaiCollections,

@@ -13,6 +13,7 @@ export interface PageTreeNode {
   name: string;
   slug: string;
   dynamic?: boolean;
+  deletedAt?: string | null;
   children: PageTreeNode[];
 }
 
@@ -60,6 +61,11 @@ export class PageTreeBuilder {
           parent: schema.appPages.parent,
           lang: schema.appPages.lang,
           dynamic: schema.appPages.dynamic,
+          // Carried so slug-conflict validation can skip tombstones (see the
+          // hasConflict closure in validateSlugAvailabilityInTree). Trash flows (restore / permanent
+          // delete) need soft-deleted pages present in the tree to locate them,
+          // so the tree keeps every page and callers decide what to ignore.
+          deletedAt: schema.appPages.deletedAt,
         })
         .from(schema.appPages)
         .where(eq(schema.appPages.app, this.appId)),
@@ -113,6 +119,7 @@ export class PageTreeBuilder {
         name: page.name,
         dynamic: page.dynamic,
         slug: page.slug,
+        deletedAt: page.deletedAt,
         children: [],
       });
     });
@@ -180,6 +187,7 @@ export class PageTreeBuilder {
         name: langPage.name,
         slug: langPage.slug,
         dynamic: langPage.dynamic,
+        deletedAt: langPage.deletedAt,
         children: [],
       };
 

@@ -178,16 +178,19 @@ describe("resolveChaiBuilderConfig", () => {
     expect(config.features.darkMode).toBe(false);
     expect(config.features.gotoSettings).toBe(false);
     expect(config.features.resetSeoToDefault).toBe(false);
+    expect(config.features.chaiBranding).toBe(false);
+    expect(config.features.upstreamPages).toBe(false);
   });
 
   it("applies editor UI feature overrides in both directions", () => {
     const config = resolveChaiBuilderConfig({
       db: stubChaiDbSetup(),
-      features: { darkMode: true, dragAndDrop: false },
+      features: { darkMode: true, dragAndDrop: false, chaiBranding: true },
     });
 
     expect(config.features.darkMode).toBe(true);
     expect(config.features.dragAndDrop).toBe(false);
+    expect(config.features.chaiBranding).toBe(true);
     expect(config.features.copyPaste).toBe(true);
   });
 

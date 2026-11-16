@@ -31,16 +31,20 @@ export function withRequestCache<T extends (...args: any[]) => any>(fn: T, label
   });
 
   return ((...args: Parameters<T>) => {
-    const key = buildCacheKey(cacheLabel, args);
-    const state = getOptionalRequestState();
-    const seen = state?.cacheKeys.has(key) ?? false;
+    // buildCacheKey JSON.stringify's every arg (page block arrays can be multi-MB) and
+    // only feeds the debug hit/miss ledger — skip it entirely unless debug logging is on.
+    if (shouldDebug(1)) {
+      const key = buildCacheKey(cacheLabel, args);
+      const state = getOptionalRequestState();
+      const seen = state?.cacheKeys.has(key) ?? false;
 
-    if (seen && shouldDebug(1)) {
-      logCacheHit("request", cacheLabel, formatCacheKeyForLog(cacheLabel, args));
-    }
+      if (seen) {
+        logCacheHit("request", cacheLabel, formatCacheKeyForLog(cacheLabel, args));
+      }
 
-    if (state && !seen) {
-      state.cacheKeys.set(key, true);
+      if (state && !seen) {
+        state.cacheKeys.set(key, true);
+      }
     }
 
     return cachedFn(...args);

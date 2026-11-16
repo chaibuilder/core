@@ -1,10 +1,11 @@
 import { tool, zodSchema } from "ai";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, ne } from "drizzle-orm";
 import { z } from "zod";
 import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { getInitializedStateWithUser } from "~/server/chai-builder/state";
 import { extractBlockHtmlSlices } from "~/utils/export-html/extract-block-html-slices";
+import { getLinkablePages, toPageLinkRef } from "~/utils/internal-link-refs";
 import { getPartialDepth, getPartialUsageDepth } from "~/utils/partial-nesting";
 import { AI_EDIT_TOOL_DESCRIPTIONS, buildAiEditToolFields } from "./ai-edit-tool-contract";
 import { isValidAiBindingTemplate } from "./ai-edit-executors";
@@ -59,6 +60,59 @@ const buildBindPropTool = ({
   });
 
 /**
+ * Read-only page lookup so a link can be written as a stable `pageType:` reference.
+ * Offered to block-scoped runs too: linking one button is a single-block edit.
+ */
+const buildGetPagesListTool = () =>
+  tool({
+    description: AI_EDIT_TOOL_DESCRIPTIONS.get_pages_list,
+    inputSchema: zodSchema(z.object({})),
+    execute: async (): Promise<{
+      pages: { name: string; slug: string; pageType: string; linkRef: string }[];
+      note: string;
+    }> => {
+      const { appId } = getInitializedStateWithUser();
+      const { data: pages, error } = await safeQuery(() =>
+        db
+          .select({
+            id: schema.appPages.id,
+            name: schema.appPages.name,
+            slug: schema.appPages.slug,
+            pageType: schema.appPages.pageType,
+            primaryPage: schema.appPages.primaryPage,
+            dynamic: schema.appPages.dynamic,
+          })
+          .from(schema.appPages)
+          .where(
+            and(
+              eq(schema.appPages.app, appId),
+              // Primary-language, routable pages: a link always anchors to the
+              // primary page, and partials (empty slug) have no URL to link to.
+              ne(schema.appPages.slug, ""),
+              eq(schema.appPages.lang, ""),
+              isNull(schema.appPages.deletedAt),
+            ),
+          )
+          .orderBy(asc(schema.appPages.slug)),
+      );
+
+      if (error) {
+        throw new Error(`Failed to fetch pages: ${error.message}`);
+      }
+
+      return {
+        pages: getLinkablePages((pages as any[]) ?? []).map((page) => ({
+          name: page.name,
+          slug: page.slug,
+          pageType: page.pageType ?? "page",
+          linkRef: toPageLinkRef(page),
+        })),
+        note: "Use linkRef as the href when linking to a page. Never write the slug — slugs change, a linkRef does not.",
+      };
+    },
+  });
+
+/**
  * Tools available to the AI during page editing (AI SDK v6 UIMessage flow).
  *
  * Client-executed tools (no execute()): the builder applies them to its JSON
@@ -66,8 +120,8 @@ const buildBindPropTool = ({
  * add_blocks streams as tool-input deltas, which the client renders live on
  * the canvas — this preserves the streaming preview the old text protocol had.
  *
- * Server-executed tools: get_partial_blocks (DB lookup) and read_block_html
- * (slices the per-request page HTML, which is intentionally kept OUT of the
+ * Server-executed tools: get_partial_blocks and get_pages_list (DB lookups) and
+ * read_block_html (slices the per-request page HTML, which is intentionally kept OUT of the
  * model context — the model sees only the page outline and reads on demand).
  *
  * NOTE for edit_block/add_blocks: `task` is declared before `html` on purpose —
@@ -221,12 +275,15 @@ const buildAllAiEditPageTools = ({
       };
     },
   }),
+
+  get_pages_list: buildGetPagesListTool(),
 });
 
 /**
  * Tools for a block-scoped run (the block floating AI action).
  *
- * The model is handed *only* read + edit for the one selected block, so a
+ * The model is handed *only* read + edit for the one selected block (plus the
+ * read-only get_pages_list lookup), so a
  * page-wide edit is not something it can express: add_blocks, remove_blocks,
  * add_custom_block is absent from the tool set entirely, and
  * read_block_html/edit_block refuse any bid other than the scoped one.
@@ -278,6 +335,7 @@ const buildBlockScopedAiEditPageTools = ({
       ),
     }),
     bind_prop: buildBindPropTool({ dataBindingPaths, scopedBlockId }),
+    get_pages_list: buildGetPagesListTool(),
   };
 };
 

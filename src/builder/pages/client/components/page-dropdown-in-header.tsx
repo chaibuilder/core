@@ -1,7 +1,8 @@
 import { useSetAtom } from "jotai";
 import { get } from "lodash-es";
 import { File, Hash, MoreVertical } from "lucide-react";
-import { lazy, Suspense, useState } from "react";
+import { lazy, ReactNode, Suspense, useState } from "react";
+import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { addNewLangAtom } from "~/builder/pages/atom/add-new-lang";
 import { useCurrentActivePage } from "~/builder/pages/hooks/pages/use-current-page";
@@ -59,7 +60,12 @@ const DynamicPageSelectorSuspense = () => {
   );
 };
 
-export const PageDropdownInHeader = () => {
+export const PageDropdownInHeader = ({
+  beforeActions,
+}: {
+  /** Rendered in the row after the page name (or the dynamic record picker) and before the ⋮ menu. */
+  beforeActions?: ReactNode;
+}) => {
   // Modal states
   const [deletePageModal, setDeletePageModal] = useState<any>(null);
   const [unpublishPageModal, setUnpublishPageModal] = useState<any>(null);
@@ -76,8 +82,10 @@ export const PageDropdownInHeader = () => {
   const isPartial = !page?.slug;
   const setAddNewLang = useSetAtom(addNewLangAtom);
   const dynamic = get(page, "dynamic", false);
+  const isPagesManagerEnabled = useBuilderProp("flags.pagesManager", true);
 
   if (!page || !page.id) return null;
+  const pageName = get(currentLangPage || page, "name") ?? "";
 
   const handleAddEditPage = (page: any) => {
     if (selectedLang.length > 0 && selectedLang !== fallbackLang) {
@@ -95,20 +103,23 @@ export const PageDropdownInHeader = () => {
     <>
       <div className="flex items-center justify-between gap-0.5 rounded px-[2px] transition-colors duration-200">
         {!dynamic && (
-          <div className="flex h-7 max-w-[200px] items-center truncate rounded px-1 text-xs font-medium">
+          <div className="flex h-7 max-w-[320px] items-center truncate rounded px-1 text-xs font-medium">
             {isFetching ? (
               <Loading className="text-muted-foreground h-4 w-4" />
             ) : (
-              <div className="flex h-7 items-center gap-1 rounded-[min(var(--radius-md),12px)] text-[0.8rem]">
+              // Nested flex: without min-w-0 on both levels the name is clipped with no ellipsis.
+              <div className="flex h-7 min-w-0 items-center gap-1 rounded-[min(var(--radius-md),12px)] text-[0.8rem]">
                 {isPartial ? <Hash className="!h-3.5 !w-3.5" /> : <File className="!h-3.5 !w-3.5" />}
-                {get(currentLangPage || page, "name") ?? ""}
+                <span className="min-w-0 truncate" title={pageName}>{pageName}</span>
               </div>
             )}
           </div>
         )}
         {dynamic && <DynamicPageSelectorSuspense />}
+        {beforeActions}
 
         {!dynamic &&
+          isPagesManagerEnabled &&
           (isLocked ? (
             <Button variant="ghost" size="icon-xs">
               <MoreVertical className="!h-3.5 !w-3.5" />

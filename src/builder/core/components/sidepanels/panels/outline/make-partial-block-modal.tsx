@@ -11,10 +11,11 @@ import {
 } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { extractPartialIds, getPartialDepth, usePartialGraph } from "~/builder/hooks/partial-blocks";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
-import { useCreatePartialLabel } from "~/builder/hooks/use-create-partial-label";
+import { useCreatePartialLabel, usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
 import { useSavePage } from "~/builder/hooks/use-save-page";
 import { useCreatePage } from "~/builder/pages/hooks/pages/mutations";
+import { getBlockDefaultProps } from "~/registry";
 import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { Button } from "~/components/ui/button";
 import {
@@ -55,6 +56,7 @@ const getNestedBlocks = (allBlocks: ChaiBlock[], parent: string) => {
 export const MakePartialBlockModal = () => {
   const { t } = useTranslation();
   const label = useCreatePartialLabel();
+  const { singular, plural } = usePartialTypeLabel();
   const [modalState, setModalState] = useAtom(makePartialBlockModalAtom);
   const [blocks] = useBlocksStore();
   const { replaceBlocks } = useBlocksStoreUndoableActions();
@@ -114,7 +116,7 @@ export const MakePartialBlockModal = () => {
     if (!navTarget) return;
     const run = async () => {
       await savePageAsync(true);
-      toast.success(t("Partial created successfully"));
+      toast.success(t("{{name}} created successfully", { name: singular }));
       close();
       gotoPage({ pageId: navTarget });
     };
@@ -153,15 +155,15 @@ export const MakePartialBlockModal = () => {
         if (editingPartial && containedPartialIds.length === 0) {
           toast.error(
             t(
-              "This partial is used inside another partial. Creating a partial here would exceed the maximum nesting depth ({{depth}} levels)",
-              { depth: MAX_PARTIAL_DEPTH },
+              "This {{name}} is used inside another {{name}}. Creating a {{name}} here would exceed the maximum nesting depth ({{depth}} levels)",
+              { name: singular, depth: MAX_PARTIAL_DEPTH },
             ),
           );
         } else {
           toast.error(
             t(
-              "This section contains partial blocks. Creating a partial from it would exceed the maximum nesting depth ({{depth}} levels)",
-              { depth: MAX_PARTIAL_DEPTH },
+              "This section contains {{plural}}. Creating a {{name}} from it would exceed the maximum nesting depth ({{depth}} levels)",
+              { plural, name: singular, depth: MAX_PARTIAL_DEPTH },
             ),
           );
         }
@@ -197,6 +199,8 @@ export const MakePartialBlockModal = () => {
       if (result?.page?.id) {
         // Create PartialBlock to replace the original section
         const partialBlock: ChaiBlock = {
+          // Defaults carry the wrapper `styles` prop, so the new placement can be styled before a reload.
+          ...getBlockDefaultProps("PartialBlock"),
           _id: generateUUID(),
           _type: "PartialBlock",
           _name: name,
@@ -226,7 +230,7 @@ export const MakePartialBlockModal = () => {
         <DialogHeader>
           <DialogTitle>{label}</DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
-            {t("Convert this section into a partial block that can be reused across pages.")}
+            {t("Convert this section into a {{name}} that can be reused across pages.", { name: singular })}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3 py-3">
@@ -256,7 +260,7 @@ export const MakePartialBlockModal = () => {
               id="name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder={t("Enter partial name")}
+              placeholder={t("Enter {{name}} name", { name: singular })}
             />
           </div>
           <div className="grid gap-2">
@@ -266,7 +270,9 @@ export const MakePartialBlockModal = () => {
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              placeholder={t("Describe what this partial is for. Used by AI to understand when to use it.")}
+              placeholder={t("Describe what this {{name}} is for. Used by AI to understand when to use it.", {
+                name: singular,
+              })}
             />
           </div>
           <div className="grid gap-2">

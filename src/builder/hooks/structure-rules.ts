@@ -498,7 +498,9 @@ export const ACCESSIBILITY_RULES: StructureRule[] = [
 export class StructureRuleRegistry {
   private rules: StructureRule[] = [...CORE_STRUCTURE_RULES];
 
+  // Replaces a rule with the same name, so re-running a module (e.g. hot reload) doesn't duplicate it.
   addRule(rule: StructureRule): void {
+    this.removeRule(rule.name);
     this.rules.push(rule);
   }
 

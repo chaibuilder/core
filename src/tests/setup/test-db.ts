@@ -1,65 +1,40 @@
 import Database from "better-sqlite3";
-import dotenv from "dotenv";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { mkdirSync } from "fs";
-import { dirname, resolve } from "path";
+import { createBetterSqliteDB } from "~/db/better-sqlite3";
+import { registerDb, type ChaiDbSetup } from "~/db/core";
 import * as schema from "~/edition/test-schema";
-
-dotenv.config({ path: ".env.test" });
 
 export type TestDb = BetterSQLite3Database<typeof schema>;
 
-let testDbInstance: TestDb | null = null;
-let testClient: Database.Database | null = null;
+let client: Database.Database | null = null;
+let instance: TestDb | null = null;
+let setup: ChaiDbSetup | null = null;
 
-/** Resolve `TEST_DATABASE_URL` (`file:…`, bare path, or `:memory:`) to a better-sqlite3 path. */
-export function getTestDbFilePath(): string {
-  const raw = process.env.TEST_DATABASE_URL;
-  if (!raw?.trim()) {
-    throw new Error("Test database not configured. Please set TEST_DATABASE_URL environment variable.");
+/**
+ * The raw better-sqlite3 connection for this vitest worker. Each fork worker owns one private
+ * in-memory database, so test files never share rows and need no network, file or env setup.
+ */
+export function getTestSqlite(): Database.Database {
+  if (!client) {
+    client = new Database(":memory:");
+    client.pragma("foreign_keys = ON");
   }
-
-  let path = raw.trim().replace(/^"|"$/g, "");
-  if (path.startsWith("file:")) {
-    path = path.slice("file:".length);
-  }
-
-  if (path === ":memory:") {
-    return path;
-  }
-
-  // File DB required across vitest globalSetup + fork workers.
-  return resolve(process.cwd(), path);
+  return client;
 }
 
+/** Drizzle over the worker's in-memory database, typed with the full edition schema. */
 export function getTestDb(): TestDb {
-  if (testDbInstance) {
-    return testDbInstance;
-  }
-
-  if (process.env.NODE_ENV !== "test") {
-    throw new Error("Test database can only be used in test environment. NODE_ENV must be 'test'.");
-  }
-
-  const file = getTestDbFilePath();
-  if (file !== ":memory:") {
-    mkdirSync(dirname(file), { recursive: true });
-  }
-
-  testClient = new Database(file);
-  testClient.pragma("journal_mode = WAL");
-  testClient.pragma("foreign_keys = ON");
-  testDbInstance = drizzle(testClient, { schema });
-
-  return testDbInstance;
+  return (instance ??= drizzle(getTestSqlite(), { schema }));
 }
 
-export async function closeTestDb(): Promise<void> {
-  if (testClient) {
-    testClient.close();
-    testClient = null;
-    testDbInstance = null;
-  }
+/** The same database as a ChaiBuilder `db` setup — what `buildChaiBuilderConfig({ db })` receives. */
+export function getTestDbSetup(): ChaiDbSetup {
+  return (setup ??= createBetterSqliteDB({ drizzle: getTestDb(), schema }));
+}
+
+/** Points ChaiBuilder's `db` singleton at the worker's real in-memory database. */
+export function registerTestDb(): void {
+  registerDb(getTestDbSetup());
 }
 
 export { schema };

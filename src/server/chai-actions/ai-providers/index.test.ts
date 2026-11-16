@@ -1,18 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ChaiAiProviderPlugin } from "~/types/server-config";
+import type { ChaiAiProviderPlugin, ChaiBuilderServerConfigInput } from "~/types/server-config";
+import { useTestChaiConfig } from "~/tests/setup/chai-config";
 
-const configAI = vi.fn<() => Record<string, unknown>>();
-vi.mock("~/server/defaults/config-registry", () => ({
-  getConfigAI: () => configAI(),
-}));
+/** Builds the real server config with this `ai` input (restored by the harness after each test). */
+const configAI = (ai: ChaiBuilderServerConfigInput["ai"]) => useTestChaiConfig({ ai });
 
-// The real helper imports through the `Function` constructor so bundlers cannot
-// rewrite the call — which also puts it outside Vitest's module graph, where the
-// package mocks below live. Route it back through a transformed dynamic import so
-// the adapters resolve the mocks. `import-optional-peer.test.ts` covers the real one.
-vi.mock("~/lib/import-optional-peer", () => ({
-  importOptionalPeer: (specifier: string) => import(specifier),
-}));
+// The SDK packages below are the network boundary, so they are the only modules replaced.
+// The real `importOptionalPeer` loads them: under Vitest's `vm` the `Function`-built import is
+// rejected and the helper falls back to its transformed dynamic import, which Vitest routes to
+// these mocks (`import-optional-peer.test.ts` covers that fallback).
 
 const createOpenRouter = vi.fn((opts: unknown) => ({
   __id: "openrouter",
@@ -65,8 +61,6 @@ describe("ensureAiProvider (plugin architecture)", () => {
     createOpenRouter.mockClear();
     createOpenAICompatible.mockClear();
     createWorkersAI.mockClear();
-    configAI.mockReset();
-    configAI.mockReturnValue({});
     clearEnv();
     delete g[DEFAULT_PROVIDER_KEY];
     resetAiProviderForTests();
@@ -206,7 +200,7 @@ describe("ensureAiProvider (plugin architecture)", () => {
     it("uses a provider instance and overrides env plugins", async () => {
       process.env.OPENROUTER_API_KEY = "sk-or-test"; // would otherwise activate OpenRouter
       const provider = { __id: "custom", languageModel: (m: string) => ({ m }) };
-      configAI.mockReturnValue({ provider });
+      configAI({ provider });
 
       await ensureAiProvider();
 
@@ -217,7 +211,7 @@ describe("ensureAiProvider (plugin architecture)", () => {
     it("supports an async factory and caches it", async () => {
       const provider = { __id: "factory", languageModel: (m: string) => ({ m }) };
       const factory = vi.fn(async () => provider);
-      configAI.mockReturnValue({ provider: factory });
+      configAI({ provider: factory });
 
       await ensureAiProvider();
       await ensureAiProvider();
@@ -227,7 +221,7 @@ describe("ensureAiProvider (plugin architecture)", () => {
     });
 
     it("rejects instead of silently using the gateway when the configured provider throws", async () => {
-      configAI.mockReturnValue({
+      configAI({
         provider: () => {
           throw new Error("boom");
         },
@@ -241,7 +235,7 @@ describe("ensureAiProvider (plugin architecture)", () => {
     });
 
     it("logs an init failure once, but replays it to every call", async () => {
-      configAI.mockReturnValue({
+      configAI({
         provider: () => {
           throw new Error("boom");
         },
@@ -257,7 +251,7 @@ describe("ensureAiProvider (plugin architecture)", () => {
     });
 
     it("retries after the failing provider is replaced", async () => {
-      configAI.mockReturnValue({
+      configAI({
         provider: () => {
           throw new Error("boom");
         },
@@ -266,7 +260,7 @@ describe("ensureAiProvider (plugin architecture)", () => {
       await expect(ensureAiProvider()).rejects.toThrow();
 
       const provider = { __id: "fixed", languageModel: (m: string) => ({ m }) };
-      configAI.mockReturnValue({ provider });
+      configAI({ provider });
 
       await expect(ensureAiProvider()).resolves.toBeUndefined();
       expect(g[DEFAULT_PROVIDER_KEY]).toBe(provider);
@@ -283,7 +277,7 @@ describe("ensureAiProvider (plugin architecture)", () => {
         isConfigured: () => true,
         createProvider: () => customProvider,
       };
-      configAI.mockReturnValue({ providers: [custom] });
+      configAI({ providers: [custom] });
 
       await ensureAiProvider();
 
@@ -298,7 +292,7 @@ describe("ensureAiProvider (plugin architecture)", () => {
         isConfigured: () => false,
         createProvider: () => ({ __id: "inactive", languageModel: (m: string) => ({ m }) }),
       };
-      configAI.mockReturnValue({ providers: [inactive] });
+      configAI({ providers: [inactive] });
 
       await ensureAiProvider();
 
@@ -331,7 +325,8 @@ describe("ensureAiProvider (plugin architecture)", () => {
     it("is not overridden by an explicit ai.provider", async () => {
       const hostProvider = { __host: true };
       g[DEFAULT_PROVIDER_KEY] = hostProvider;
-      configAI.mockReturnValue({ provider: { __id: "config", languageModel: (m: string) => ({ m }) } });
+      const configProvider = { __id: "config", languageModel: (m: string) => ({ m }) };
+      configAI({ provider: configProvider });
 
       await ensureAiProvider();
 

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StructureError } from "~/builder/hooks/structure-rules";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { SNOOZE_DAY_OPTIONS } from "~/builder/hooks/use-validation-snooze";
@@ -157,6 +158,7 @@ const ValidationErrorItem = ({
   onOpenPartial: (error: StructureError) => void;
 }) => {
   const { t } = useTranslation();
+  const { singular } = usePartialTypeLabel();
   const isError = error.severity === "error";
   const isInPartial = !!error.partialBlockId;
 
@@ -183,7 +185,7 @@ const ValidationErrorItem = ({
             onClick={() => onOpenPartial(error)}
             className="inline-flex items-center gap-1 text-xs font-medium underline hover:no-underline">
             <ExternalLink className="h-3 w-3" />
-            {t("Open partial block")}
+            {t("Open {{name}}", { name: singular })}
           </button>
         )}
       </div>

@@ -29,5 +29,5 @@ export {
   type ChaiActionContext,
   type ChaiUserAccess,
 };
-export { getChaiAction } from "./actions-registery";
+export { getChaiAction, getChaiActionInstance } from "./actions-registery";
 export { default as chaiActionsRegistry } from "./actions-registery";

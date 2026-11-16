@@ -47,8 +47,8 @@ const SelectBlock = (props: ChaiBlockComponentProps<SelectProps>) => {
         <option value="" disabled hidden>
           {placeholder}
         </option>
-        {map(options, (option) => (
-          <option key={option?.value} value={option?.value}>
+        {map(options, (option, index) => (
+          <option key={`${option?.value ?? ""}-${index}`} value={option?.value}>
             {option?.label}
           </option>
         ))}
@@ -68,8 +68,8 @@ const SelectBlock = (props: ChaiBlockComponentProps<SelectProps>) => {
         <option value="" disabled hidden>
           {placeholder}
         </option>
-        {map(options, (option) => (
-          <option key={option?.value} value={option?.value}>
+        {map(options, (option, index) => (
+          <option key={`${option?.value ?? ""}-${index}`} value={option?.value}>
             {option?.label}
           </option>
         ))}

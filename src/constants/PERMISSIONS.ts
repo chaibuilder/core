@@ -10,7 +10,6 @@ export const CHAI_PERMISSIONS = {
   "app:update": "app:update",
   "app:publish": "app:publish",
   "app:settings": "app:settings",
-  "app:publish_theme": "app:publish_theme",
 
   // pages
   "pages:create": "pages:create",
@@ -49,14 +48,13 @@ export const CHAI_PERMISSIONS = {
   "ai:generate_image": "ai:generate_image",
   "ai:generate_theme": "ai:generate_theme",
 
-  // theme / design tokens
+  // theme / design tokens — `theme:publish` publishes both the theme and the design tokens
   "theme:edit": "theme:edit",
   "theme:publish": "theme:publish",
   "design_tokens:read": "design_tokens:read",
   "design_tokens:create": "design_tokens:create",
   "design_tokens:edit": "design_tokens:edit",
   "design_tokens:delete": "design_tokens:delete",
-  "design_tokens:publish": "design_tokens:publish",
 
   // settings
   "settings:edit": "settings:edit",
@@ -70,10 +68,23 @@ export const CHAI_PERMISSIONS = {
   "users:invite": "users:invite",
   "users:update_role": "users:update_role",
   "users:remove": "users:remove",
-
 } as const;
 
 export type ChaiPermission = keyof typeof CHAI_PERMISSIONS;
+
+/**
+ * Retired keys a stored role may still grant, and the key each now stands for. They are out of
+ * the catalog (role editors no longer offer them) but a grant of one — directly or through its
+ * entity wildcard, e.g. `app:*` — still satisfies its replacement.
+ */
+export const LEGACY_PERMISSION_ALIASES: Readonly<Record<string, ChaiPermission>> = {
+  "app:publish_theme": "theme:publish",
+  "design_tokens:publish": "theme:publish",
+};
+
+/** The retired keys that still satisfy `permission`. */
+export const legacyAliasesOf = (permission: string): string[] =>
+  Object.keys(LEGACY_PERMISSION_ALIASES).filter((legacy) => LEGACY_PERMISSION_ALIASES[legacy] === permission);
 
 export const CHAI_PERMISSIONS_LIST: string[] = Object.keys(CHAI_PERMISSIONS);
 

@@ -10,7 +10,7 @@ import { useDragAndDrop, useIsDragAndDropEnabled } from "~/builder/core/componen
 import BlockController from "~/builder/core/components/sidepanels/panels/add-blocks/block-controller";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { useFrame } from "~/builder/core/frame/frame-context";
-import { canDeleteBlock, canDuplicateBlock } from "~/builder/core/functions/block-helpers";
+import { canDeleteBlock, canDuplicateBlock, canMoveBlock } from "~/builder/core/functions/block-helpers";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { usePubSubListener } from "~/builder/hooks/use-pub-sub";
 import { useDuplicateBlocks } from "~/builder/hooks/use-duplicate-blocks";
@@ -26,6 +26,7 @@ import { ChaiBlock } from "~/types/common";
 import BlockFloatingAiPrompt from "./block-floating-ai-prompt";
 import { GotoSettingsIcon } from "./goto-settings-icon";
 import { getElementByDataBlockId } from "./static/chai-canvas";
+import { revealInNestedScrollers } from "./static/reveal-in-nested-scrollers";
 
 type BlockActionProps = {
   block: ChaiBlock;
@@ -77,6 +78,9 @@ const useBlockSelection = () => {
     const blockElement = selectedElements[0];
     const frameWindow = document?.defaultView;
     if (blockElement && frameWindow) {
+      // A slide in a carousel, a panel in a tabs strip: scroll the nested
+      // container first, then measure against the iframe viewport.
+      revealInNestedScrollers(blockElement);
       const { top, bottom } = blockElement.getBoundingClientRect();
       // partially visible counts as in viewport; rects are relative to the iframe viewport
       const isInViewport = bottom > 0 && top < frameWindow.innerHeight;
@@ -331,7 +335,7 @@ const BlockFloatingSelector = ({ block, isDragging, selectedBlockElement }: Bloc
         className={`relative z-[999] text-xs text-white ${isDragging ? "opacity-0" : ""}`}>
         <div className="isolate flex h-6 scale-100 items-center justify-between bg-blue-500 py-2">
           <div className="flex items-center">
-            {isDragAndDropEnabled && (
+            {isDragAndDropEnabled && canMoveBlock(block) && (
               <DragHandleDots2Icon className="flex-shrink-0 cursor-grab rounded p-0.5 hover:bg-white/20 active:cursor-grabbing" />
             )}
             {parentId && (
@@ -368,13 +372,13 @@ const BlockFloatingSelector = ({ block, isDragging, selectedBlockElement }: Bloc
                 <PlusIcon className="h-4 w-4 rounded p-px hover:bg-white hover:text-blue-500" />
               </AddBlockDropdown>
             )}
-            {canDuplicateBlock(get(block, "_type", "")) && hasPermission(CHAI_PERMISSIONS["pages:update"]) ? (
+            {canDuplicateBlock(block) && hasPermission(CHAI_PERMISSIONS["pages:update"]) ? (
               <CopyIcon
                 className="h-4 w-4 rounded p-px hover:bg-white hover:text-blue-500"
                 onClick={handlers.handleDuplicate}
               />
             ) : null}
-            {canDeleteBlock(get(block, "_type", "")) && hasPermission(CHAI_PERMISSIONS["pages:update"]) ? (
+            {canDeleteBlock(block) && hasPermission(CHAI_PERMISSIONS["pages:update"]) ? (
               <TrashIcon
                 className="h-4 w-4 rounded p-px hover:bg-white hover:text-blue-500"
                 onClick={handlers.handleDelete}
@@ -408,7 +412,7 @@ export const BlockSelectionHighlighter = () => {
   return (
     <div
       onDragEnd={handleDragEnd}
-      draggable={isDragAndDropEnabled && Boolean(selectedBlock)}
+      draggable={isDragAndDropEnabled && Boolean(selectedBlock) && canMoveBlock(selectedBlock)}
       onDragStart={handleDragStart}>
       {selectedBlock && (
         <BlockFloatingSelector

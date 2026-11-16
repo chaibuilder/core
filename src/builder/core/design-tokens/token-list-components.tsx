@@ -1,8 +1,9 @@
 import { MagnifyingGlassIcon, Pencil1Icon, PlusIcon } from "@radix-ui/react-icons";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { twMerge } from "cnfast";
 import SearchInput from "~/builder/core/components/sidepanels/panels/add-blocks/search-input";
+import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useFeatureLabel } from "~/builder/hooks/use-feature-label";
 import { usePermissions } from "~/builder/hooks/use-permissions";
 import {
@@ -16,13 +17,24 @@ import {
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
+import { getTokenIdsUsedOnPage } from "./design-token-usage";
 import { useDesignTokensContext } from "./manage-design-tokens-context";
+
+/** Ids of the given tokens used by at least one block of the current page (computed once per render). */
+const useTokenIdsUsedOnPage = (tokens: Array<[string, unknown]>) => {
+  const [blocks] = useBlocksStore();
+  return useMemo(
+    () => (blocks?.length ? getTokenIdsUsedOnPage(blocks, tokens.map(([id]) => id)) : new Set<string>()),
+    [blocks, tokens],
+  );
+};
 
 interface SingleTokenProps {
   tokenId: string;
   token: { name: string; value: string; archived?: boolean };
   isBuiltIn: boolean;
   isEdited: boolean;
+  isUsedOnPage?: boolean;
   isSelected: boolean;
   isArchived?: boolean;
 }
@@ -32,6 +44,7 @@ export const SingleToken: React.FC<SingleTokenProps> = ({
   token,
   isBuiltIn,
   isEdited,
+  isUsedOnPage = false,
   isSelected,
   isArchived = false,
 }) => {
@@ -40,9 +53,16 @@ export const SingleToken: React.FC<SingleTokenProps> = ({
   const { hasPermission } = usePermissions();
   const canEdit = hasPermission(CHAI_PERMISSIONS["design_tokens:edit"]);
   const canDelete = hasPermission(CHAI_PERMISSIONS["design_tokens:delete"]);
+  const rowRef = useRef<HTMLDivElement>(null);
+
+  // A token opened from the side panel may sit below the fold of a long list.
+  useEffect(() => {
+    if (isSelected) rowRef.current?.scrollIntoView?.({ block: "nearest" });
+  }, [isSelected]);
 
   return (
     <div
+      ref={rowRef}
       onClick={() => selectToken(tokenId)}
       className={twMerge(
         "group relative flex w-full cursor-pointer items-center justify-between rounded border p-1.5 transition-all",
@@ -60,6 +80,11 @@ export const SingleToken: React.FC<SingleTokenProps> = ({
           {isEdited && isBuiltIn && !isArchived && (
             <Badge variant="active" className="h-4 px-1 py-0 text-[9px] font-normal">
               {t("Edited")}
+            </Badge>
+          )}
+          {isUsedOnPage && !isArchived && (
+            <Badge variant="outline" className="h-4 shrink-0 whitespace-nowrap px-1 py-0 text-[9px] font-normal text-muted-foreground">
+              {t("Used on this page")}
             </Badge>
           )}
         </div>
@@ -150,9 +175,10 @@ export const BuiltInTokensList: React.FC = () => {
         token.value.toLowerCase().includes(searchQuery.toLowerCase()),
     );
   }, [builtInTokens, searchQuery]);
+  const usedOnPage = useTokenIdsUsedOnPage(builtInTokens);
 
   return (
-    <div className="flex h-full flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       <div className="flex-shrink-0">
         <SearchInput
           value={searchQuery}
@@ -161,10 +187,10 @@ export const BuiltInTokensList: React.FC = () => {
         />
       </div>
 
-      <div className="max-h-[550px] min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         <div className="space-y-1 pr-4">
           {filteredTokens.length === 0 ? (
-            <EmptyState message={t("No tokens match your search")} />
+            <EmptyState message={t("No {{label}} match your search", { label: designTokensLabel.toLowerCase() })} />
           ) : (
             <>
               {filteredTokens.map(([tokenId, token]) => (
@@ -175,6 +201,7 @@ export const BuiltInTokensList: React.FC = () => {
                   isSelected={selectedTokenId === tokenId}
                   isBuiltIn={true}
                   isEdited={isTokenEdited(tokenId)}
+                  isUsedOnPage={usedOnPage.has(tokenId)}
                   isArchived={false}
                 />
               ))}
@@ -218,6 +245,7 @@ export const CustomTokensList: React.FC = () => {
     );
   }, [customTokens, searchQuery]);
 
+  const usedOnPage = useTokenIdsUsedOnPage(customTokens);
   const activeTokens = useMemo(() => filteredTokens.filter(([, token]) => !token.archived), [filteredTokens]);
   const archivedTokens = useMemo(() => filteredTokens.filter(([, token]) => token.archived), [filteredTokens]);
 
@@ -246,11 +274,11 @@ export const CustomTokensList: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full flex-col gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       {customTokens.length > 0 && (
         <div className="flex-shrink-0">
           <div className="flex items-center justify-between gap-x-2">
-            <SearchInput value={searchQuery} setValue={setSearchQuery} placeholder={t("Search tokens")} />
+            <SearchInput value={searchQuery} setValue={setSearchQuery} placeholder={t("Search custom {{label}}", { label: designTokensLabel })} />
             {canCreate && (
               <Button variant="outline" onClick={startAdd} size="sm" className="h-8">
                 <PlusIcon />
@@ -272,7 +300,7 @@ export const CustomTokensList: React.FC = () => {
               onAction={canCreate ? startAdd : undefined}
             />
           ) : filteredTokens.length === 0 ? (
-            <EmptyState message={t("No tokens match your search")} />
+            <EmptyState message={t("No {{label}} match your search", { label: designTokensLabel.toLowerCase() })} />
           ) : (
             <>
               {activeTokens.length > 0 && (
@@ -285,6 +313,7 @@ export const CustomTokensList: React.FC = () => {
                         isSelected={selectedTokenId === tokenId}
                         isBuiltIn={false}
                         isEdited={false}
+                        isUsedOnPage={usedOnPage.has(tokenId)}
                         isArchived={false}
                       />
                       {canEdit && (

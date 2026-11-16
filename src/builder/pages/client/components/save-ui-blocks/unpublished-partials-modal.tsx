@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { PartialBlockInfo } from "~/builder/pages/hooks/pages/use-get-unpublished-partial-blocks";
 import { Badge } from "~/components/ui/badge";
 import { Button } from "~/components/ui/button";
@@ -29,6 +30,7 @@ const UnpublishedPartialsModal = ({
   partialBlocksInfo = [],
 }: UnpublishedPartialsModalProps) => {
   const { t } = useTranslation();
+  const { plural } = usePartialTypeLabel();
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       {isOpen && (
@@ -36,7 +38,7 @@ const UnpublishedPartialsModal = ({
           <DialogHeader>
             <DialogTitle>{t("You have some unpublished changes")}</DialogTitle>
             <DialogDescription>
-              {t("The following partials are either unpublished or have unpublished changes.")}
+              {t("The following {{name}} are either unpublished or have unpublished changes.", { name: plural })}
             </DialogDescription>
           </DialogHeader>
           {partialBlocksInfo?.length > 0 && (
@@ -83,7 +85,7 @@ const UnpublishedPartialsModal = ({
               {t("Cancel")}
             </Button>
             <Button loading={isPending} size="sm" onClick={onContinue}>
-              {t("Publish Partials & Page")}
+              {t("Publish {{name}} & Page", { name: plural })}
             </Button>
           </DialogFooter>
         </DialogContent>

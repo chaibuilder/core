@@ -15,6 +15,8 @@ export type ChaiFullPage = {
   alternatePages: Array<Pick<ChaiPage, "id" | "name" | "slug" | "lang"> & { primaryLang: boolean }>;
   globalJsonLdsData?: any[];
   tracking?: unknown;
+  /** Set when the blocks and SEO came from this upstream page (a linked page). */
+  upstream?: string | null;
 } & Pick<
   ChaiPage,
   | "id"

@@ -27,8 +27,9 @@ export const DefaultChaiBlocks = ({
   const showPageSlot = layoutPagesEnabled && currentPageType === "_layout";
 
   const groupedBlocks = groupBy(chaiBlocks, "category") as Record<string, any[]>;
-  const availableBlocks = filter(groupedBlocks.core, (block) =>
-    isBlockAvailableForPageType(block, currentPageType),
+  const availableBlocks = filter(
+    groupedBlocks.core,
+    (block) => !block.showInLibrary && isBlockAvailableForPageType(block, currentPageType),
   ).map((block) => (block.type === "PageSlot" && showPageSlot ? { ...block, hidden: false } : block));
   const uniqueTypeGroup = uniq(map(availableBlocks, "group"));
 

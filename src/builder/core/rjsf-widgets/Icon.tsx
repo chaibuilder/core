@@ -42,45 +42,40 @@ const IconPickerField = ({ value, onChange, id }: WidgetProps) => {
   };
 
   return (
-    <div className="mt-1 flex flex-col gap-2" id="icon-picker-field">
-      <div className="flex items-start gap-x-2">
-        <div className="bg-surface/50 flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md border border-input p-2 text-muted-foreground">
+    <div className="mt-1 flex items-start gap-x-2" id="icon-picker-field">
+      <div className="flex w-[72px] shrink-0 flex-col gap-1">
+        <div className="bg-surface/50 flex h-9 w-full items-center justify-center overflow-hidden rounded-md border border-input text-muted-foreground">
           {svgInput ? (
-            <div className="h-8 w-8 [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svgInput }} />
+            <div className="h-5 w-5 [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svgInput }} />
           ) : (
             <span className="text-[10px] text-muted-foreground">SVG</span>
           )}
         </div>
-        {bindingInputEnabled ? (
-          <BindingTextField
-            id={id}
-            multiline
-            className="flex-1 max-h-30 truncate"
-            value={svgInput}
-            placeholder={t("Paste SVG code here")}
-            onChange={(svg) => handleSvgChange(svg)}
-          />
-        ) : (
-          <textarea
-            id={id}
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck="false"
-            value={svgInput}
-            onChange={(e) => handleSvgChange(e.target.value)}
-            placeholder={t("Paste SVG code here")}
-            rows={3}
-            className="no-scrollbar flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-xs text-foreground shadow-sm transition-colors placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-          />
-        )}
+        <Suspense fallback={<div className="h-6 text-[10px] text-muted-foreground">Loading...</div>}>
+          <IconPicker onSelectIcon={handleSvgChange} />
+        </Suspense>
       </div>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Suspense fallback={<div className="text-xs text-muted-foreground">Loading...</div>}>
-            <IconPicker onSelectIcon={handleSvgChange} />
-          </Suspense>
-        </div>
-      </div>
+      {bindingInputEnabled ? (
+        <BindingTextField
+          id={id}
+          multiline
+          className="h-[64px] min-h-0 flex-1 overflow-y-auto break-all text-xs"
+          value={svgInput}
+          placeholder={t("Paste SVG code here")}
+          onChange={(svg) => handleSvgChange(svg)}
+        />
+      ) : (
+        <textarea
+          id={id}
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck="false"
+          value={svgInput}
+          onChange={(e) => handleSvgChange(e.target.value)}
+          placeholder={t("Paste SVG code here")}
+          className="no-scrollbar h-[64px] min-w-0 flex-1 resize-none break-all rounded-md border border-input bg-transparent px-2 py-1 text-[11px] leading-4 text-foreground shadow-sm transition-colors placeholder:text-muted-foreground/70 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+        />
+      )}
     </div>
   );
 };

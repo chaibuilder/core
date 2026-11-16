@@ -12,6 +12,7 @@ import { ClearCanvas } from "~/builder/core/components/canvas/topbar/clear-canva
 import { UndoRedo } from "~/builder/core/components/canvas/topbar/undo-redo";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useDarkMode } from "~/builder/hooks/use-dark-mode";
+import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
 import { usePannableCanvas } from "~/builder/hooks/use-pannable-canvas";
 import { Button } from "~/components/ui/button";
 import {
@@ -32,6 +33,7 @@ const CanvasTopBar: React.FC = () => {
   const showDataBindingToggle = dataBindingEnabled;
   const [darkMode, setDarkMode] = useDarkMode();
   const [pannable, setPannable] = usePannableCanvas();
+  const readOnly = useReadOnlyMode() !== null;
 
   return (
     <div className="flex h-10 items-center justify-between px-2">
@@ -40,8 +42,12 @@ const CanvasTopBar: React.FC = () => {
           <Breakpoints canvas openDelay={400} activeButtonClass="bg-gray-200" />
           <div className="h-4 w-px border-l bg-transparent" />
           <ScalePercent />
-          <div className="h-4 w-px border-l bg-transparent" />
-          <UndoRedo />
+          {readOnly ? null : (
+            <>
+              <div className="h-4 w-px border-l bg-transparent" />
+              <UndoRedo />
+            </>
+          )}
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -54,17 +60,21 @@ const CanvasTopBar: React.FC = () => {
           </DropdownMenuTrigger>
           <DropdownMenuContent className="w-44 border-border text-xs" side="bottom" align="end">
             <DropdownMenuGroup className="px-2 py-1 font-light text-foreground/50">{t("ACTIONS")}</DropdownMenuGroup>
-            <DropdownMenuItem
-              disabled={false}
-              onClick={(e) => e.preventDefault()}
-              className="flex items-center gap-x-2 text-xs">
-              <ClearCanvas>
-                <div className="flex items-center gap-x-2 text-xs">
-                  <EraserIcon /> {t("Clear canvas")}
-                </div>
-              </ClearCanvas>
-            </DropdownMenuItem>
-            <DropdownMenuSeparator className="my-1 h-px bg-accent" />
+            {readOnly ? null : (
+              <>
+                <DropdownMenuItem
+                  disabled={false}
+                  onClick={(e) => e.preventDefault()}
+                  className="flex items-center gap-x-2 text-xs">
+                  <ClearCanvas>
+                    <div className="flex items-center gap-x-2 text-xs">
+                      <EraserIcon /> {t("Clear canvas")}
+                    </div>
+                  </ClearCanvas>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-1 h-px bg-accent" />
+              </>
+            )}
             {showDarkModeToggle ? (
               <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="py-1.5">
                 <SunMoon />

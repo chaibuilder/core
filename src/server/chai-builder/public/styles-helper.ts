@@ -6,9 +6,11 @@ import postcss, { type AtRule, type Rule } from "postcss";
 // The host project's build emits its full global stylesheet here (see the host's
 // generate-chaistyles script). Page styles are deduplicated against this file so a page only
 // ships the rules its blocks add on top of the global CSS.
+// `CHAI_GLOBAL_CSS_PATH` overrides the location (tests point it at a temp file); unset, the
+// default `./public/chaistyles.css` is used.
 function findGlobalCssFile(): string {
   // Use absolute path for production to work on Vercel
-  return path.resolve("./public/chaistyles.css");
+  return path.resolve(process.env.CHAI_GLOBAL_CSS_PATH || "./public/chaistyles.css");
 }
 
 type BaseStyleIndex = {
@@ -28,8 +30,7 @@ let baseIndexCache: { mtimeMs: number; size: number; index: BaseStyleIndex } | n
 
 // Matches selector lists made up entirely of :root / :host (e.g. ":root, :host") — the rules
 // Tailwind v4 uses for theme variable definitions.
-const isRootSelector = (selector: string) =>
-  selector.split(",").every((part) => /^\s*:(root|host)\s*$/.test(part));
+const isRootSelector = (selector: string) => selector.split(",").every((part) => /^\s*:(root|host)\s*$/.test(part));
 
 async function getBaseStyleIndex(): Promise<BaseStyleIndex> {
   const globalCssPath = findGlobalCssFile();

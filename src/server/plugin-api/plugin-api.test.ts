@@ -345,18 +345,17 @@ describe("server plugins", () => {
     });
   });
 
-  it("skips throwing middleware and falls through to the next", async () => {
-    // Reverse order runs the later registration first: the thrower is hit, skipped,
-    // and the earlier middleware answers.
-    registerChaiRequestMiddleware("chai:good", async () => ({ redirect: "/ok", permanent: false }));
+  it("rethrows a throwing middleware instead of falling through to a 404", async () => {
+    // Reverse order runs the later registration first: the thrower could not answer, so the
+    // request fails rather than letting a lower-priority middleware or the 404 flow decide.
+    const good = vi.fn(async () => ({ redirect: "/ok", permanent: false }));
+    registerChaiRequestMiddleware("chai:good", good);
     registerChaiRequestMiddleware("chai:bad", async () => {
       throw new Error("boom");
     });
 
-    await expect(runChaiRequestMiddleware({ slug: "/", lang: "en" })).resolves.toEqual({
-      redirect: "/ok",
-      permanent: false,
-    });
+    await expect(runChaiRequestMiddleware({ slug: "/", lang: "en" })).rejects.toThrow("boom");
+    expect(good).not.toHaveBeenCalled();
   });
 
   it("runs action hooks keyed per subscriber, replacing on same key, aggregating tags", async () => {

@@ -11,7 +11,7 @@
  */
 
 export { CHAI_PERMISSIONS, type ChaiPermission } from "~/constants/PERMISSIONS";
-import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
+import { CHAI_PERMISSIONS, legacyAliasesOf } from "~/constants/PERMISSIONS";
 
 /** Built-in catalog of all core permission keys. */
 export const CHAI_PERMISSION_LIST: string[] = Object.keys(CHAI_PERMISSIONS);
@@ -26,13 +26,15 @@ function entityOf(permission: string): string {
 /**
  * Checks whether a granted permission set satisfies a required permission.
  * Wildcard-aware: `*` matches everything, `entity:*` matches any op in the entity.
+ * A retired key a stored role still grants satisfies its replacement (`LEGACY_PERMISSION_ALIASES`).
  */
 export function hasPermission(granted: string[] | null | undefined, required: string): boolean {
   if (!required) return true;
   if (!granted || granted.length === 0) return false;
   if (granted.includes(WILDCARD_ALL)) return true;
   if (granted.includes(required)) return true;
-  return granted.includes(`${entityOf(required)}:*`);
+  if (granted.includes(`${entityOf(required)}:*`)) return true;
+  return legacyAliasesOf(required).some((legacy) => hasPermission(granted, legacy));
 }
 
 /**

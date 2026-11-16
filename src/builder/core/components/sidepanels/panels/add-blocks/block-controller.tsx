@@ -3,6 +3,7 @@ import { filter, findIndex, get } from "lodash-es";
 import { useCallback } from "react";
 import { getOrientation } from "~/builder/core/components/canvas/dnd/getOrientation";
 import { useFrame } from "~/builder/core/frame/frame-context";
+import { canMoveBlock } from "~/builder/core/functions/block-helpers";
 import {
   useBlocksStore,
   useBlocksStoreUndoableActions,
@@ -91,6 +92,7 @@ const useBlockController = (block: ChaiBlock, updateFloatingBar: any) => {
   const moveBlock = useCallback(
     (dir: "UP" | "DOWN" | "LEFT" | "RIGHT") => {
       if (isDisabledControl(isFirstBlock, isLastBlock, dir) || isOnlyChild) return;
+      if (!canMoveBlock(block)) return;
 
       if (dir === "UP" || dir === "LEFT") {
         moveBlocks([blockId], parentBlockId || undefined, blockIndex - 1);
@@ -99,7 +101,7 @@ const useBlockController = (block: ChaiBlock, updateFloatingBar: any) => {
       }
       updateFloatingBar();
     },
-    [isFirstBlock, isLastBlock, isOnlyChild, updateFloatingBar, moveBlocks, blockId, parentBlockId, blockIndex],
+    [isFirstBlock, isLastBlock, isOnlyChild, updateFloatingBar, moveBlocks, block, blockId, parentBlockId, blockIndex],
   );
 
   // * Returns
@@ -117,7 +119,7 @@ const BlockController = ({ block, updateFloatingBar }: { block: ChaiBlock; updat
     updateFloatingBar,
   );
 
-  if (isOnlyChild) return null;
+  if (isOnlyChild || !canMoveBlock(block)) return null;
 
   return (
     <>

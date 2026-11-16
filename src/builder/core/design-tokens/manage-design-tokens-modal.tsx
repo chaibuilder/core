@@ -21,9 +21,17 @@ import ManageDesignTokens from "./manage-design-tokens";
 interface ManageDesignTokensModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Opens on this token (its tab, selected); with `initialMode` "edit", straight into its edit form. */
+  initialTokenId?: string;
+  initialMode?: "select" | "edit";
 }
 
-const ManageDesignTokensModal: React.FC<ManageDesignTokensModalProps> = ({ open, onOpenChange }) => {
+const ManageDesignTokensModal: React.FC<ManageDesignTokensModalProps> = ({
+  open,
+  onOpenChange,
+  initialTokenId,
+  initialMode,
+}) => {
   const { t } = useTranslation();
   const designTokensLabel = useFeatureLabel("designTokens");
   const [activeToken, setActiveToken] = useState<{
@@ -58,7 +66,7 @@ const ManageDesignTokensModal: React.FC<ManageDesignTokensModalProps> = ({ open,
   return (
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogContent className="min-w-[900px] gap-0 space-y-0 p-0">
+        <DialogContent className="flex max-h-[85vh] min-w-[900px] flex-col gap-0 space-y-0 p-0">
           <DialogHeader className="border-b p-3">
             <DialogTitle>
               <h2 className="text-sm font-semibold">{designTokensLabel}</h2>
@@ -68,24 +76,26 @@ const ManageDesignTokensModal: React.FC<ManageDesignTokensModalProps> = ({ open,
             </DialogTitle>
           </DialogHeader>
 
-          <div className="flex max-h-[70vh] min-h-[450px] flex-1 overflow-hidden">
+          <div className="flex min-h-[min(450px,70vh)] flex-1 overflow-hidden">
             {/* Left side - Token Management */}
-            <div className="flex w-1/2 flex-col border-r p-3">
+            <div className="flex min-h-0 w-1/2 flex-col border-r p-3">
               <ManageDesignTokens
                 onActiveTokenChange={setActiveToken}
                 onDirtyStateChange={setHasUnsavedChanges}
                 setCreatePreview={setCreatePreview}
+                initialTokenId={initialTokenId}
+                initialMode={initialMode}
               />
             </div>
 
             {/* Right side - Live Preview */}
-            <div className="flex w-1/2 flex-col gap-2 p-3">
+            <div className="flex min-h-0 w-1/2 flex-col gap-2 p-3">
               {activeToken?.id ? (
                 <>
                   <div className="text-xs text-foreground/80">{t("Preview")}</div>
                   <DesignTokenPreview activeToken={activeToken} />
                   <Suspense fallback={null}>
-                    <DesignTokenUsage tokenId={activeToken?.id} tokenName={activeToken?.name}>
+                    <DesignTokenUsage key={activeToken?.id} tokenId={activeToken?.id} tokenName={activeToken?.name}>
                       <Button variant="ghost" size="icon-xs">
                         <EyeOpenIcon className="!h-3 !w-3" />
                       </Button>

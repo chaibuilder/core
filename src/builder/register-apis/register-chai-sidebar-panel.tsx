@@ -22,6 +22,8 @@ export interface ChaiSidebarPanel {
   panel?: ComponentType;
   width?: number;
   isInternal?: boolean;
+  /** Shown on a view-only page too: the panel only reads there. */
+  readOnly?: boolean;
   icon?: React.ReactNode;
   /** Registration sequence. Breaks ties between panels sharing an order. */
   seq?: number;

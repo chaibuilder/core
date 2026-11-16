@@ -5,6 +5,7 @@ import { formatParentSlug, slugify } from "~/builder/pages/utils/slug-utils";
 import { Input } from "~/components/ui/input";
 
 interface SlugInputProps {
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -15,6 +16,7 @@ interface SlugInputProps {
 }
 
 export function SlugInput({
+  id,
   value,
   onChange,
   placeholder,
@@ -67,6 +69,7 @@ export function SlugInput({
       )}
       <div className="relative">
         <Input
+          id={id}
           disabled={disabled}
           value={displayValue}
           onChange={handleChange}

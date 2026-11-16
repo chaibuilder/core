@@ -4,7 +4,7 @@ import { COLLECTION_ITEM_TYPE } from "~/constants/BLOCK_TYPES";
 import { getRegisteredChaiBlock } from "~/registry/v2/runtime/core";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
 import { consumeProviderTags } from "~/server/chai-builder/public/register-cache-tags";
-import { fetchConfigGlobalData, getConfigPageType, toChaiPageType } from "~/server/defaults";
+import { fetchConfigGlobalData, getConfigPageType, toChaiPageType } from "~/server/defaults/config-registry";
 import { resolveBlockDataProvider } from "~/server/defaults/block-data-providers";
 import { blockFiltersHaveBindings } from "~/server/repeater-data/build-repeater-query";
 import { fetchRepeaterItems } from "~/server/repeater-data/fetch-repeater-items";

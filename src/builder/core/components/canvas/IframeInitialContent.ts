@@ -1,3 +1,4 @@
+import { TAILWIND_V4_PLUGIN_CSS } from "./tailwind-plugins.generated";
 import { typeset } from "./typeset";
 
 // NOTE: React may warn about script tags in this HTML string, but this is safe.
@@ -41,7 +42,8 @@ export const IframeInitialContent: string = `<!doctype html>
       [data-drop="yes"] { outline: 2px dashed orange !important; outline-offset: -2px }
       [data-dnd="yes"] { pointer-events: auto !important}
       [data-dnd="no"],[data-block-type="GlobalBlock"],[data-block-type="PartialBlock"] > * { pointer-events: none !important; }
-      [data-block-type="GlobalBlock"],[data-block-type="PartialBlock"] { position: relative !important;display: inherit !important; }
+      [data-block-type="GlobalBlock"],[data-block-type="PartialBlock"]:not([data-partial-wrapper]) { position: relative !important;display: inherit !important; }
+      :where([data-partial-wrapper]) { position: relative; }
       .partial-overlay { pointer-events: auto !important; }
       [data-dnd-dragged="yes"] { opacity: 0.6; pointer-events: none; }
       [data-dnd-dragged="no"] { opacity: 1; pointer-events: auto !important; }
@@ -134,6 +136,32 @@ const RTE_UTILITIES = `
         }
       }`;
 
+// The canvas iframe is not a real screen: it is scaled to fit the editor, and in pannable mode
+// it is sized to its content. PanZoomHandler sets --chai-screen-height to what one screen should
+// be, and every viewport-height utility reads it (unset = plain vh). Redefining the utilities
+// instead of overriding matched classes keeps variants intact: `lg:h-screen` stays inside its
+// media query and `lg:min-h-0` still beats a base `min-h-screen`.
+export const SCREEN_HEIGHT_VAR = "--chai-screen-height";
+const SCREEN_UNITS = ["screen", "dvh", "svh", "lvh"] as const;
+const screenHeightValue = (unit: (typeof SCREEN_UNITS)[number]) =>
+  `var(${SCREEN_HEIGHT_VAR}, ${unit === "screen" ? "100vh" : `100${unit}`})`;
+const SCREEN_HEIGHT_PROPERTIES = { h: "height", "min-h": "min-height", "max-h": "max-height" } as const;
+
+// v4: an @utility named like a core utility appends its declaration after the core one, so it wins.
+const V4_SCREEN_HEIGHT_UTILITIES = Object.entries(SCREEN_HEIGHT_PROPERTIES)
+  .flatMap(([prefix, property]) =>
+    SCREEN_UNITS.map((unit) => `@utility ${prefix}-${unit} { ${property}: ${screenHeightValue(unit)}; }`),
+  )
+  .join("\n      ");
+
+// v3: the same values as theme keys, merged into the Play CDN config by HeadTags.
+export const V3_SCREEN_HEIGHT_THEME = Object.fromEntries(
+  (["height", "minHeight", "maxHeight"] as const).map((key) => [
+    key,
+    Object.fromEntries(SCREEN_UNITS.map((unit) => [unit, screenHeightValue(unit)])),
+  ]),
+);
+
 // v3 Play CDN resolves `border-border` from the config pushed via `window.tailwind.config`.
 const TAILWIND_V3_STYLE = `<style type="text/tailwindcss">
       @layer base {
@@ -153,10 +181,12 @@ const TAILWIND_V3_STYLE = `<style type="text/tailwindcss">
 // The v4 browser build concatenates every `style[type="text/tailwindcss"]` into a single
 // compile. One unknown utility fails the whole sheet, so base styles here stay on plain CSS
 // vars; theme-dependent utilities come from the `@theme` block written into the placeholder
-// below. No `@import "tailwindcss"` here on purpose: the build prepends it when no @import is
+// below. The typography and forms plugins the page CSS compiles with arrive pre-rewritten as
+// `@utility` / `@custom-variant` rules (the browser build cannot load npm plugins). No `@import "tailwindcss"` here on purpose: the build prepends it when no @import is
 // present, and spelling it out makes the browser fetch the bare specifier as a relative URL.
 const TAILWIND_V4_STYLE = `<style type="text/tailwindcss">
       @custom-variant dark (&:where(.dark, .dark *));
+      ${V4_SCREEN_HEIGHT_UTILITIES}
       @layer base {
         *,
         ::after,
@@ -172,6 +202,7 @@ const TAILWIND_V4_STYLE = `<style type="text/tailwindcss">
           background-color: var(--color-background);
         }
       }${RTE_UTILITIES}
+      ${TAILWIND_V4_PLUGIN_CSS}
     </style>
     <!--
       Theme placeholder, filled by TailwindV4Theme. It ships in the initial content so the first

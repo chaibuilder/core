@@ -15,6 +15,7 @@ import { find } from "lodash-es";
 import { useCallback, useMemo, useRef } from "react";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
 import { builderStore } from "~/builder/atoms/store";
+import { canMoveBlock } from "~/builder/core/functions/block-helpers";
 import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
 import { useDragAndDrop } from ".";
 
@@ -91,6 +92,10 @@ export const useDirectBlockDrag = (): DirectDragHandlers => {
       // PERF: read on-demand via store — no subscription to presentBlocksAtom
       const allBlocks = builderStore.get(presentBlocksAtom);
       const selectedBlock = find(allBlocks, { _id: blockId });
+      if (selectedBlock && !canMoveBlock(selectedBlock)) {
+        e.preventDefault();
+        return;
+      }
       if (selectedBlock) {
         onDragStart(e, selectedBlock, false);
       }

@@ -8,10 +8,10 @@ import { UserDataBinding } from "~/builder/core/components/settings/user-data-bi
 import { useRepeaterBindingContext } from "~/builder/hooks/use-repeater-binding-context";
 import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
 import { useUpdateBlocksProps } from "~/builder/hooks/use-update-blocks-props";
-import { STATE_CONTEXT_PREFIX } from "~/constants/STRINGS";
 import { Button } from "~/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
 import { Switch } from "~/components/ui/switch";
+import { STATE_CONTEXT_PREFIX } from "~/constants/STRINGS";
 
 export const VisibilitySettings = () => {
   const { t } = useTranslation();
@@ -88,29 +88,30 @@ export const VisibilitySettings = () => {
     : "";
 
   return (
-    <div className="my-2 mb-4 flex items-center justify-between">
+    <div className="mb-2 mt-2 flex min-h-7 items-center justify-between">
       <div className="mr-2 flex min-w-0 flex-1 flex-col items-start space-y-0 leading-none">
-        <div className="flex items-baseline gap-1 text-xs text-gray-500">
+        <div className="text-xs font-light leading-none text-foreground/80 dark:text-foreground/60 peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
           {t("Visibility")}
           {isString(selectedBlock._show) && (
-            <span className="text-[9px] text-gray-400 italic">{t("visible when true")}</span>
+            <span className="text-[9px] text-gray-400">{t(" Visible when true")}</span>
           )}
         </div>
         {isString(selectedBlock._show) && (
-          <code className="bg-primary/10 text-primary mt-0.5 block max-w-full rounded px-1.5 py-0.5 text-[9px] leading-relaxed break-words">
+          <code className="bg-primary/10 text-primary mt-1 block max-w-full rounded px-1.5 py-0 text-[9px] leading-relaxed break-words">
             {currentExpression}
           </code>
         )}
       </div>
-      <div className="group relative">
+      <div className="group flex items-center gap-x-1">
         <Popover open={isOpen} onOpenChange={handleOpenChange}>
           <PopoverTrigger asChild>
-            <button
-              type="button"
+            <Button
+              variant={isBound ? 'default': 'outline'}
+              size="icon-xs"
               aria-label={t("Open visibility settings")}
-              className="bg-background absolute -top-1.5 -left-2 z-10 cursor-pointer rounded-full border border-blue-500 p-0.5 text-blue-500 transition-all hover:scale-125">
-              <Settings className="h-2.5 w-2.5" aria-hidden="true" />
-            </button>
+              className="h-5 w-5 rounded-full">
+              <Settings  aria-hidden="true" />
+            </Button>
           </PopoverTrigger>
           <PopoverContent side="left" align="start" className="max-w-92 p-3">
             <div className="grid gap-2">
