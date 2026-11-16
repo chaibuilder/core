@@ -78,9 +78,9 @@ function withPluginSchema(
     fragments = { ...fragments, ...entry[dialect] };
   }
   const tableKeys = Object.keys(fragments).filter((key) => is(fragments[key], Table));
-  // Every table Pro declares, registered plugin or not: core code reads some plugin-owned tables
-  // regardless (`appDomains` resolves a hostname without the tenancy plugin), so a host renaming
-  // one must be able to map it.
+  // Every table the edition declares, registered plugin or not: the edition's schema creates a
+  // plugin's tables whether or not the plugin is registered (enabling it later needs no
+  // migration), so a host renaming one must be able to map it.
   assertChaiTableMappingKeys(db.tableMapping, [...Object.keys(EDITION_TABLE_NAMES), ...tableKeys]);
 
   // A fragment replaces what the adapter filled in by default; an entry the host supplied itself

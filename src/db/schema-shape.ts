@@ -7,7 +7,7 @@ import type * as coreSchema from "~/drizzle/schema.sqlite";
  * autocompletes, but every entry is deliberately `any`: the same query code runs
  * against pg and sqlite table objects (see `asDbInstance`), so column-level typing
  * cannot be pinned to either dialect here. The index signature admits tables that
- * plugins merge in at `registerDb` time (e.g. `schema.appRedirects` from the
- * redirects plugin).
+ * plugins merge in at `registerDb` time; only the plugin that owns such a table
+ * reads it.
  */
 export type ChaiCoreSchema = { [K in keyof typeof coreSchema]: any } & Record<string, any>;

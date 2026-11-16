@@ -2,7 +2,7 @@ import { pick } from "lodash-es";
 import { z } from "zod";
 import { getAppFields, updateAppFields } from "~/server/chai-actions/apps/app-store";
 import { apiError } from "~/server/chai-actions/lib";
-import { addThemeSaveRevision } from "~/server/chai-actions/revisions/theme-revisions";
+import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
 import { ChaiBaseAction } from "../base-action";
 
 export type UpdateWebsiteFieldsActionData = {
@@ -68,7 +68,11 @@ export class UpdateWebsiteFieldsAction extends ChaiBaseAction<
     }
 
     if ("theme" in columns || "designTokens" in columns) {
-      await addThemeSaveRevision(appId, this.context.userId, columns);
+      await runChaiActionHooks("theme:saved", {
+        appId,
+        userId: this.context.userId,
+        snapshot: { theme: columns.theme, designTokens: columns.designTokens },
+      });
     }
 
     return { success: true };

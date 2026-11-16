@@ -82,20 +82,4 @@ describe("UpdateThemeAction", () => {
       await expect(action(UpdateThemeAction).run({ theme: theme as never })).rejects.toThrow(message);
     });
   });
-
-  it("records the change in theme history", async () => {
-    await withTestDB(async ({ seedUpdate, action }) => {
-      await seedUpdate("apps", { id: TEST_APP_ID }, { theme: DEFAULT_APP_THEME });
-
-      await action(UpdateThemeAction).run({ theme: { borderRadius: "2px" } });
-
-      const revisions = await getTestDb()
-        .select()
-        .from(schema.appThemeRevisions)
-        .where(eq(schema.appThemeRevisions.app, TEST_APP_ID));
-      expect(revisions).toHaveLength(1);
-      expect(revisions[0]).toMatchObject({ type: "draft", designTokens: null });
-      expect((revisions[0].theme as { borderRadius: string }).borderRadius).toBe("2px");
-    });
-  });
 });

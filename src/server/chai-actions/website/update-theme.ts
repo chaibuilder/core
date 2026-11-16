@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getAllRegisteredFonts } from "~/registry";
 import { getAppFields, updateAppFields } from "~/server/chai-actions/apps/app-store";
-import { addThemeSaveRevision } from "~/server/chai-actions/revisions/theme-revisions";
+import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
 import type { ChaiTheme } from "~/types/chaibuilder-editor-props";
 import { CONTRAST_LARGE, describeContrastIssue, themeContrastIssues } from "~/utils/design-checks";
 import { ActionError } from "../action-error";
@@ -90,7 +90,7 @@ export class UpdateThemeAction extends ChaiBaseAction<UpdateThemeActionData, Upd
         throw new ActionError("Error updating the site theme", "ERROR_UPDATE_THEME", 500, error);
       }
       // Same history as builder saves, so an AI/MCP theme change can be rolled back.
-      await addThemeSaveRevision(appId, this.context?.userId, { theme: next });
+      await runChaiActionHooks("theme:saved", { appId, userId: this.context?.userId, snapshot: { theme: next } });
       const weakContrast = issues.filter((issue) => issue.ratio >= CONTRAST_LARGE).map(describeContrastIssue);
       return { success: true, theme: next, changed, weakContrast };
     });

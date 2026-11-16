@@ -7,6 +7,7 @@ import { apiError } from "~/server/chai-actions/lib";
 import type { PageTreeNode } from "~/server/chai-actions/utils/page-tree-builder";
 import { PageTreeBuilder } from "~/server/chai-actions/utils/page-tree-builder";
 import { routingTagsForPages, upstreamSiteTag } from "~/server/chai-builder/public/page-routing-cache";
+import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
 
 // Trashing removed the online row, so a restored page is never live (pages trashed
 // before trash set `online: false` still carry `online: true`).
@@ -157,7 +158,6 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
     const writes = async (q: DbInstance) => {
       if (permanent) {
         await q.delete(schema.libraryTemplates).where(inArray(schema.libraryTemplates.pageId, reverseIds));
-        await q.delete(schema.appPagesRevisions).where(inArray(schema.appPagesRevisions.id, reverseIds));
       }
       await q.delete(schema.appPagesOnline).where(inArray(schema.appPagesOnline.id, reverseIds));
       await (permanent
@@ -177,6 +177,9 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
       getDbDialect() === "pg" ? db.transaction((tx) => writes(tx as unknown as DbInstance)) : writes(db),
     );
     if (error) throw apiError("DELETE_FAILED", error);
+
+    // Plugin-owned rows keyed by these pages (their history, for one) follow the delete.
+    await runChaiActionHooks("pages:deleted", { appId: this.appId, pageIds: reverseIds, permanent });
   }
 
   /**

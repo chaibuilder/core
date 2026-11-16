@@ -1,20 +1,17 @@
-import { and, desc, eq, inArray, isNull, like } from "drizzle-orm";
+import { and, eq, inArray, isNull, like } from "drizzle-orm";
 import { isEmpty, keys, pick } from "lodash-es";
 import { z } from "zod";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { hasPermission } from "~/server/rbac/permissions";
-import { pruneRevisions } from "~/server/chai-actions/revisions/prune-revisions";
-import { isRestoreRevisionMetadata } from "~/server/chai-actions/revisions/revision-metadata";
 import { resolveEditSource } from "~/server/chai-actions/utils/edit-source";
 import { PageTreeBuilder } from "~/server/chai-actions/utils/page-tree-builder";
-import { getConfigFeature, isFeatureEnabled } from "~/server/defaults/config-registry";
+import { isFeatureEnabled } from "~/server/defaults/config-registry";
 import { linkedUpstreamId } from "~/server/chai-builder/public/get-upstream-full-page";
 import { pageDetailsTagsForMutation } from "~/server/chai-builder/public/page-details-cache";
 import { routingTagsForMutation, type RoutingSlugUpdate } from "~/server/chai-builder/public/page-routing-cache";
 import { computePartialIdsClosure } from "~/server/chai-builder/public/partial-merge-utils";
 import { ChaiBlock } from "~/types/common";
-import type { ChaiServerFeatures } from "~/types/server-config";
 import { derivePageRefs } from "~/utils/derive-page-refs";
 import { ActionError } from "../action-error";
 import { ChaiBaseAction } from "../base-action";
@@ -708,108 +705,6 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     return merged.length > 0 ? merged : ["Updated"];
   }
 
-  private async addSaveEntryInRevision(pageId: string, page: any) {
-    try {
-      const { data: lastPublishedResult } = await safeQuery(() =>
-        db
-          .select({ currentEditor: schema.appPagesOnline.currentEditor, createdAt: schema.appPagesOnline.createdAt })
-          .from(schema.appPagesOnline)
-          .where(and(eq(schema.appPagesOnline.app, this.appId), eq(schema.appPagesOnline.id, pageId)))
-          .orderBy(desc(schema.appPagesOnline.createdAt))
-          .limit(1),
-      );
-
-      const { data: lastDraftResult } = await safeQuery(() =>
-        db
-          .select({
-            uid: schema.appPagesRevisions.uid,
-            type: schema.appPagesRevisions.type,
-            currentEditor: schema.appPagesRevisions.currentEditor,
-            source: schema.appPagesRevisions.source,
-            createdAt: schema.appPagesRevisions.createdAt,
-            metadata: schema.appPagesRevisions.metadata,
-          })
-          .from(schema.appPagesRevisions)
-          .where(and(eq(schema.appPagesRevisions.id, pageId), eq(schema.appPagesRevisions.app, this.appId)))
-          .orderBy(desc(schema.appPagesRevisions.createdAt))
-          .limit(1),
-      );
-
-      const published = lastPublishedResult?.[0];
-      const draft = lastDraftResult?.[0];
-      const source = resolveEditSource(this.context);
-
-      // `source` joins the coalesce key: an MCP token carries the uid of the
-      // person who created it, so without it an agent edit would silently merge
-      // into that person's own last draft and inherit its attribution.
-      // A restore row records one exact operation and carries a label saying so.
-      // It matches the coalesce key exactly (same actor, same source, type
-      // 'draft'), so without this the next save would rewrite its content in
-      // place and leave the label describing content that is no longer there.
-      let shouldUpdateLastDraftEntry =
-        draft &&
-        draft.type === "draft" &&
-        draft.currentEditor === this.context?.userId &&
-        draft.source === source &&
-        !isRestoreRevisionMetadata(draft.metadata);
-
-      if (published && draft && new Date(published.createdAt).getTime() > new Date(draft.createdAt).getTime()) {
-        shouldUpdateLastDraftEntry = false;
-      }
-
-      if (shouldUpdateLastDraftEntry) {
-        const { error } = await safeQuery(() =>
-          db
-            .update(schema.appPagesRevisions)
-            .set({
-              seo: page.seo,
-              blocks: page.blocks,
-              tracking: page.tracking,
-              createdAt: new Date().toISOString(),
-            })
-            .where(eq(schema.appPagesRevisions.uid, draft?.uid as string)),
-        );
-
-        if (error) {
-          console.error("Error updating draft revision entry:", {
-            pageId,
-            revisionUid: draft?.uid,
-            error,
-          });
-        }
-      } else {
-        const { error } = await safeQuery(() =>
-          db.insert(schema.appPagesRevisions).values({
-            id: pageId,
-            app: this.appId,
-            blocks: page.blocks || [],
-            type: "draft",
-            currentEditor: this.context?.userId,
-            source,
-            name: page.name || "",
-            slug: page.slug || "",
-            pageType: page.pageType,
-            lang: page.lang || "",
-            seo: page.seo,
-            tracking: page.tracking,
-          }),
-        );
-
-        if (error) {
-          console.error("Error inserting draft revision entry:", {
-            pageId,
-            error,
-          });
-        } else {
-          await pruneRevisions(pageId, this.appId);
-        }
-      }
-    } catch (error) {
-      // soft-fail — revision write should never block a save
-      console.error("Error adding save entry in revisions:", { pageId, error });
-    }
-  }
-
   /**
    * Update the page in the database (simple update without slug change)
    */
@@ -885,22 +780,16 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       }
     }
 
-    // Whether a save snapshots a draft revision is a property of the site, not
-    // of the caller: the builder, the MCP tools and every other UPDATE_PAGE
-    // client must produce the same history.
-    //
-    // Both flags are required. `drafts` only narrows a feature that is already
-    // on — `{ enabled: false, drafts: true }` is a disabled feature, not an
-    // opt-in, and writing revisions for it would fill a table the UI never
-    // shows. `getConfigFeature` returns undefined when the revisions plugin is
-    // not registered (the OSS builder), which is the correct "off". The key is cast: its type
-    // comes from the revisions plugin's module augmentation, which core must not depend on
-    // (the declaration build slices entries, so a core slice never sees it).
-    const revisions = getConfigFeature("revisions" as keyof ChaiServerFeatures) as
-      | { enabled?: boolean; drafts?: boolean }
-      | undefined;
-    if (revisions?.enabled === true && revisions.drafts === true && updatedPageData?.[0]) {
-      await this.addSaveEntryInRevision(pageId, updatedPageData[0]);
+    // Whoever keeps page history decides whether this save is a snapshot; a hook handler's
+    // failure is logged and never fails the save.
+    if (updatedPageData?.[0]) {
+      await runChaiActionHooks("page:saved", {
+        appId: this.appId,
+        pageId,
+        page: updatedPageData[0],
+        userId: this.context?.userId,
+        source: resolveEditSource(this.context),
+      });
     }
   }
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { ActionError } from "~/server/chai-actions/action-error";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
+import { getChaiPageVersionSource } from "~/server/plugin-api/page-version-sources";
 import { ChaiBlock } from "~/types/common";
 
 /**
@@ -73,16 +74,16 @@ export class GetCompareDataAction extends ChaiBaseAction<GetCompareDataActionDat
       version1: {
         blocks: version1Data.blocks,
         seo: version1Data.seo,
-        tracking: version1Data.tracking
+        tracking: version1Data.tracking,
       },
       version2: {
         blocks: version2Data.blocks,
         seo: version2Data.seo,
-        tracking: version2Data.tracking
+        tracking: version2Data.tracking,
       },
       pageIds: {
         version1: version1Data.pageId,
-        version2: version2Data.pageId
+        version2: version2Data.pageId,
       },
     };
   }
@@ -93,13 +94,13 @@ export class GetCompareDataAction extends ChaiBaseAction<GetCompareDataActionDat
   private async getBlocksForVersion(
     type: "draft" | "revision" | "live",
     id: string,
-  ): Promise<{ pageId: string; blocks: ChaiBlock[]; seo: any, tracking: any }> {
+  ): Promise<{ pageId: string; blocks: ChaiBlock[]; seo: any; tracking: any }> {
     let data;
     let error;
 
     // Scoped to the caller's app: the ids reach this action from an MCP client
-    // (compare_page_revisions) as caller-supplied strings, and all three tables
-    // are shared across tenants.
+    // (compare_page_revisions) as caller-supplied strings, and every source
+    // table is shared across tenants.
     const appId = this.context!.appId;
 
     switch (type) {
@@ -112,7 +113,7 @@ export class GetCompareDataAction extends ChaiBaseAction<GetCompareDataActionDat
               id: true,
               blocks: true,
               seo: true,
-              tracking: true
+              tracking: true,
             },
           }),
         ));
@@ -127,30 +128,29 @@ export class GetCompareDataAction extends ChaiBaseAction<GetCompareDataActionDat
               id: true,
               blocks: true,
               seo: true,
-              tracking: true
+              tracking: true,
             },
           }),
         ));
         break;
 
-      case "revision":
-        // Get blocks from app_pages_revisions table
-        // Note: revisions use 'uid' as primary key
-        ({ data, error } = await safeQuery(() =>
-          db.query.appPagesRevisions.findFirst({
-            where: and(eq(schema.appPagesRevisions.uid, id), eq(schema.appPagesRevisions.app, appId)),
-            columns: {
-              id: true,
-              blocks: true,
-              seo: true,
-              tracking: true
-            },
-          }),
-        ));
-        break;
-
-      default:
-        throw new ActionError(`Invalid version type: ${type}`, "INVALID_VERSION_TYPE");
+      default: {
+        // Every other version type (a stored revision, …) is kept by a plugin, which registers
+        // a loader for it. A type nobody registered is not a version this site has.
+        const load = getChaiPageVersionSource(type);
+        if (!load) throw new ActionError(`Invalid version type: ${type}`, "INVALID_VERSION_TYPE");
+        let version;
+        try {
+          version = await load({ appId, id });
+        } catch (loadError) {
+          const message = loadError instanceof Error ? loadError.message : String(loadError);
+          throw new ActionError(`Failed to fetch blocks for ${type} version: ${message}`, "FETCH_BLOCKS_ERROR");
+        }
+        if (!version) {
+          throw new ActionError(`No data found for ${type} version with id: ${id}`, "VERSION_NOT_FOUND");
+        }
+        return version as { pageId: string; blocks: ChaiBlock[]; seo: any; tracking: any };
+      }
     }
 
     if (error) {
@@ -166,7 +166,7 @@ export class GetCompareDataAction extends ChaiBaseAction<GetCompareDataActionDat
       pageId: data.id as string,
       blocks: (data.blocks as ChaiBlock[]) || [],
       seo: data.seo || {},
-      tracking: data.tracking || {}
+      tracking: data.tracking || {},
     };
   }
 

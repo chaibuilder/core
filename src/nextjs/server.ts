@@ -58,11 +58,19 @@ export {
   defineChaiServerPlugin,
   getChaiRequestHeader,
   registerChaiActionHook,
+  registerChaiPageVersionSource,
   registerChaiRequestMiddleware,
+  registerChaiSiteDomainResolver,
   runChaiActionHooks,
   runChaiRequestMiddleware,
   type ChaiActionHookArgs,
   type ChaiActionHookName,
+  type ChaiPageVersion,
+  type ChaiPageVersionLoader,
+  type ChaiSavedPageSnapshot,
+  type ChaiSiteDomainResolver,
+  type ChaiSiteDomains,
+  type ChaiThemeSnapshot,
 } from "~/server/plugin-api";
 // MCP tool authoring and registration. The transport itself lives behind the `<pkg>/mcp`
 // entry point, which statically imports the optional `@modelcontextprotocol/sdk` peer;

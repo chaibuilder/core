@@ -49,18 +49,6 @@ export const fake = {
     ...overrides,
   }),
 
-  appRedirects: (overrides = {}) => ({
-    id: faker.string.uuid(),
-    app: TEST_APP_ID,
-    fromPath: `/from-${nanoid(8)}`,
-    toPath: `/to-${nanoid(8)}`,
-    permanent: true,
-    active: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-    ...overrides,
-  }),
-
   appPagesOnline: (overrides = {}) => ({
     id: faker.string.uuid(),
     app: TEST_APP_ID,
@@ -83,16 +71,6 @@ export const fake = {
     url: faker.image.url(),
     type: "image",
     createdAt: new Date().toISOString(),
-    ...overrides,
-  }),
-
-  appDomains: (overrides = {}) => ({
-    id: faker.string.uuid(),
-    subdomain: `${faker.word.noun()}-${nanoid(6)}`,
-    createdAt: new Date().toISOString(),
-    hosting: "vercel",
-    hostingProjectId: "env",
-    domainConfigured: false,
     ...overrides,
   }),
 

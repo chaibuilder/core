@@ -3,11 +3,10 @@ import { flattenDeep, isEmpty, omit, uniq } from "lodash-es";
 import { z } from "zod";
 import { getAppFields, getAppRow, updateAppFields } from "~/server/chai-actions/apps/app-store";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
-import { pruneRevisions } from "~/server/chai-actions/revisions/prune-revisions";
-import { addThemePublishRevision } from "~/server/chai-actions/revisions/theme-revisions";
 import { resolveEditSource } from "~/server/chai-actions/utils/edit-source";
 import { LAYOUTS_INDEX_TAG } from "~/server/chai-builder/public/get-layout-id-by-name";
 import { pageSlugTag, slugTag, upstreamSiteTag } from "~/server/chai-builder/public/page-routing-cache";
+import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
 import { ActionError } from "../action-error";
 import { ChaiBaseAction } from "../base-action";
 
@@ -134,9 +133,12 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
     // Theme and design tokens publish separately: the live tokens stay as they are.
     await this.upsertOnlineApp(app, "ERROR_PUBLISHING_THEME", "designTokens");
 
-    if (this.revisionsEnabled) {
-      await addThemePublishRevision(this.appId, this.context?.userId, { theme: app.theme });
-    }
+    await runChaiActionHooks("theme:published", {
+      appId: this.appId,
+      userId: this.context?.userId,
+      snapshot: { theme: app.theme },
+      revisions: this.revisionsEnabled,
+    });
 
     // Remove 'THEME' from changes array, set null only if no other changes remain
     await this.removeFromChangesArray("THEME", "ERROR_PUBLISHING_THEME");
@@ -152,9 +154,12 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
     // Theme and design tokens publish separately: the live theme stays as it is.
     await this.upsertOnlineApp(app, "ERROR_PUBLISHING_DESIGN_TOKEN", "theme");
 
-    if (this.revisionsEnabled) {
-      await addThemePublishRevision(this.appId, this.context?.userId, { designTokens: app.designTokens });
-    }
+    await runChaiActionHooks("theme:published", {
+      appId: this.appId,
+      userId: this.context?.userId,
+      snapshot: { designTokens: app.designTokens },
+      revisions: this.revisionsEnabled,
+    });
 
     // Remove 'DESIGN_TOKENS' from changes array, set null only if no other changes remain
     await this.removeFromChangesArray("DESIGN_TOKENS", "ERROR_PUBLISHING_DESIGN_TOKEN");
@@ -381,48 +386,15 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
   }
 
   /**
-   * Create a revision before publishing
-   */
-  private async createRevision(pageId: string): Promise<boolean> {
-    // Skip revision creation if revisions are disabled
-    if (!this.revisionsEnabled) {
-      return false;
-    }
-
-    const { data: page, error } = await safeQuery(() =>
-      db.query.appPagesOnline.findFirst({
-        where: eq(schema.appPagesOnline.id, pageId),
-      }),
-    );
-
-    if (error || !page || !isEmpty(page.primaryPage)) {
-      // if the page has a primary page, we don't want to create a revision
-      return false;
-    }
-
-    const { error: revisionError } = await safeQuery(() =>
-      db.insert(schema.appPagesRevisions).values({
-        ...page,
-        type: "published",
-        uid: undefined, // Let database generate new uid
-      }),
-    );
-
-    if (revisionError) {
-      throw new ActionError("Error creating revision", "ERROR_CREATING_REVISION", 500, revisionError);
-    }
-
-    await pruneRevisions(pageId, page.app);
-
-    return true;
-  }
-
-  /**
    * Add page to online table
    */
   private async addOnlinePage(page: AppPageData): Promise<AddOnlinePageResult> {
-    // Create revision and delete existing online page
-    await this.createRevision(page.id);
+    // The outgoing live row is still in place: whoever keeps page history snapshots it now.
+    await runChaiActionHooks("page:publishing", {
+      appId: this.appId,
+      pageId: page.id,
+      revisions: this.revisionsEnabled,
+    });
 
     const { error: deleteError } = await safeQuery(() =>
       db.delete(schema.appPagesOnline).where(eq(schema.appPagesOnline.id, page.id)),
@@ -445,8 +417,8 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
         .values({
           ...pageData,
           currentEditor: this.context?.userId,
-          // `createRevision` copies this row wholesale on the next publish, so
-          // recording it here also attributes the published revision snapshot.
+          // A `page:publishing` subscriber may copy this row wholesale on the next
+          // publish, so recording it here also attributes that snapshot.
           source: resolveEditSource(this.context),
         })
         .returning(),

@@ -4,7 +4,7 @@ import type { ChaiDesignTokens } from "~/types/types";
 import { ActionError } from "../action-error";
 import { formatZodIssues } from "../ai/design-system-schema";
 import { ChaiBaseAction } from "../base-action";
-import { addThemeSaveRevision } from "../revisions/theme-revisions";
+import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
 import { serializeByKey } from "../utils/serialize-by-key";
 import {
   applyDesignTokenUpdates,
@@ -60,7 +60,11 @@ export class UpdateDesignTokensAction extends ChaiBaseAction<
         throw new ActionError("Error updating design tokens", "ERROR_UPDATE_DESIGN_TOKENS", 500, error);
       }
       // Same history as builder saves, so an AI/MCP restyle can be rolled back.
-      await addThemeSaveRevision(appId, this.context?.userId, { designTokens: next });
+      await runChaiActionHooks("theme:saved", {
+        appId,
+        userId: this.context?.userId,
+        snapshot: { designTokens: next },
+      });
       return { success: true as const, designTokens: next, updated };
     });
   }

@@ -92,7 +92,23 @@ export {
   runChaiActionHooks,
   type ChaiActionHookArgs,
   type ChaiActionHookName,
+  type ChaiSavedPageSnapshot,
+  type ChaiThemeSnapshot,
 } from "./action-hooks";
+export {
+  getChaiPageVersionSource,
+  registerChaiPageVersionSource,
+  resetChaiPageVersionSourcesForTests,
+  type ChaiPageVersion,
+  type ChaiPageVersionLoader,
+} from "./page-version-sources";
+export {
+  getChaiSiteDomainResolver,
+  registerChaiSiteDomainResolver,
+  resetChaiSiteDomainResolverForTests,
+  type ChaiSiteDomainResolver,
+  type ChaiSiteDomains,
+} from "./site-domains";
 export { getChaiRequestHeader } from "./request-headers";
 // MCP tool/instruction registration. SDK-free: a plugin contributes tools whether or
 // not the app installed `@modelcontextprotocol/sdk` and mounted the transport.

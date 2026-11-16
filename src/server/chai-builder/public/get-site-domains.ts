@@ -1,37 +1,27 @@
-import { eq } from "drizzle-orm";
-import { db, safeQuery, schema } from "~/server/chai-actions/db";
+import { getChaiSiteDomainResolver, type ChaiSiteDomains } from "~/server/plugin-api/site-domains";
 import { getInitializedState } from "../state";
 import { withRequestCache } from "./cache-utils";
 
-export type SiteDomains = {
-  subdomain: string;
-  domain: string | null;
-  domainConfigured: boolean;
-};
+export type SiteDomains = ChaiSiteDomains;
 
 // Stable function reference for caching - defined once at module level
 async function fetchSiteDomains(appId: string): Promise<SiteDomains> {
-  const { data, error } = await safeQuery(() =>
-    db.query.appDomains.findFirst({
-      where: eq(schema.appDomains.app, appId),
-      columns: {
-        subdomain: true,
-        domain: true,
-        domainConfigured: true,
-      },
-    }),
-  );
+  // The plugin that owns site domains registers the lookup; without one no site has domains.
+  const resolver = getChaiSiteDomainResolver();
+  let data: SiteDomains | null = null;
+  let error: unknown;
+  try {
+    data = resolver ? await resolver.siteDomains(appId) : null;
+  } catch (cause) {
+    error = cause;
+  }
 
   if (error || !data?.subdomain) {
     console.error("Error fetching site domains", error);
     throw new Error("SITE_DOMAINS_NOT_FOUND");
   }
 
-  return {
-    subdomain: data.subdomain,
-    domain: data.domain,
-    domainConfigured: data.domainConfigured ?? false,
-  };
+  return data;
 }
 
 export const getSiteDomains = async (): Promise<SiteDomains> => {

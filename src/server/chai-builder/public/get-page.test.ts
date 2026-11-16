@@ -1,5 +1,4 @@
 import { describe, expect, it, vi } from "vitest";
-import { useTestChaiConfig } from "~/tests/setup/chai-config";
 import { withTableUnavailable } from "~/tests/setup/db-faults";
 import { installMemoryPersistentCache } from "~/tests/setup/persistent-cache";
 import { withRequestContext } from "~/tests/setup/request-context";
@@ -31,18 +30,6 @@ describe("getPage 404 vs failure", () => {
 
     await withTableUnavailable(schema.appPagesOnline, async () => {
       await expect(published(() => getPage("/about"))).rejects.toThrow("FAILED_TO_RESOLVE_PAGE");
-    });
-    expect(pageNotFound).not.toHaveBeenCalled();
-  });
-
-  // The slug may have a stored redirect: a 404 here would be cached for a path that redirects.
-  it("throws the redirect lookup error, not a 404, when a missing page's redirect lookup fails", async () => {
-    // The edition config registers the redirects plugin's request middleware.
-    useTestChaiConfig();
-    const pageNotFound = notFoundAdapter();
-
-    await withTableUnavailable(schema.appRedirects, async () => {
-      await expect(published(() => getPage("/no-such-page"))).rejects.toThrow("FAILED_TO_FETCH_REDIRECT");
     });
     expect(pageNotFound).not.toHaveBeenCalled();
   });

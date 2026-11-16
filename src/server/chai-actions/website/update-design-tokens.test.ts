@@ -96,18 +96,4 @@ describe("UpdateDesignTokensAction", () => {
       await expect(action(UpdateDesignTokensAction).run({ tokens })).rejects.toThrow(message);
     });
   });
-
-  it("records the change in design token history", async () => {
-    await withTestDB(async ({ action }) => {
-      await action(UpdateDesignTokensAction).run({ tokens: [{ id: "dt#btn", value: "rounded-full px-6" }] });
-
-      const revisions = await getTestDb()
-        .select()
-        .from(schema.appThemeRevisions)
-        .where(eq(schema.appThemeRevisions.app, TEST_APP_ID));
-      expect(revisions).toHaveLength(1);
-      expect(revisions[0]).toMatchObject({ type: "draft", theme: null });
-      expect((revisions[0].designTokens as Record<string, unknown>)["dt#btn"]).toBeDefined();
-    });
-  });
 });
