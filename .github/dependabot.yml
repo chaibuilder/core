@@ -35,6 +35,11 @@ updates:
         update-types: ["version-update:semver-major"]
       - dependency-name: react-dom
         update-types: ["version-update:semver-major"]
+      # Shared src/ must run on the same jotai as chaibuilder/pro. jotai 3's useAtomValue no
+      # longer re-reads after subscribing, so an atom set by an earlier effect is missed (stale
+      # reads). Move both editions together, deliberately, not through a bot PR.
+      - dependency-name: jotai
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: github-actions
     directory: "/"
