@@ -11,11 +11,8 @@ export const getPagePayload = cache(
   async (slug: string, customPageProps?: (page: ChaiFullPage, settings: any) => Partial<ChaiPageProps>) => {
     const [page, settings] = await Promise.all([getPage(slug), getSiteSettings()]);
     setLang(page.lang);
-    // The public request context (applyContext) hardcodes fallbackLang to "en";
-    // loadSiteSettings only runs on the hostname-init path. page.fallbackLang is
-    // the site's real default (derived from siteSettings), so seed it here — link
-    // resolution and every other state.fallbackLang reader depend on it being
-    // correct for non-English-default sites.
+    // Seed the request state so later readers skip the site-settings lookup in
+    // getFallbackLang().
     setFallbackLang(page.fallbackLang);
     const basePageProps: ChaiPageProps = {
       slug,

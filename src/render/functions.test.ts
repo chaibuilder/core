@@ -143,4 +143,35 @@ describe("getMergedPartialBlocks", () => {
     const merged = getMergedPartialBlocks(blocks, partials);
     expect(merged.map((b) => b._id)).toEqual(["a1"]);
   });
+
+  it("keeps a placement with a wrapper tag as the parent of the partial's roots", () => {
+    const wrapper = ref("p1", "A", { _parent: "root", wrapperTag: "section", styles: "#styles:,py-6" });
+    const partials = { A: [box("a1"), box("a2", { _parent: "a1" })] };
+    const merged = getMergedPartialBlocks([box("root"), wrapper], partials);
+    expect(merged.map((b) => b._id)).toEqual(["root", "p1", "a1", "a2"]);
+    expect(merged[1]).toEqual(wrapper);
+    expect(merged[2]!._parent).toBe("p1");
+    expect(merged[3]!._parent).toBe("a1");
+  });
+
+  it.each(["none", "script"])("replaces the placement when its wrapper tag is %s", (wrapperTag) => {
+    const merged = getMergedPartialBlocks([ref("p1", "A", { _parent: "root", wrapperTag })], { A: [box("a1")] });
+    expect(merged.map((b) => b._id)).toEqual(["a1"]);
+    expect(merged[0]!._parent).toBe("root");
+  });
+
+  it("expands a nested partial inside its wrapper", () => {
+    const partials = { A: [ref("a1", "B", { wrapperTag: "div" })], B: [box("b1")] };
+    const merged = getMergedPartialBlocks([ref("p1", "A", { wrapperTag: "section" })], partials);
+    expect(merged.map((b) => [b._id, b._parent])).toEqual([
+      ["p1", undefined],
+      ["a1", "p1"],
+      ["b1", "a1"],
+    ]);
+  });
+
+  it("hides a wrapped placement with _show: false, wrapper included", () => {
+    const merged = getMergedPartialBlocks([ref("p1", "A", { wrapperTag: "section", _show: false })], { A: [box("a1")] });
+    expect(merged).toEqual([]);
+  });
 });

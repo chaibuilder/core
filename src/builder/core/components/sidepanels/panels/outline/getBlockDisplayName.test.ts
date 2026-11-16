@@ -1,4 +1,10 @@
-import { getBlockDisplayName, getOutlineNodeLabel, getPartialDisplayName } from "./node";
+import {
+  getBlockDisplayName,
+  getBlockHoverTitle,
+  getBlockTypeLabel,
+  getOutlineNodeLabel,
+  getPartialDisplayName,
+} from "./node";
 
 describe("getBlockDisplayName", () => {
   it("should return the _name when it exists", () => {
@@ -83,5 +89,29 @@ describe("getOutlineNodeLabel", () => {
   it("keeps the normal name resolution for non-partial blocks", () => {
     expect(getOutlineNodeLabel({ _type: "Box", _name: "My Block" }, false, "", pages)).toBe("My Block");
     expect(getOutlineNodeLabel({ _type: "Box", tag: "section" }, false, "", pages)).toBe("Section");
+  });
+});
+
+describe("getBlockTypeLabel", () => {
+  it("should return the formatted tag name for Box type when tag is not div", () => {
+    expect(getBlockTypeLabel({ _type: "Box", tag: "section" })).toBe("Section");
+  });
+
+  it("should return the base type name for custom blocks", () => {
+    expect(getBlockTypeLabel({ _type: "Custom/NewVehiclesList" })).toBe("NewVehiclesList");
+  });
+});
+
+describe("getBlockHoverTitle", () => {
+  it("should include the original block type when a block is renamed", () => {
+    expect(getBlockHoverTitle({ _name: "Hero Heading", _type: "Heading" })).toBe("Hero Heading (Heading)");
+  });
+
+  it("should keep the existing title when the display name already matches the type", () => {
+    expect(getBlockHoverTitle({ _name: "Heading", _type: "Heading" })).toBe("Heading");
+  });
+
+  it("should use the derived Box tag label in the hover title", () => {
+    expect(getBlockHoverTitle({ _name: "Hero Section", _type: "Box", tag: "section" })).toBe("Hero Section (Section)");
   });
 });

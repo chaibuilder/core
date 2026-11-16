@@ -1,6 +1,7 @@
 import type { PgDatabase } from "drizzle-orm/pg-core";
 import * as coreSchema from "~/drizzle/schema.sqlite";
 import type { ChaiCoreSchema } from "~/db/schema-shape";
+import type { ChaiTableMapping } from "~/db/table-mapping";
 
 /**
  * Loosely-typed relational query surface. Promise-returning signatures (rather
@@ -34,6 +35,13 @@ export type ChaiDbDialect = "pg" | "sqlite";
 export type ChaiDbSetup = {
   drizzle: DbInstance;
   schema: Record<string, unknown>;
+  /**
+   * Default table objects used to rebind plugin relations to host tables. A `schema` entry that is
+   * not its default here counts as host-supplied and wins over plugin schema fragments.
+   */
+  schemaDefaults?: Record<string, unknown>;
+  /** The adapter's `tableMapping`, checked against core and plugin table keys at config build. */
+  tableMapping?: ChaiTableMapping;
   dialect?: ChaiDbDialect;
   teardown?: () => void;
   /**
@@ -62,9 +70,7 @@ function teardownSingletonDb(): void {
 /** Registers the ChaiBuilder DB singleton from `buildChaiBuilderConfig({ db })`. */
 export function registerDb(setup: ChaiDbSetup): void {
   if (!setup?.drizzle) {
-    throw new Error(
-      "ChaiBuilder: invalid `db` setup. Pass `db: createPostgresDB(...)` (or libsql/d1/better-sqlite3).",
-    );
+    throw new Error("ChaiBuilder: invalid `db` setup. Pass `db: createPostgresDB(...)` (or libsql/d1/better-sqlite3).");
   }
 
   if (_db !== null && _db === setup.drizzle) {

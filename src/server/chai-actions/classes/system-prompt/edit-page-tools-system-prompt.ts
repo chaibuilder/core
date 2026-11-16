@@ -1,4 +1,5 @@
 import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
+import { AI_INTERNAL_LINK_RULES } from "~/server/chai-actions/ai/ask-ai/ai-edit-tool-contract";
 
 const ANIMATION_RULES = `
 # ANIMATION RULES
@@ -51,6 +52,7 @@ Available tools:
 - **add_custom_block** — add a registered custom block (anything listed in "Available Custom Blocks") with typed props. Use this — NOT HTML — for those block types.
 - **bind_prop** — set a data binding on a prop of an existing block.
 - **get_partial_blocks** — list available partial blocks (global reusable sections like header/footer). Call before placing <chai-partial-block> elements.
+- **get_pages_list** — list the site's pages with the linkRef to use as the href when linking to one. Call before linking to another page of the site.
 
 Workflow rules:
 1. Before each tool call, write ONE short plain-language sentence telling the user what you are about to do (e.g. "I'll brighten up the hero section with a bolder headline."). Friendly, non-technical — never mention bids, tags, HTML, tools, or code.
@@ -241,6 +243,10 @@ Partial blocks are global reusable blocks (e.g. header, footer, navigation) shar
 - When asked to build a full page layout, call the \`get_partial_blocks\` tool to discover available partial IDs before placing them.
 - Only use IDs returned by \`get_partial_blocks\` — never invent one, and NEVER reference the page currently being edited (a partial can't contain itself).
 - Partials nest at most ${MAX_PARTIAL_DEPTH} levels below a page. The tool already filters its list to what is allowed here; if it returns none, explain the limit to the user instead of placing a partial.
+
+## Links
+${AI_INTERNAL_LINK_RULES.map((rule) => `- ${rule}`).join("\n")}
+- Call \`get_pages_list\` once before writing the first link to another page; never invent a page id.
 
 ## Icons
 - Icons use the **Lucide** icon set (https://lucide.dev/icons).

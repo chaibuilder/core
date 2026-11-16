@@ -42,12 +42,7 @@ export const AsyncRenderBlocks = async (
             // out of the items slot (and everything else out of the empty slot)
             // by the repeaterSlot clauses in the block filter above.
             !isArray(repeaterItems) ? null : repeaterItems.length === 0 ? (
-              <AsyncRenderBlocks
-                {...props}
-                parent={block._id}
-                key={`${get(block, "_parent", "root")}-${block._id}-empty`}
-                repeaterSlot="emptyState"
-              />
+              <AsyncRenderBlocks {...props} parent={block._id} repeaterSlot="emptyState" />
             ) : (
               repeaterItems.map((_, index) => (
                 <AsyncRenderBlocks
@@ -68,7 +63,6 @@ export const AsyncRenderBlocks = async (
               <AsyncRenderBlocks
                 {...props}
                 parent={block._id}
-                key={`${get(block, "_parent", "root")}-${block._id}`}
                 collectionItemData={{ itemKey: `${$repeaterItemsKey!.slice(2, -2).trim()}.0` }}
                 type={block._type}
                 repeaterSlot={undefined}
@@ -78,7 +72,6 @@ export const AsyncRenderBlocks = async (
             <AsyncRenderBlocks
               {...props}
               parent={block._id}
-              key={`${get(block, "_parent", "root")}-${block._id}`}
               repeaterData={repeaterData}
               type={block._type}
               repeaterSlot={undefined}

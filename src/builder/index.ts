@@ -10,16 +10,12 @@ import { useClearAll, useReloadPage } from "~/builder/pages/hooks/use-reload-pag
 import { useUpdateActivePageMetadata } from "~/builder/pages/hooks/use-update-metadata";
 import { defaultChaiLibrary, useTranslation } from "./core/main";
 import { CHAI_PACKAGE_NAME } from "~/edition/identity";
-import { logChaiVersionBanner } from "./core/functions/version-banner";
 import { useSavePage } from "./hooks/use-save-page";
 import { ChaiWebsiteBuilder } from "./pages/chaibuilder-pages";
 
 if (typeof window === "undefined") {
   throw new Error(`${CHAI_PACKAGE_NAME} is not available on the server`);
 }
-
-// Client entry — runs as soon as the builder chunk is evaluated in the browser.
-logChaiVersionBanner();
 
 export { PermissionChecker } from "~/builder/pages/client/components/permission-checker";
 export { SmartJsonInput as ChaiJsonInput } from "~/builder/pages/client/components/smart-json-input";

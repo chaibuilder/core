@@ -1,48 +1,47 @@
 /**
  * @vitest-environment happy-dom
  */
-import { render, screen } from "@testing-library/react";
 import type { WidgetProps } from "@rjsf/utils";
+import { screen } from "@testing-library/react";
+import { vi } from "vitest";
+import { TooltipProvider } from "~/components/ui/tooltip";
+import { renderInBuilder } from "~/tests/builder/render-in-builder";
+import type { ChaiBlock } from "~/types/common";
 import { RepeaterBindingWidget } from "./repeater-binding";
-import { useRepeaterSource } from "~/builder/core/rjsf-widgets/repeater-data/use-repeater-source";
-import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 
-vi.mock("~/builder/core/rjsf-widgets/repeater-data/use-repeater-source", () => ({ useRepeaterSource: vi.fn() }));
-vi.mock("~/builder/hooks/use-builder-prop", () => ({ useBuilderProp: vi.fn() }));
-vi.mock("~/components/ui/tooltip", () => ({
-  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipContent: () => null,
-}));
-
-const sourceMock = useRepeaterSource as ReturnType<typeof vi.fn>;
-const builderPropMock = useBuilderProp as ReturnType<typeof vi.fn>;
-
+/**
+ * Renders the widget for a selected Repeater bound to `value`. The widget resolves its source from
+ * the selected block plus the host's `collections` (legacy) and `chaiCollections` (repeater data).
+ */
 const widget = (value: string) =>
-  render(<RepeaterBindingWidget {...({ value, onChange: vi.fn() } as unknown as WidgetProps)} />);
-
-beforeEach(() => {
-  builderPropMock.mockImplementation((key: string, fallback: unknown) =>
-    key === "collections" ? [{ id: "col_8f3a", name: "Blog posts" }] : fallback,
+  renderInBuilder(
+    // The builder root layout supplies the TooltipProvider.
+    <TooltipProvider>
+      <RepeaterBindingWidget {...({ value, onChange: vi.fn() } as unknown as WidgetProps)} />
+    </TooltipProvider>,
+    {
+      builderProps: {
+        collections: [{ id: "col_8f3a", name: "Blog posts" }],
+        chaiCollections: [{ id: "posts", name: "posts" }],
+      },
+      blocks: [{ _id: "repeater-1", _type: "Repeater", repeaterItems: value } as unknown as ChaiBlock],
+      selectedBlockIds: ["repeater-1"],
+    },
   );
-});
 
 describe("RepeaterBindingWidget", () => {
   it("shows the collection name for a legacy collection binding", () => {
-    sourceMock.mockReturnValue({ kind: "collection", id: "col_8f3a" });
     widget("{{#col_8f3a}}");
     expect(screen.getByText("Blog posts")).toBeTruthy();
     expect(screen.queryByText("col_8f3a")).toBeNull();
   });
 
   it("falls back to the id when the collection no longer exists", () => {
-    sourceMock.mockReturnValue({ kind: null, id: null });
     widget("{{#gone_123}}");
     expect(screen.getByText("gone_123")).toBeTruthy();
   });
 
   it("keeps the repeater-data name for repeater data sources", () => {
-    sourceMock.mockReturnValue({ kind: "repeaterData", id: "posts", definition: { name: "posts" } });
     widget("{{#posts}}");
     expect(screen.getByText("Posts")).toBeTruthy();
   });

@@ -1,5 +1,4 @@
 import { startCase } from "lodash-es";
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { Label } from "~/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
@@ -16,12 +15,8 @@ const FontSelector = ({
 }) => {
   const availableFonts = useRegisteredFonts();
   const { t } = useTranslation();
-
-  useEffect(() => {
-    if (!availableFonts.some((font) => font.family === value)) {
-      onChange(availableFonts[0].family);
-    }
-  }, [value, onChange, availableFonts]);
+  // Keep an unregistered stored font visible rather than replacing it: onChange autosaves the theme.
+  const isUnregistered = Boolean(value) && !availableFonts.some((font) => font.family === value);
 
   return (
     <div className="space-y-0.5">
@@ -31,6 +26,11 @@ const FontSelector = ({
           <SelectValue placeholder={t("Select font")} />
         </SelectTrigger>
         <SelectContent>
+          {isUnregistered && (
+            <SelectItem value={value} disabled>
+              {value}
+            </SelectItem>
+          )}
           {availableFonts.map((font) => (
             <SelectItem key={font.family} value={font.family}>
               {font.family}

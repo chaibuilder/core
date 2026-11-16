@@ -28,10 +28,21 @@ export type ChaiEditionClientPlugins = {
   editionClientPlugins: ChaiClientPlugin[];
 };
 
-/** What the shared integration-test harness (src/tests/setup) takes from the edition. */
-export type ChaiEditionTestHarness<TDb> = {
-  /** Server plugins registered for every integration test run. */
+/**
+ * Every table the edition declares, plugin-owned included, keyed by JS export name (value: default
+ * SQL name). `buildChaiBuilderConfig` accepts these as `tableMapping` keys.
+ */
+export type ChaiEditionTableNames = {
+  EDITION_TABLE_NAMES: Readonly<Record<string, string>>;
+};
+
+/** What the shared test harness (src/tests/setup) takes from the edition. */
+export type ChaiEditionTestHarness<TDb = unknown> = {
+  /** Server plugins registered by the test harness's `withTestDB` / `useTestChaiConfig`. */
   editionTestServerPlugins: () => ChaiServerPlugin[];
-  /** Deletes rows in edition-owned tables; runs inside the harness's FK-off cleanup window. */
-  editionTestCleanup: (db: TDb) => Promise<void>;
+  /**
+   * @deprecated The in-memory harness wipes every table after each test and never calls this.
+   * Kept optional so an edition copy that still exports it type-checks until it is removed there.
+   */
+  editionTestCleanup?: (db: TDb) => Promise<void>;
 };

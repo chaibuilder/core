@@ -52,12 +52,25 @@ const currentAddSelection = atom<any>(null);
  * with the rows they belong to. */
 export const OUTLINE_INDENT = 14;
 
-export const getBlockDisplayName = (data: any): string => {
-  if (data?._name) return data._name;
+export const getBlockTypeLabel = (data: any): string => {
   if (data?._type === "Box" && data?.tag && data?.tag !== "div") {
     return startCase(data.tag);
   }
+  // Users see a slot as an "Area"; code keeps `ChaiSlot`.
+  if (data?._type === "ChaiSlot") return "Area";
   return data?._type?.split("/").pop() || "";
+};
+
+export const getBlockDisplayName = (data: any): string => data?._name || getBlockTypeLabel(data);
+
+/** "Name (Type)" for a renamed block, so the hover title still says what it is. */
+export const getBlockHoverTitle = (data: any): string => {
+  const displayName = getBlockDisplayName(data);
+  const typeLabel = getBlockTypeLabel(data);
+  if (!displayName || !typeLabel || displayName.trim().toLowerCase() === typeLabel.trim().toLowerCase()) {
+    return displayName;
+  }
+  return `${displayName} (${typeLabel})`;
 };
 
 /**
@@ -276,6 +289,8 @@ export const Node = memo(({ node, style, dragHandle }: NodeRendererProps<any>) =
     () => getOutlineNodeLabel(data, isPartialBlock, partialRefId, projectPages),
     [isPartialBlock, partialRefId, projectPages, data],
   );
+  // Partial rows show the partial's live name; their baked `_name` is stale.
+  const hoverTitle = isPartialBlock ? displayName : getBlockHoverTitle(data);
 
   // The sentinel row appended after the last root block: a hover-revealed
   // "Add block" pill that appends at the end of the page (position -1). Without
@@ -417,6 +432,7 @@ export const Node = memo(({ node, style, dragHandle }: NodeRendererProps<any>) =
                   isLibBlock && isSelected && "text-orange",
                   isPartialBlock && "text-purple/90",
                   isPartialBlock && isSelected && "text-purple",
+                  data?._type === "ChaiSlot" && "text-blue-500",
                   isMissingPartial && "text-destructive",
                 )}>
                 <div>
@@ -475,7 +491,7 @@ export const Node = memo(({ node, style, dragHandle }: NodeRendererProps<any>) =
                     }}>
                     <span
                       className={cn("font-light", isMissingPartial && "decoration-destructive/60 line-through")}
-                      title={displayName.length > 26 ? displayName : ""}>
+                      title={hoverTitle !== displayName || displayName.length > 26 ? hoverTitle : ""}>
                       {truncateText(displayName, 26)}
                     </span>
                     {isMissingPartial && (

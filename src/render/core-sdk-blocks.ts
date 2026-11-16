@@ -48,5 +48,6 @@ export const CORE_SDK_BLOCKS = [
   "Repeater",
   "RepeaterItem",
   "RepeaterEmptyState",
+  "ChaiSlot",
   "CollectionItem",
 ];

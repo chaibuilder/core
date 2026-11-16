@@ -115,7 +115,7 @@ export const WithChaiLayout = async (props: WithChaiLayoutProps) => {
           {themeVars}
         </style>
         {fontStyles ? (
-          <style href="chai-fonts" precedence="chai-theme">
+          <style href="chai-fonts" precedence="chai-fonts">
             {fontStyles}
           </style>
         ) : null}

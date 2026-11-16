@@ -1,4 +1,4 @@
-import { get, has, isArray, isFunction, isNull } from "lodash-es";
+import { get, has, isArray, isFunction, isNull, omit } from "lodash-es";
 import { createElement, Suspense } from "react";
 import {
   applyLanguage,
@@ -16,13 +16,33 @@ import { CORE_SDK_BLOCKS } from "./core-sdk-blocks";
 import { shouldInlineDataProviders } from "./inline-data-providers";
 import { getRuntimePropValues, RenderChaiBlocksProps } from "./render-chai-blocks-sdk";
 
+import { RenderOnOpen } from "./render-on-open.lazy";
+import { ROOT_BLOCK_PROPS } from "~/utils/site-layout-css";
 const SuspenseFallback = () => <div></div>;
+
+// `pageData` handed to components: `externalData` minus `global` (site-wide
+// parameters, ~50 KB on a VDP) that no block reads at runtime; bindings still
+// resolve against the full object. Memoized per `externalData` so every block
+// shares one identity and Flight serializes it once instead of per block.
+const slimPageDataCache = new WeakMap<object, Record<string, unknown>>();
+const getSlimPageData = (externalData: Record<string, unknown> | undefined) => {
+  if (!externalData) return {};
+  let slim = slimPageDataCache.get(externalData);
+  if (!slim) slimPageDataCache.set(externalData, (slim = omit(externalData, ["global"])));
+  return slim;
+};
+
+// Props handed to a 'use client' component are serialized into the Flight
+// payload, so only server fallbacks receive the block props.
+const isClientReference = (component: unknown) =>
+  (component as { $$typeof?: symbol } | null)?.$$typeof === Symbol.for("react.client.reference");
 
 export const RenderBlock = async (
   props: RenderChaiBlocksProps & {
-    repeaterData?: { index: number; dataKey: string };
+    repeaterData?: { index: number; dataKey: string; scrollsX?: boolean };
     collectionItemData?: { itemKey: string };
     block: ChaiBlock;
+    slotProps?: Record<string, React.ReactNode>;
     children: ({
       _id,
       _type,
@@ -48,6 +68,7 @@ export const RenderBlock = async (
     draft,
     pageProps,
     blockErrorBoundary,
+    slotProps,
   } = props;
   const registeredChaiBlock = getRegisteredChaiBlock(block._type) as ChaiBlockConfig;
   const Component = resolveChaiBlockComponent(registeredChaiBlock as any, block._variant);
@@ -62,7 +83,9 @@ export const RenderBlock = async (
     externalData ?? {},
     { index, key: dataKey, locale: bindingLocale, itemKey },
   );
-  const blockAttributesProps = getBlockTagAttributes(block, false);
+  // From the bound block, so `{{…}}` in authored attributes (aria-label, title,
+  // alt…) resolves like text content; React escapes attribute values itself.
+  const blockAttributesProps = getBlockTagAttributes(blockWithBinding, false);
   const runtimeProps = getRuntimePropValues(blocks, block._id, getBlockRuntimeProps(block._type));
   const hasDataProvider = has(registeredChaiBlock, "dataProvider") && isFunction(registeredChaiBlock.dataProvider);
 
@@ -73,14 +96,20 @@ export const RenderBlock = async (
   };
 
   const blockProps = {
-    blockProps: {},
+    blockProps: block._parent ? {} : ROOT_BLOCK_PROPS,
     inBuilder: false,
-    lang: lang || fallbackLang || "en",
     draft: draft ?? false,
-    pageData: externalData ?? {},
+    pageData: getSlimPageData(externalData),
     designTokens,
     pageProps: pageProps as ChaiPageProps,
+    // Position inside the enclosing Repeater (absent outside one), so blocks can
+    // treat the first item differently (the Image block eager-loads only index 0,
+    // and holds the src of later cards back when the Repeater scrolls horizontally).
+    ...(index >= 0 ? { $repeaterIndex: index, $repeaterScrollsX: get(props.repeaterData, "scrollsX", false) } : {}),
     ...newBlock,
+    ...slotProps,
+    // After the block's props: a stale stored `lang` must never override the page's.
+    lang: lang || fallbackLang || "en",
   };
   const isShown = resolveBindingVisibility(get(newBlock, "_show", true), externalData ?? {}, {
     index,
@@ -100,24 +129,34 @@ export const RenderBlock = async (
       ? createElement(blockErrorBoundary, { blockName: block._type, children: element })
       : element;
 
+  // Opt-in per block: a closed panel's content renders on its first open
+  // instead of in the HTML. Only for panels whose links all appear elsewhere
+  // on the page, since crawlers never open them.
+  const renderOnOpen = get(block, ["styles_attrs", "data-render"]) === "on-open";
+  const blockChildren = () => {
+    const kids = children({
+      _id: block._id,
+      _type: block._type,
+      ...(isArray(blockWithBinding.repeaterItems)
+        ? {
+            repeaterItems: applyLimit(blockWithBinding.repeaterItems, block),
+            $repeaterItemsKey: blockWithBinding.$repeaterItemsKey,
+            repeaterTotalItems: blockWithBinding.repeaterTotalItems ?? -1,
+          }
+        : {}),
+    });
+    return kids && renderOnOpen ? <RenderOnOpen>{kids}</RenderOnOpen> : kids;
+  };
+
   const withDataProviderProps = (dataProviderProps: Record<string, any>) =>
     createElement(
       Component,
       {
         ...blockProps,
         ...dataProviderProps,
+        ...slotProps,
       },
-      children({
-        _id: block._id,
-        _type: block._type,
-        ...(isArray(blockWithBinding.repeaterItems)
-          ? {
-              repeaterItems: applyLimit(blockWithBinding.repeaterItems, block),
-              $repeaterItemsKey: blockWithBinding.$repeaterItemsKey,
-              repeaterTotalItems: blockWithBinding.repeaterTotalItems ?? -1,
-            }
-          : {}),
-      }),
+      blockChildren(),
     );
 
   if (hasDataProvider) {
@@ -178,7 +217,9 @@ export const RenderBlock = async (
     }
 
     return wrap(
-      <Suspense fallback={createElement(suspenseFallback)}>
+      // Server skeletons get the block props so they can reserve the resolved
+      // block's height instead of a zero-height placeholder (layout shift).
+      <Suspense fallback={createElement(suspenseFallback, isClientReference(suspenseFallback) ? undefined : blockProps)}>
         <DataProviderPropsBlock
           lang={lang ?? ""}
           pageProps={pageProps as ChaiPageProps}
@@ -191,21 +232,7 @@ export const RenderBlock = async (
     );
   }
 
-  const rendered = createElement(
-    Component,
-    { ...blockProps },
-    children({
-      _id: block._id,
-      _type: block._type,
-      ...(isArray(blockWithBinding.repeaterItems)
-        ? {
-            repeaterItems: applyLimit(blockWithBinding.repeaterItems, block),
-            $repeaterItemsKey: blockWithBinding.$repeaterItemsKey,
-            repeaterTotalItems: blockWithBinding.repeaterTotalItems ?? -1,
-          }
-        : {}),
-    }),
-  );
+  const rendered = createElement(Component, { ...blockProps }, blockChildren());
 
   // In inline mode there must be no boundary between the page root and any
   // descendant data-provider block: a `<Suspense>` here (even bare, with a

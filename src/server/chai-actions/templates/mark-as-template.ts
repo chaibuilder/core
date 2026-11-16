@@ -74,8 +74,8 @@ export class MarkAsTemplateAction extends ChaiBaseAction<MarkAsTemplateActionDat
     // Handle preview image upload if provided
     let finalPreviewImageUrl = previewImageUrl;
     if (previewImage) {
-      const { getChaiAction } = await import("~/server/chai-actions/actions-registery");
-      const uploadAction = getChaiAction("UPLOAD_TO_STORAGE");
+      const { getChaiActionInstance } = await import("~/server/chai-actions/actions-registery");
+      const uploadAction = getChaiActionInstance("UPLOAD_TO_STORAGE");
       uploadAction?.setContext(this.context);
 
       const fileName = `template-${Date.now()}.webp`;

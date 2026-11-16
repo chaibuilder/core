@@ -1,27 +1,23 @@
 // @vitest-environment happy-dom
-import { act, renderHook } from "@testing-library/react";
-import { getDefaultStore } from "jotai";
+import { act } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { builderStore } from "~/builder/atoms/store";
+import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
 import { ChaiBlock } from "~/types/common";
 import { blockRepeaterDataAtom, useAsyncProps } from "./use-async-props";
 
+// The host's data-provider callback, passed in as a builder prop.
 const getBlockAsyncProps = vi.fn();
-
-vi.mock("~/builder/hooks/use-builder-prop", () => ({
-  useBuilderProp: () => getBlockAsyncProps,
-}));
-
-vi.mock("~/builder/hooks/use-update-blocks-props", () => ({
-  useUpdateBlocksPropsRealtime: () => vi.fn(),
-}));
+const builderProps = { getBlockAsyncProps };
 
 const block = (heading: string) => ({ _id: "block-1", _type: "MyBlock", heading }) as unknown as ChaiBlock;
 
 // The hook spreads resolved async props over `$loading`, so its static return type is just
 // `{ $loading: boolean }`. Widen it here to read the props the fixtures resolve.
 const renderAsyncProps = (heading: string) =>
-  renderHook(({ block: b }) => useAsyncProps(b, "live", ["heading"]) as Record<string, any>, {
+  renderHookInBuilder(({ block: b }) => useAsyncProps(b, "live", ["heading"]) as Record<string, any>, {
     initialProps: { block: block(heading) },
+    builderProps,
   });
 
 describe("useAsyncProps", () => {
@@ -98,8 +94,9 @@ const collectionItem = (filters?: unknown[]) =>
   ({ _id: "ci-1", _type: "CollectionItem", repeaterItems: "{{#agents}}", filters }) as unknown as ChaiBlock;
 
 const renderCollectionItem = (filters?: unknown[]) =>
-  renderHook(({ block: b }) => useAsyncProps(b, "live", ["repeaterItems", "filters"]), {
+  renderHookInBuilder(({ block: b }) => useAsyncProps(b, "live", ["repeaterItems", "filters"]), {
     initialProps: { block: collectionItem(filters) },
+    builderProps,
   });
 
 describe("useAsyncProps for a CollectionItem", () => {
@@ -107,7 +104,6 @@ describe("useAsyncProps for a CollectionItem", () => {
     vi.useFakeTimers();
     getBlockAsyncProps.mockReset();
     getBlockAsyncProps.mockResolvedValue({ items: [{ slug: "a" }] });
-    getDefaultStore().set(blockRepeaterDataAtom, {});
   });
 
   afterEach(() => {
@@ -139,14 +135,14 @@ describe("useAsyncProps for a CollectionItem", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300);
     });
-    expect(getDefaultStore().get(blockRepeaterDataAtom)["ci-1"]?.props).toEqual([{ slug: "a" }]);
+    expect(builderStore.get(blockRepeaterDataAtom)["ci-1"]?.props).toEqual([{ slug: "a" }]);
 
     rerender({ block: collectionItem([]) });
     await act(async () => {
       await vi.advanceTimersByTimeAsync(300);
     });
 
-    expect(getDefaultStore().get(blockRepeaterDataAtom)["ci-1"]).toBeUndefined();
+    expect(builderStore.get(blockRepeaterDataAtom)["ci-1"]).toBeUndefined();
     expect(getBlockAsyncProps).toHaveBeenCalledTimes(1);
   });
 });

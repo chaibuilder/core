@@ -1,11 +1,27 @@
+import { getDrizzleCasing, getMappedDrizzleClient, mapChaiTables, type ChaiTableMapping } from "~/db/table-mapping";
 import { drizzle as drizzleD1, type AnyD1Database, type DrizzleD1Database } from "drizzle-orm/d1";
 import * as schema from "~/drizzle/schema.sqlite";
 import { asDbInstance, type ChaiDbSetup } from "~/db/core";
 import { chaiDrizzleLogger } from "~/db/logger";
 
+/**
+ * `tables` is the drizzle schema record to run on (tables and, optionally, relations); defaults
+ * to the core tables under the default naming. Pass `createChaiSqliteSchema(naming).schema` for a
+ * programmatic naming. `schema` is the older spelling of the same option.
+ */
 export type D1DbInput =
-  | { d1: AnyD1Database; schema?: Record<string, unknown> }
-  | { drizzle: DrizzleD1Database<any>; schema?: Record<string, unknown> };
+  | {
+      d1: AnyD1Database;
+      tableMapping?: ChaiTableMapping;
+      tables?: Record<string, unknown>;
+      schema?: Record<string, unknown>;
+    }
+  | {
+      drizzle: DrizzleD1Database<any>;
+      tableMapping?: ChaiTableMapping;
+      tables?: Record<string, unknown>;
+      schema?: Record<string, unknown>;
+    };
 
 export function createD1Instance(d1: AnyD1Database): DrizzleD1Database<typeof schema> {
   return drizzleD1(d1, { schema, logger: chaiDrizzleLogger });
@@ -22,15 +38,24 @@ function assertSingleD1Input(input: D1DbInput): void {
 export function createD1DB(input: D1DbInput): ChaiDbSetup {
   assertSingleD1Input(input);
 
-  const activeSchema = input.schema ?? schema;
+  const activeSchema = mapChaiTables(input.tables ?? input.schema ?? schema, input.tableMapping, schema);
+  const schemas = { schema: activeSchema, schemaDefaults: schema, tableMapping: input.tableMapping };
+
+  if ("drizzle" in input && input.tableMapping && Object.keys(input.tableMapping).length > 0) {
+    const client = getMappedDrizzleClient<AnyD1Database>(input.drizzle);
+    const casing = getDrizzleCasing(input.drizzle);
+    const withSchema = (tables: Record<string, unknown>) =>
+      asDbInstance(drizzleD1(client, { schema: tables, casing, logger: chaiDrizzleLogger }));
+    return { ...schemas, drizzle: withSchema(activeSchema), dialect: "sqlite", withSchema };
+  }
 
   if ("drizzle" in input) {
-    return { drizzle: asDbInstance(input.drizzle), schema: activeSchema, dialect: "sqlite" };
+    return { ...schemas, drizzle: asDbInstance(input.drizzle), dialect: "sqlite" };
   }
 
   return {
+    ...schemas,
     drizzle: asDbInstance(drizzleD1(input.d1, { schema: activeSchema, logger: chaiDrizzleLogger })),
-    schema: activeSchema,
     dialect: "sqlite",
     withSchema: (mergedSchema) =>
       asDbInstance(drizzleD1(input.d1, { schema: mergedSchema, logger: chaiDrizzleLogger })),
@@ -38,3 +63,5 @@ export function createD1DB(input: D1DbInput): ChaiDbSetup {
 }
 
 export type { DrizzleD1Database };
+
+export type { ChaiTableMapping } from "~/db/table-mapping";

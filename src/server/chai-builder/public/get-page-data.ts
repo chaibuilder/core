@@ -1,5 +1,6 @@
 import { COLLECTION_ITEM_TYPE } from "~/constants/BLOCK_TYPES";
-import { fetchConfigGlobalData, getResolvedPageType } from "~/server/defaults";
+import { getConfigGlobalDataProvider, getResolvedPageType } from "~/server/defaults/config-registry";
+import { getFrameworkAdapter } from "~/server/framework-adapter";
 import { blockFiltersHaveBindings } from "~/server/repeater-data/build-repeater-query";
 import { fetchRepeaterItems } from "~/server/repeater-data/fetch-repeater-items";
 import type { ChaiBlock, ChaiPageProps } from "~/types";
@@ -7,18 +8,25 @@ import { getInitializedState } from "../state";
 import { withChaiCache, withRequestCache } from "./cache-utils";
 import { consumeProviderTags, registerCacheTags, repeaterDataTag } from "./register-cache-tags";
 
-// Stable function reference for caching - defined once at module level
+// Stable function reference for caching - defined once at module level.
+// Calls the provider directly rather than through `fetchConfigGlobalData`, which
+// swallows errors into `{}` for the builder: here that `{}` would be persisted by
+// the no-expiry cache below and blank every `global.*` binding until a redeploy.
+// A throw is never persisted, so the render fails and the next request retries.
 async function fetchSiteGlobalData(appId: string, draftMode: boolean, lang: string): Promise<Record<string, unknown>> {
-  return await fetchConfigGlobalData({ lang, draft: draftMode, inBuilder: false });
+  const data = await getConfigGlobalDataProvider()({ lang, draft: draftMode, inBuilder: false });
+  return (data ?? {}) as Record<string, unknown>;
 }
 
 export const getSiteGlobalData = async (lang: string): Promise<Record<string, unknown>> => {
   const state = getInitializedState();
   const appId = state.appId!;
 
+  // The entry never expires: the year in the key lets values a provider derives
+  // from the date (a copyright year) roll over on the first render of the year.
   return await withChaiCache(
     fetchSiteGlobalData,
-    [`site-global-data-${appId}-${lang}`],
+    [`site-global-data-${appId}-${lang}-${new Date().getFullYear()}`],
     [`site-global-data`, `site-global-data-${appId}`],
     false,
     "fetchSiteGlobalData",
@@ -67,7 +75,19 @@ export const getDataByPageType = async (args: {
     pageProps,
   );
   await registerCacheTags([`page-type-data`, `page-type-data-${appId}`, `page-type-data-${appId}-${pageType}`]);
-  return await consumeProviderTags(data ?? {}, true);
+  const pageTypeData = await consumeProviderTags(data ?? {}, true);
+
+  // A dynamic template matches a URL by its segment pattern, so routing alone
+  // cannot tell a real item from a URL shaped like one. `$notFound` is the
+  // provider answering that question: 404 instead of rendering the template
+  // with nothing bound to it, which is an empty page served as 200. Thrown
+  // after the tags above are registered, so publishing the item later still
+  // regenerates this route.
+  if (data?.$notFound) {
+    getFrameworkAdapter().pageNotFound();
+  }
+
+  return pageTypeData;
 };
 
 // Stable function reference for caching - defined once at module level
@@ -162,7 +182,12 @@ export const getPageData = async (args: {
   // Repeater filter values may carry {{...}} bindings into page/global data. Only
   // then does the collection fetch wait on that data; otherwise all three stay parallel.
   let externalData: Record<string, unknown> | undefined;
-  if (blocks.some((block) => (block._type === "Repeater" || block._type === COLLECTION_ITEM_TYPE) && blockFiltersHaveBindings(block))) {
+  if (
+    blocks.some(
+      (block) =>
+        (block._type === "Repeater" || block._type === COLLECTION_ITEM_TYPE) && blockFiltersHaveBindings(block),
+    )
+  ) {
     const [globalData, pageData] = await Promise.all([globalDataPromise, pageDataPromise]);
     externalData = { ...pageData, global: globalData, pageProps };
   }

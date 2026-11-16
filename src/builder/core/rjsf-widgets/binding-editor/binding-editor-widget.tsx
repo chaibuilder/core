@@ -1,7 +1,7 @@
 import { getDefaultRegistry } from "@rjsf/core";
 import { WidgetProps } from "@rjsf/utils";
 import { EditorContent } from "@tiptap/react";
-import React, { useEffect, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
@@ -109,7 +109,7 @@ export const BindingTextField = ({
         // stays inside the field instead of escaping over the label above.
         // `min-w-0 max-w-full` stops nowrap content (a badge at the line end) from forcing
         // the whole settings panel wider — it clips/scrolls internally like a real input.
-        "border-input text-foreground relative w-full max-w-full min-w-0 overflow-hidden rounded-md border bg-transparent outline-none focus-within:ring-0 focus-within:outline-none focus:outline-none",
+        "border-input text-foreground relative w-full max-w-full min-w-0 overflow-hidden rounded-md border bg-surface outline-none focus-within:ring-0 focus-within:outline-none focus:outline-none",
         multiline ? "min-h-[60px]" : "min-h-8",
         className,
       )}>

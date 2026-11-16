@@ -4,7 +4,12 @@ import { ActionError } from "~/server/chai-actions/action-error";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { LAYOUTS_INDEX_TAG } from "~/server/chai-builder/public/get-layout-id-by-name";
-import { pageSlugTag, routingTagsForPageIds, slugTag } from "~/server/chai-builder/public/page-routing-cache";
+import {
+  pageSlugTag,
+  routingTagsForPageIds,
+  slugTag,
+  upstreamSiteTag,
+} from "~/server/chai-builder/public/page-routing-cache";
 
 /**
  * Data type for TakeOfflineAction
@@ -96,7 +101,8 @@ export class TakeOfflineAction extends ChaiBaseAction<TakeOfflineActionData, Tak
 
     if (pageType === "partial") {
       const pagesUsingPartial = await this.getPartialBlockUsage(id);
-      const tags = [...routingTagsForPageIds(pagesUsingPartial)];
+      // Linked pages merge this site's partials without listing them in `partialBlocks`.
+      const tags = [...routingTagsForPageIds(pagesUsingPartial), upstreamSiteTag(this.appId)];
 
       // Invalidate layout name→id cache when taking a `_layout` offline
       const { data: pageRow } = await safeQuery(() =>

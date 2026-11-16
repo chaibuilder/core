@@ -85,7 +85,6 @@ const timeCase = async (label: string, blocks: ChaiBlock[], iterations: number) 
   times.sort((a, b) => a - b);
   const median = times[Math.floor(times.length / 2)]!;
   const p95 = times[Math.min(times.length - 1, Math.ceil(times.length * 0.95) - 1)]!;
-  // eslint-disable-next-line no-console
   console.log(
     `BENCH ${label} n=${blocks.length} median=${median.toFixed(1)}ms p95=${p95.toFixed(1)}ms min=${times[0]!.toFixed(1)}ms bytes=${bytes}`,
   );
@@ -98,7 +97,6 @@ describe.skipIf(!process.env.RUN_RENDER_BENCH)("SSR render benchmark", () => {
     async () => {
       const fixturePath = process.env.BLOCKS_FIXTURE;
       if (!fixturePath || !existsSync(fixturePath)) {
-        // eslint-disable-next-line no-console
         console.log("BENCH real-page SKIPPED (no BLOCKS_FIXTURE)");
         return;
       }

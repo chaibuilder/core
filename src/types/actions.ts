@@ -54,6 +54,9 @@ export type ChaiPage = {
   partialBlocks?: string;
   designTokens?: ChaiDesignTokens;
   tracking?: Record<string, any> | null;
+  /** The upstream page this page renders while `useUpstream` is on. */
+  upstream?: string | null;
+  useUpstream?: boolean;
 };
 
 /**
@@ -80,6 +83,7 @@ export type ChaiPageType = {
     identifier,
     slug,
     lang,
+    pageSlug,
   }: {
     query?: string;
     /** Look up a single item by its exact identifier (id, slug, path, ...). */
@@ -87,6 +91,11 @@ export type ChaiPageType = {
     /** @deprecated Use `identifier` — kept for callers written before the rename. */
     slug?: string;
     lang: string;
+    /**
+     * Slug of the builder page the picker is open on. Two pages of the same page
+     * type can scope different collections (e.g. new vs used vehicle detail pages).
+     */
+    pageSlug?: string;
   }) => Promise<ChaiDynamicPageSummary[]>;
   /**
    * Serialized for the client only — functions never cross the wire, so the builder

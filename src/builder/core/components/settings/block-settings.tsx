@@ -1,5 +1,6 @@
 import { ChevronDownIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import { IChangeEvent } from "@rjsf/core";
+import { useAtomValue } from "jotai";
 import {
   cloneDeep,
   debounce,
@@ -15,16 +16,20 @@ import {
 } from "lodash-es";
 import { useCallback, useMemo, useState } from "react";
 import { JSONForm } from "~/builder/core/components/settings/json-form";
+import { SettingsGroupsToggle } from "~/builder/core/rjsf-widgets/grouped-object-field-template";
 import { useChaiCollections } from "~/builder/hooks/use-chai-collections";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useLanguages } from "~/builder/hooks/use-languages";
-import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
+import { partialBlocksListAtom } from "~/builder/hooks/use-partial-blocks-store";
 import { useSelectedBlockHasChildren } from "~/builder/hooks/use-selected-block-has-children";
+import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
 import { useUpdateBlocksProps, useUpdateBlocksPropsRealtime } from "~/builder/hooks/use-update-blocks-props";
 import { useWrapperBlock } from "~/builder/hooks/use-wrapper-block";
 import { COLLECTION_PREFIX } from "~/constants/STRINGS";
-import { getBlockFormSchemas, getChaiBlockStyleVariantProps, getRegisteredChaiBlock } from "~/registry";
+import { getBlockFormSchemas, getChaiBlockVariantProps, getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlockConfig } from "~/types/blocks";
 import { ChaiBlock } from "~/types/common";
+import { getBlockHeading } from "./get-block-heading";
 import { VisibilitySettings } from "./visibility-setting";
 
 const formDataWithSelectedLang = (formData: Record<string, any>, selectedLang: string, coreBlock: ChaiBlockConfig) => {
@@ -57,6 +62,17 @@ export default function BlockSettings() {
   );
   const [prevFormData, setPrevFormData] = useState(formData);
 
+  const { singular } = usePartialTypeLabel();
+  const partialBlocksList = useAtomValue(partialBlocksListAtom);
+  // A placed partial is headed by its partial type and live name; the block's own _name goes stale on rename.
+  const heading =
+    selectedBlock?._type === "PartialBlock"
+      ? getBlockHeading({
+          _type: singular,
+          _name: partialBlocksList[selectedBlock.partialBlockId]?.name ?? selectedBlock._name,
+        })
+      : selectedBlock?._type && getBlockHeading(selectedBlock);
+
   const [showWrapperSetting, setShowWrapperSetting] = useState(false);
   const wrapperBlock = useWrapperBlock() as ChaiBlock;
   const registeredWrapperBlock = getRegisteredChaiBlock(wrapperBlock?._type) as ChaiBlockConfig;
@@ -65,14 +81,14 @@ export default function BlockSettings() {
     [wrapperBlock, selectedLang, registeredWrapperBlock],
   );
 
-  // Picking a style variant writes its classes straight into the block's style
-  // props, so the change is saved with the page and the style panel keeps
-  // working on the result — nothing is resolved at render time.
+  // Picking a variant writes its props straight into the block, so the change is
+  // saved with the page and the style panel keeps working on the result —
+  // nothing is resolved at render time.
   const buildUpdatePayload = useCallback(
     (data: Record<string, any>, prop: string) => {
       const value = get(data, prop);
       if (prop !== "_variant") return { [prop]: value };
-      return { _variant: value, ...(getChaiBlockStyleVariantProps(registeredBlock as any, value) ?? {}) };
+      return { _variant: value, ...(getChaiBlockVariantProps(registeredBlock as any, value) ?? {}) };
     },
     [registeredBlock],
   );
@@ -193,7 +209,13 @@ export default function BlockSettings() {
   }, [wrapperBlock]);
 
   return (
-    <div className="no-scrollbar overflow-x-hidden px-px">
+    <div className="no-scrollbar px-px">
+      {selectedBlock?._type ? (
+        <div className="sticky top-0 z-10 -mx-px flex min-h-7 items-center justify-between gap-1 border-b border-border bg-surface">
+          <div className="truncate text-xs font-medium">{heading}</div>
+          <SettingsGroupsToggle blockType={selectedBlock._type} />
+        </div>
+      ) : null}
       <VisibilitySettings />
       {!isEmpty(wrapperBlock) && (
         <div className="mb-4 rounded border px-1">
@@ -213,6 +235,7 @@ export default function BlockSettings() {
           <div className={showWrapperSetting ? "h-auto" : "invisible h-0"}>
             <JSONForm
               blockId={wrapperBlock?._id}
+              blockType={wrapperBlock?._type}
               onChange={updateWrapperRealtime}
               formData={wrapperFormData}
               schema={wrapperSchema}
@@ -225,6 +248,7 @@ export default function BlockSettings() {
         <JSONForm
           key={uiSchemaVariant}
           blockId={selectedBlock?._id}
+          blockType={selectedBlock?._type}
           onChange={updateRealtime}
           formData={formData}
           schema={schema}

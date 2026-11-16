@@ -22,6 +22,7 @@ const OUTLINE_BLOCK_FIELDS = [
   "_parent",
   "_type",
   "_name",
+  "_canMove",
   "tag",
   "_show",
   "_libBlockId",

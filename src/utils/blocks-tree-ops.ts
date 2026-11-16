@@ -2,15 +2,29 @@ import find from "lodash-es/find";
 import filter from "lodash-es/filter";
 import includes from "lodash-es/includes";
 import isEmpty from "lodash-es/isEmpty";
-import { canAcceptChildBlock, canBeNestedInside } from "~/builder/core/functions/block-helpers";
+import {
+  canAcceptInto,
+  canBeNestedInside,
+  getBlockDepth,
+  getBlockMaxDepth,
+} from "~/builder/core/functions/block-helpers";
 import { ChaiBlock } from "~/types/common";
 
 export { insertBlocksAtPosition } from "~/builder/hooks/history/insert-block-at-position";
+
+const fitsMaxDepth = (parentId: string, allBlocks: ChaiBlock[], maxDepth: number) =>
+  maxDepth < 0 || getBlockDepth(parentId, allBlocks) + 1 <= maxDepth;
 
 /**
  * Resolve the nearest valid parent and insertion position for a new block.
  * Callers that accept an explicit parent must validate that id exists first;
  * this helper intentionally walks upward only through known blocks.
+ *
+ * `maxDepth` overrides the child type's registered `maxDepth` — library blocks
+ * pass it because their root block type (a Box) says nothing about placement.
+ * A depth-limited block that had to climb is always placed right after the
+ * ancestor it climbed out of, replacing any provided position: that position
+ * was meant for a parent the block did not end up in.
  */
 export const getParentAndPosition = (
   childType: string,
@@ -18,7 +32,10 @@ export const getParentAndPosition = (
   selectedBlockIds: string[],
   providedParentId?: string | null,
   providedPosition?: number,
+  maxDepth?: number,
 ): { parentBlockId: string | undefined; insertPosition: number | undefined } => {
+  const depthLimit = maxDepth ?? getBlockMaxDepth(childType);
+  const placeAfterClimbedAncestor = providedPosition === undefined || depthLimit >= 0;
   let insertPosition = providedPosition;
   let currentTargetId: string | undefined = providedParentId || selectedBlockIds[0];
   let parentBlockId: string | undefined;
@@ -28,14 +45,13 @@ export const getParentAndPosition = (
     const candidateParent = allBlocks.find((block) => block._id === currentTargetId);
     if (!candidateParent) break;
 
-    if (canAcceptChildBlock(candidateParent._type, childType) && canBeNestedInside(candidateParent._type, childType)) {
+    if (
+      canAcceptInto(candidateParent, childType, allBlocks) &&
+      canBeNestedInside(candidateParent._type, childType) &&
+      // A slot takes whatever its owner's accept rule allows at any depth: the owner made room for it.
+      (fitsMaxDepth(candidateParent._id, allBlocks, depthLimit) || candidateParent._type === "ChaiSlot")
+    ) {
       parentBlockId = candidateParent._id;
-
-      if (previousCandidateId && providedPosition === undefined) {
-        const siblings = allBlocks.filter((block) => block._parent === parentBlockId);
-        const siblingIndex = siblings.findIndex((block) => block._id === previousCandidateId);
-        if (siblingIndex !== -1) insertPosition = siblingIndex + 1;
-      }
       break;
     }
 
@@ -43,9 +59,9 @@ export const getParentAndPosition = (
     currentTargetId = candidateParent._parent || undefined;
   }
 
-  if (!parentBlockId && previousCandidateId && providedPosition === undefined) {
-    const rootBlocks = allBlocks.filter((block) => !block._parent);
-    const siblingIndex = rootBlocks.findIndex((block) => block._id === previousCandidateId);
+  if (previousCandidateId && placeAfterClimbedAncestor) {
+    const siblings = allBlocks.filter((block) => (parentBlockId ? block._parent === parentBlockId : !block._parent));
+    const siblingIndex = siblings.findIndex((block) => block._id === previousCandidateId);
     if (siblingIndex !== -1) insertPosition = siblingIndex + 1;
   }
 

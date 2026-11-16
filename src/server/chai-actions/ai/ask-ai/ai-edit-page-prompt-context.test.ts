@@ -1,51 +1,73 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
+import { registerChaiBlock } from "~/registry";
+import { registerChaiPipe } from "~/registry/pipes";
+import { useTestChaiConfig } from "~/tests/setup/chai-config";
+import {
+  buildCustomBlockCatalog,
+  customBlockHtmlTag,
+  getCustomCatalogBlocks,
+  isCatalogProp,
+  buildDataBindingPathsText,
+  buildDataBindingPipesText,
+  buildPageTypeContext,
+} from "./ai-edit-page-prompt-context";
 
-vi.mock("~/registry", () => ({
-  getAllRegisteredChaiBlocks: vi.fn(() => ({
-    Gallery: {
-      type: "Gallery",
-      label: "Gallery",
-      description: "Shows a media gallery",
-      pageTypes: ["product"],
-    },
-    Hero: {
-      type: "Hero",
-      label: "Hero",
-      description: "Shows a hero section",
-    },
-  })),
-}));
-
-vi.mock("~/server/defaults/config-registry", () => ({
-  getResolvedPageType: vi.fn(() => ({ description: "A product page" })),
-}));
+// Real registry entries: one custom block restricted to the "product" page type, one unrestricted.
+const NullComponent = (() => null) as any;
+registerChaiBlock(NullComponent, {
+  type: "Gallery",
+  label: "Gallery",
+  group: "test",
+  description: "Shows a media gallery",
+  pageTypes: ["product"],
+} as any);
+registerChaiBlock(NullComponent, {
+  type: "Hero",
+  label: "Hero",
+  group: "test",
+  description: "Shows a hero section",
+} as any);
 
 describe("buildCustomBlockCatalog", () => {
-  it("excludes blocks restricted to a different page type", async () => {
-    const { buildCustomBlockCatalog } = await import("./ai-edit-page-prompt-context");
+  it("excludes blocks restricted to a different page type", () => {
     const catalog = buildCustomBlockCatalog("page");
     expect(catalog).toContain("### Hero");
     expect(catalog).not.toContain("### Gallery");
   });
 
-  it("includes blocks restricted to the current page type", async () => {
-    const { buildCustomBlockCatalog } = await import("./ai-edit-page-prompt-context");
+  it("includes blocks restricted to the current page type", () => {
     const catalog = buildCustomBlockCatalog("product");
     expect(catalog).toContain("### Hero");
     expect(catalog).toContain("### Gallery");
   });
 
-  it("treats an unset page type as the default 'page' type", async () => {
-    const { buildCustomBlockCatalog } = await import("./ai-edit-page-prompt-context");
+  it("treats an unset page type as the default 'page' type", () => {
     const catalog = buildCustomBlockCatalog(undefined);
     expect(catalog).toContain("### Hero");
     expect(catalog).not.toContain("### Gallery");
   });
 });
 
+describe("custom catalog helpers", () => {
+  it("lists the same blocks as the catalog, per page type", () => {
+    const types = (pageType: string) => getCustomCatalogBlocks(pageType).map(([key, block]) => block.type ?? key);
+    expect(types("page")).toContain("Hero");
+    expect(types("page")).not.toContain("Gallery");
+    expect(types("product")).toContain("Gallery");
+    expect(types("page")).not.toContain("Box");
+  });
+
+  it("derives the AI-HTML tag and skips builder-managed props", () => {
+    expect(customBlockHtmlTag("SearchHomePage")).toBe("chai-search-home-page");
+    expect(isCatalogProp({ type: "string" })).toBe(true);
+    expect(isCatalogProp({ type: "string", styles: true })).toBe(false);
+    expect(isCatalogProp({ type: "null", runtime: true })).toBe(false);
+    expect(isCatalogProp({ type: "string", hidden: true })).toBe(false);
+  });
+});
+
 describe("buildDataBindingPipesText", () => {
-  it("advertises registered pipe types and arguments", async () => {
-    const { buildDataBindingPipesText } = await import("./ai-edit-page-prompt-context");
+  it("advertises registered pipe types and arguments", () => {
     const catalog = buildDataBindingPipesText();
     expect(catalog).toContain("Plain bindings need no formatter: {{path}}");
     expect(catalog).toContain("Never add default automatically");
@@ -62,9 +84,7 @@ describe("buildDataBindingPipesText", () => {
     expect(catalog).toContain("Example: {{path | gt 0}}");
   });
 
-  it("includes application-registered formatters", async () => {
-    const { registerChaiPipe } = await import("~/registry/pipes");
-    const { buildDataBindingPipesText } = await import("./ai-edit-page-prompt-context");
+  it("includes application-registered formatters", () => {
     registerChaiPipe({
       name: "testAiSuffix",
       label: "AI test suffix",
@@ -78,14 +98,24 @@ describe("buildDataBindingPipesText", () => {
   });
 });
 
+describe("buildPageTypeContext", () => {
+  it("describes a configured page type with its description", () => {
+    useTestChaiConfig({ pageTypes: [{ key: "product", name: "Product", description: "A product page" }] });
+    expect(buildPageTypeContext("product")).toBe("Page type: product\nA product page");
+  });
+
+  it("names an unknown page type and handles a missing one", () => {
+    expect(buildPageTypeContext("unknown")).toBe("Page type: unknown");
+    expect(buildPageTypeContext(undefined)).toBe("Standard page (no specific page type).");
+  });
+});
+
 describe("buildDataBindingPathsText", () => {
-  it("falls back when no paths are available", async () => {
-    const { buildDataBindingPathsText } = await import("./ai-edit-page-prompt-context");
+  it("falls back when no paths are available", () => {
     expect(buildDataBindingPathsText(undefined)).toBe("No data binding paths available for this page.");
   });
 
-  it("lists array item fields as $index paths", async () => {
-    const { buildDataBindingPathsText } = await import("./ai-edit-page-prompt-context");
+  it("lists array item fields as $index paths", () => {
     const text = buildDataBindingPathsText({
       global: ["global.title"],
       page: ["posts"],
@@ -107,8 +137,7 @@ describe("buildDataBindingPathsText", () => {
     expect(text).toContain('repeater-items="{{arrayPath}}"');
   });
 
-  it("describes primitive and empty arrays", async () => {
-    const { buildDataBindingPathsText } = await import("./ai-edit-page-prompt-context");
+  it("describes primitive and empty arrays", () => {
     const text = buildDataBindingPathsText({
       global: [],
       page: [],
@@ -121,14 +150,12 @@ describe("buildDataBindingPathsText", () => {
     expect(text).toContain("- (global) {{global.banners}} — array, empty right now");
   });
 
-  it("omits the arrays section when there are none", async () => {
-    const { buildDataBindingPathsText } = await import("./ai-edit-page-prompt-context");
+  it("omits the arrays section when there are none", () => {
     const text = buildDataBindingPathsText({ global: ["global.title"], page: [], arrays: [] });
     expect(text).toBe("- (global) {{global.title}}");
   });
 
-  it("includes path types so AI can choose compatible formatters", async () => {
-    const { buildDataBindingPathsText } = await import("./ai-edit-page-prompt-context");
+  it("includes path types so AI can choose compatible formatters", () => {
     const text = buildDataBindingPathsText({
       global: ["global.company.name"],
       page: ["listing.price"],

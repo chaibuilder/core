@@ -13,6 +13,7 @@ import {
   has,
   includes,
   isEmpty,
+  isEqual,
   kebabCase,
   map,
   set,
@@ -26,11 +27,31 @@ import { canAddChildBlock } from "~/builder/core/functions/block-helpers";
 import { generateUUID } from "~/builder/core/functions/common-functions";
 import { STYLES_KEY } from "~/constants/STRINGS";
 import { cn } from "~/lib/utils";
-import { syncBlocksWithDefaultProps } from "~/registry";
+import { getBlockDefaultProps, syncBlocksWithDefaultProps } from "~/registry";
 import { ChaiBlock } from "~/types";
+import {
+  decodeStyleText,
+  preserveStyleText,
+  STYLE_TEXT_ENCODING,
+  STYLE_TEXT_ENCODING_ATTR,
+} from "~/utils/style-text-transport";
 import { getVideoURLFromHTML, hasVideoEmbed } from "./import-video";
+import { restoreBlockPropTypes } from "./restore-block-prop-types";
+
+const AI_READ_ONLY_ATTRS = new Set([
+  "can-move",
+  "can-delete",
+  "can-duplicate",
+  "_can-move",
+  "_can-delete",
+  "_can-duplicate",
+  "_slot",
+]);
 
 const NAME_ATTRIBUTES = ["chai-name", "data-chai-name"];
+
+/** A partial placement's own props, which importing an AI's bare <chai-partial-block> would reset. */
+const PARTIAL_PLACEMENT_PROPS = ["wrapperTag", "styles"];
 
 type LucideIconData = { body?: string; width?: number; height?: number };
 type LucideIconAlias = { parent: string };
@@ -229,12 +250,20 @@ const getAttrs = (node: HimalayaNode) => {
   const attributes: HimalayaAttribute[] = node.attributes || [];
 
   forEach(attributes, ({ key, value }) => {
-    if (includes(NAME_ATTRIBUTES, key)) return;
+    if (includes(NAME_ATTRIBUTES, key) || AI_READ_ONLY_ATTRS.has(key)) return;
+    if (node.tagName === "style" && key === STYLE_TEXT_ENCODING_ATTR) return;
     // An empty `value` attribute (e.g. `<input value="">`) is a no-op as an
     // initial value, but once emitted onto the block it turns the field into a
     // controlled input with no change handler and silently blocks typing. Drop
     // it on import; a non-empty value is still kept as the field's default.
     if (key === "value" && includes(["input", "textarea"], node.tagName) && getSanitizedValue(value) === "") {
+      return;
+    }
+    // `checked` is a boolean attribute: present means on, whatever its value. Left in styles_attrs
+    // it lands on the <input> as a controlled `checked` beside the block's defaultChecked, and the
+    // box can never be ticked.
+    if (key === "checked" && node.tagName === "input") {
+      set(attrs, "checked", true);
       return;
     }
     if (key === "bid") {
@@ -267,6 +296,10 @@ const getAttrs = (node: HimalayaNode) => {
       attrs.styles_attrs[`${key}`] = getSanitizedValue(value);
     }
   });
+
+  // An <a> with no href (a JS toggle, a placeholder) still imports as a Link, so give it one:
+  // Next's <Link> throws on `href={undefined}`, which fails the page's server render.
+  if (node.tagName === "a" && !get(attrs, "link.href")) set(attrs, "link.href", "#");
 
   delete attrs.class;
   return attrs;
@@ -428,6 +461,14 @@ const getBlockProps = (node: HimalayaNode): Record<string, any> => {
  * @param parent { block, node }
  * @returns Traversing all nodes one by one and mapping there style, attribute and block type
  */
+// <style> content is raw text, so a Text block that AI-HTML wrapped in
+// `<span …>` would come back as part of the CSS. Peel the wrappers off.
+const STYLE_TEXT_WRAPPER = /^\s*<span\b[^>]*>([\s\S]*)<\/span>\s*$/i;
+const unwrapStyleText = (css: string): string => {
+  const inner = css.match(STYLE_TEXT_WRAPPER)?.[1];
+  return inner === undefined ? css : unwrapStyleText(inner);
+};
+
 const traverseNodes = (nodes: HimalayaNode[], parent: any = null): ChaiBlock[] => {
   return flatMapDeep(nodes, (node: HimalayaNode) => {
     // * Ignoring code comment nodes
@@ -453,7 +494,17 @@ const traverseNodes = (nodes: HimalayaNode[], parent: any = null): ChaiBlock[] =
           return [] as ChaiBlock[];
         }
       }
-      return { ...block, _type: "Text", content: get(node, "content", "") };
+      const content = get(node, "content", "");
+      return {
+        ...block,
+        _type: "Text",
+        content:
+          parent?.node?.tagName === "style"
+            ? find(parent.node.attributes, { key: STYLE_TEXT_ENCODING_ATTR })?.value === STYLE_TEXT_ENCODING
+              ? decodeStyleText(content)
+              : unwrapStyleText(content)
+            : content,
+      };
     }
 
     // * Handle chai- prefixed custom blocks (web components)
@@ -471,8 +522,10 @@ const traverseNodes = (nodes: HimalayaNode[], parent: any = null): ChaiBlock[] =
           .replace(/\s+/g, "");
       block._type = blockType;
       forEach(attributes, ({ key, value }) => {
-        // Skip about-this-component, chai-type, can-move, and can-delete attributes
-        if (key === "about-this-component" || key === "chai-type" || key === "can-move" || key === "can-delete") return;
+        // Skip read-only hints and per-instance action flags; the AI must not set or change them
+        if (key === "about-this-component" || key === "chai-type" || AI_READ_ONLY_ATTRS.has(key)) return;
+        // A slot's accept pattern comes from its owner block, never from the HTML.
+        if (blockType === "ChaiSlot" && key === "accept") return;
 
         // Convert id to _id
         if (key === "id") {
@@ -704,6 +757,16 @@ const traverseNodes = (nodes: HimalayaNode[], parent: any = null): ChaiBlock[] =
       set(block, "inputStyles", get(block, "styles", ""));
       unset(block, "styles");
       set(block, "label", "");
+    } else if (block._type === "FormButton") {
+      // A FormButton renders its `label` prop, never child blocks: the
+      // button's text (or a submit input's value) becomes the label instead
+      // of a Text child that does not show, which left the default "Submit"
+      // on a French page.
+      const text = getTextContent(node.children || []).replace(/\s+/g, " ").trim();
+      const value = String(get(find(node.attributes, { key: "value" }), "value", "") ?? "").trim();
+      const label = text || value;
+      if (label) set(block, "label", label);
+      return [block] as ChaiBlock[];
     }
 
     const children = traverseNodes(node.children || [], { block, node });
@@ -740,6 +803,10 @@ const getSvgDimensions = (node: HimalayaNode, defaultWidth: string, defaultHeigh
  * @returns sanitizing html content
  */
 export const getSanitizedHTML = (html: string) => {
+  return preserveStyleText(html, sanitizeHtmlOutsideStyle);
+};
+
+const sanitizeHtmlOutsideStyle = (html: string): string => {
   // First, handle the JSON-like structures in attributes
   // Match attribute names including hyphens for kebab-case (e.g. mobile-image, chai-type)
   html = html.replace(/([\w-]+)=\\?"(.*?)\\?"/g, (_match, attr, value) => {
@@ -802,6 +869,20 @@ export const mergeBlocksWithExisting = (importedBlocks: ChaiBlock[], existingBlo
       return b;
     });
 
+  // A `_bid`-matched block keeps the existing block's `_id` (below), so any
+  // child whose `_parent` points at the parent's fresh import-time `_id` must be
+  // repointed to that existing id too — otherwise restoring the parent's
+  // identity strands its children. (The MCP edit path remaps `_parent` before
+  // calling this, but generic callers e.g. `useHtmlToBlocks` do not.)
+  const idRemap = new Map<string, string>();
+  for (const block of importedBlocks) {
+    if (isEmpty(block._bid)) continue;
+    const existing = findBlockById(existingBlocks, block._bid);
+    if (existing) idRemap.set(block._id, existing._id);
+  }
+  const remapParent = (parent: string | null | undefined) =>
+    parent && idRemap.has(parent) ? (idRemap.get(parent) as string) : parent;
+
   return map(importedBlocks, (importedBlock) => {
     const existingBlock = !isEmpty(importedBlock._bid) ? findBlockById(existingBlocks, importedBlock._bid) : undefined;
 
@@ -810,14 +891,49 @@ export const mergeBlocksWithExisting = (importedBlocks: ChaiBlock[], existingBlo
       if (existingBlock._type === "Icon" && get(importedBlock, "icon", "").match(/chai-default-svg/)) {
         delete importedBlock.icon;
       }
-      // Merge imported block properties into existing block
-      const mergedBlock = { ...existingBlock, ...importedBlock };
+      // Merge imported block properties into existing block. `_bid` matched this
+      // imported block to `existingBlock`, so it IS that block: keep the existing
+      // identity (a fresh `_id` was seeded on import — overwriting it strands
+      // every stored `bid` reference; see #3240).
+      const mergedBlock = { ...existingBlock, ...importedBlock, _id: existingBlock._id };
       unset(mergedBlock, "_bid");
+      // Remap the RESULT's `_parent` (not `importedBlock._parent`): the edit
+      // target is often a root with no imported parent, and the spread has
+      // already kept `existingBlock._parent` for it — overwriting that with an
+      // absent imported parent would detach it. `remapParent` is a no-op on a
+      // real existing id and only rewrites a child pointing at a temp import id.
+      (mergedBlock as { _parent?: string | null })._parent = remapParent(
+        (mergedBlock as { _parent?: string | null })._parent,
+      );
+      // A prop the edit did not change round-trips back through AI-HTML, which
+      // can lossily re-encode it (JSON key order / number precision on objects
+      // and arrays). Restore the original's exact value for every prop the
+      // imported block reproduces unchanged, so only genuinely edited props
+      // differ from what was stored.
+      const merged = mergedBlock as Record<string, unknown>;
+      const original = existingBlock as Record<string, unknown>;
+      for (const key of Object.keys(original)) {
+        if (key in importedBlock && isEqual(merged[key], original[key])) {
+          merged[key] = original[key];
+        }
+      }
+      // AI rewrites emit a partial placement as a bare <chai-partial-block partial-id>, and import
+      // fills in the default wrapper. Keep the placement's own wrapper unless the edit set another.
+      if (existingBlock._type === "PartialBlock") {
+        const defaults = getBlockDefaultProps("PartialBlock") as Record<string, unknown>;
+        for (const key of PARTIAL_PLACEMENT_PROPS) {
+          if (has(original, key) && (!has(importedBlock, key) || isEqual(merged[key], defaults[key]))) {
+            merged[key] = original[key];
+          }
+        }
+      }
       return mergedBlock;
     }
 
-    // No existing block found, return imported block as is
+    // No existing block found, return imported block as is — but still repoint a
+    // `_parent` that referenced a re-identified parent.
     unset(importedBlock, "_bid");
+    importedBlock._parent = remapParent(importedBlock._parent);
     return importedBlock;
   });
 };
@@ -831,5 +947,8 @@ export const getBlocksFromHTML = async (html: string): Promise<ChaiBlock[]> => {
   const nodes: HimalayaNode[] = parse(getSanitizedHTML(html));
   if (isEmpty(html)) return [];
   const blocks = flatten(traverseNodes(nodes)) as ChaiBlock[];
-  return await resolveIconNames(syncBlocksWithDefaultProps(blocks));
+  // syncBlocksWithDefaultProps first so every block carries its registered
+  // schema-typed defaults; restoreBlockPropTypes then coerces any prop the
+  // AI-HTML round-trip turned into a string back to its schema type.
+  return await resolveIconNames(restoreBlockPropTypes(syncBlocksWithDefaultProps(blocks)));
 };

@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from "async_hooks";
+import type { ChaiActionSurface } from "~/types/chai-action";
 import type { ChaiRequestContext } from "~/types/chaibuilder-config";
 import { getGlobalDebugLevel, runWithDebugLevel } from "../debug/debug-level";
 
@@ -10,7 +11,8 @@ export type RequestState = {
   /** Host-supplied permission grants; null means "resolve membership from app_users". */
   permissions: string[] | null;
   draftMode: boolean;
-  fallbackLang: string;
+  /** Site default language. `null` until seeded from site settings — see `getFallbackLang`. */
+  fallbackLang: string | null;
   lang: string | null;
   initialized: boolean;
   siteUrl: string | null;
@@ -18,6 +20,8 @@ export type RequestState = {
   requestHeaders: { get(name: string): string | null } | null;
   /** Delegation ceiling for this credential (OAuth/MCP); null on normal browser requests. */
   delegatedPermissions: string[] | null;
+  /** Surface the request came through, as stated by the context resolver; null when unstated. */
+  surface: ChaiActionSurface | null;
   cacheKeys: Map<string, true>;
   traceId: string | null;
   traceStart: number;
@@ -26,7 +30,12 @@ export type RequestState = {
   traceDepth: number;
 };
 
-const storage = new AsyncLocalStorage<RequestState>();
+// On `globalThis`, so every copy of this module shares one store. Next.js builds a module graph per
+// route, and the plugin registries (request middleware, action hooks) are process-global: a handler
+// registered from another graph still runs with this request's state.
+const STORAGE_KEY = Symbol.for("chaibuilder.requestState");
+const _g = globalThis as typeof globalThis & { [STORAGE_KEY]?: AsyncLocalStorage<RequestState> };
+const storage = (_g[STORAGE_KEY] ??= new AsyncLocalStorage<RequestState>());
 
 const createDefaultState = (): RequestState => ({
   appId: null,
@@ -34,12 +43,13 @@ const createDefaultState = (): RequestState => ({
   role: null,
   permissions: null,
   draftMode: false,
-  fallbackLang: "en",
+  fallbackLang: null,
   lang: null,
   initialized: false,
   siteUrl: null,
   requestHeaders: null,
   delegatedPermissions: null,
+  surface: null,
   cacheKeys: new Map(),
   traceId: null,
   traceStart: 0,
@@ -56,10 +66,12 @@ function applyContext(state: RequestState, ctx: ChaiRequestContext): void {
   state.draftMode = ctx.draft ?? false;
   state.siteUrl = ctx.siteUrl ?? null;
   state.lang = ctx.lang ?? "en";
-  state.fallbackLang = "en";
+  // Never a literal: `getFallbackLang` seeds it from site settings on first read.
+  state.fallbackLang = null;
   state.requestHeaders = ctx.requestHeaders ?? null;
   // `delegatedScopes` is the deprecated name for the same ceiling.
   state.delegatedPermissions = ctx.delegatedPermissions ?? ctx.delegatedScopes ?? null;
+  state.surface = ctx.surface ?? null;
   state.initialized = true;
   state.cacheKeys.clear();
   state.traceId = null;
@@ -88,6 +100,21 @@ export function runInContext<T>(context: ChaiRequestContext, fn: () => T): T {
     return runWithDebugLevel(getGlobalDebugLevel(), fn);
   }
 
+  return storage.run(createDefaultState(), () => {
+    applyContext(getRequestState(), context);
+    return runWithDebugLevel(getGlobalDebugLevel(), fn);
+  });
+}
+
+/**
+ * @internal Like {@link runInContext}, but always starts a new store.
+ *
+ * `runInContext` reuses an outer store for the same app, which is what keeps nested
+ * bound instance calls on one request state. A transport that *derives* a context from
+ * the resolved one — the MCP handler stamping `surface` and a delegation ceiling — must
+ * not be silently collapsed into the outer state that lacks them, so it opts out.
+ */
+export function runInFreshContext<T>(context: ChaiRequestContext, fn: () => T): T {
   return storage.run(createDefaultState(), () => {
     applyContext(getRequestState(), context);
     return runWithDebugLevel(getGlobalDebugLevel(), fn);

@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { get, isEmpty } from "lodash-es";
 import { nanoid } from "nanoid";
-import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
+import { getPartialWrapperTag, MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { ChaiBlock } from "~/types";
 
@@ -72,11 +72,15 @@ export function replacePartialBlocks(
 
       partialBlocks = assignNewIds(partialBlocks);
 
-      // Re-parent inlined roots under the PartialBlock/GlobalBlock's parent.
+      // A placement with a wrapper tag stays in the tree as that element and
+      // takes the inlined roots as its children; otherwise it is replaced.
+      const hasWrapper = getPartialWrapperTag(block) !== null;
+
+      // Re-parent inlined roots under the wrapper or the PartialBlock/GlobalBlock's parent.
       // Never broadcast `_show: true` onto children — that un-hid authored
       // `_show: false` forks (mobile/desktop / theme variants).
       partialBlocks = partialBlocks.map((b) => {
-        if (isEmpty(b._parent)) b._parent = block._parent;
+        if (isEmpty(b._parent)) b._parent = hasWrapper ? block._id : block._parent;
         return b;
       });
 
@@ -84,6 +88,7 @@ export function replacePartialBlocks(
       newVisited.add(partialBlockId);
 
       const expandedBlocks = replacePartialBlocks(partialBlocks, partialBlocksMap, newVisited, depth + 1);
+      if (hasWrapper) result.push(block);
       result.push(...expandedBlocks);
     } else {
       result.push(block);
@@ -139,7 +144,7 @@ export async function collectPartialBlocksMap(
     );
 
     if (error) {
-      throw new Error("FAILED_TO_FETCH_PARTIAL_BLOCKS");
+      throw new Error("FAILED_TO_FETCH_PARTIAL_BLOCKS", { cause: error });
     }
 
     if (partialResults) {

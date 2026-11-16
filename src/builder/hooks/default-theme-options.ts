@@ -3,8 +3,7 @@ import { ChaiTheme, ChaiThemeOptions } from "~/types/chaibuilder-editor-props";
 /**
  * The editor's own default theme (color-picker/config-panel seed values) — one of three
  * divergent default-theme constants in this repo, each with its own callers and slightly
- * different values; predate feat-brand-delivery and were not unified by it (surgical-changes
- * rule). The other two: `DEFAULT_APP_THEME` (drizzle/seed/defaults.ts, new-site/snapshot
+ * different values. The other two: `DEFAULT_APP_THEME` (drizzle/seed/defaults.ts, new-site/snapshot
  * fallback) and `GetWebsiteSettingsAction.getDefaultSettings()`
  * (chai/src/server/chai-actions/website/get-website-settings.ts, the editor read action's
  * fallback).

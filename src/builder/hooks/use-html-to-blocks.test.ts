@@ -1,42 +1,31 @@
 import { handlei18N } from "~/builder/hooks/use-html-to-blocks";
-import { getRegisteredChaiBlock } from "~/registry";
+import { registerTestBlocks } from "~/tests/builder/blocks";
 import { ChaiBlock } from "~/types/common";
 
-// Mock the runtime module
-vi.mock("~/registry", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("~/registry")>();
-  return {
-    ...actual,
-    getRegisteredChaiBlock: vi.fn(),
-  };
-});
+// Real registry entries; "UnregisteredParagraph" is deliberately never registered.
+registerTestBlocks(
+  "PlainParagraph", // no i18nProps
+  { type: "I18nParagraph", i18nProps: ["content"] },
+  { type: "I18nButton", i18nProps: ["content", "label"] },
+);
 
 describe("handlei18N", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it("should return blocks unchanged when no block definition exists", () => {
-    const blocks: ChaiBlock[] = [{ _type: "Paragraph", _id: "1", content: "Hello" }];
-    const currentBlocks: ChaiBlock[] = [];
-
-    vi.mocked(getRegisteredChaiBlock).mockReturnValue(undefined);
+    const blocks: ChaiBlock[] = [{ _type: "UnregisteredParagraph", _id: "1", content: "Hello" }];
+    // a matching translated block exists, but without i18n config nothing may be merged
+    const currentBlocks: ChaiBlock[] = [
+      { _type: "UnregisteredParagraph", _id: "2", content: "Hello", "content-es": "Hola" },
+    ];
 
     const result = handlei18N(blocks, currentBlocks);
 
     expect(result).toEqual(blocks);
-    expect(getRegisteredChaiBlock).toHaveBeenCalledWith("Paragraph");
   });
 
   it("should return blocks unchanged when block definition has no i18nProps", () => {
-    const blocks: ChaiBlock[] = [{ _type: "Paragraph", _id: "1", content: "Hello" }];
-    const currentBlocks: ChaiBlock[] = [];
-
-    vi.mocked(getRegisteredChaiBlock).mockReturnValue({
-      type: "Paragraph",
-      label: "Paragraph",
-      // No i18nProps
-    } as any);
+    const blocks: ChaiBlock[] = [{ _type: "PlainParagraph", _id: "1", content: "Hello" }];
+    // a matching translated block exists, but without i18n config nothing may be merged
+    const currentBlocks: ChaiBlock[] = [{ _type: "PlainParagraph", _id: "2", content: "Hello", "content-es": "Hola" }];
 
     const result = handlei18N(blocks, currentBlocks);
 
@@ -44,10 +33,10 @@ describe("handlei18N", () => {
   });
 
   it("should merge i18n values when matching block is found in currentBlocks", () => {
-    const blocks: ChaiBlock[] = [{ _type: "Paragraph", _id: "1", content: "Hello" }];
+    const blocks: ChaiBlock[] = [{ _type: "I18nParagraph", _id: "1", content: "Hello" }];
     const currentBlocks: ChaiBlock[] = [
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "2",
         content: "Hello",
         "content-es": "Hola",
@@ -55,17 +44,11 @@ describe("handlei18N", () => {
       },
     ];
 
-    vi.mocked(getRegisteredChaiBlock).mockReturnValue({
-      type: "Paragraph",
-      label: "Paragraph",
-      i18nProps: ["content"],
-    } as any);
-
     const result = handlei18N(blocks, currentBlocks);
 
     expect(result).toEqual([
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "1",
         content: "Hello",
         "content-es": "Hola",
@@ -75,10 +58,10 @@ describe("handlei18N", () => {
   });
 
   it("should handle multiple i18n properties", () => {
-    const blocks: ChaiBlock[] = [{ _type: "Button", _id: "1", content: "Click me", label: "Submit" }];
+    const blocks: ChaiBlock[] = [{ _type: "I18nButton", _id: "1", content: "Click me", label: "Submit" }];
     const currentBlocks: ChaiBlock[] = [
       {
-        _type: "Button",
+        _type: "I18nButton",
         _id: "2",
         content: "Click me",
         "content-es": "Haz clic",
@@ -87,17 +70,11 @@ describe("handlei18N", () => {
       },
     ];
 
-    vi.mocked(getRegisteredChaiBlock).mockReturnValue({
-      type: "Button",
-      label: "Button",
-      i18nProps: ["content", "label"],
-    } as any);
-
     const result = handlei18N(blocks, currentBlocks);
 
     expect(result).toEqual([
       {
-        _type: "Button",
+        _type: "I18nButton",
         _id: "1",
         content: "Click me",
         label: "Submit",
@@ -108,27 +85,21 @@ describe("handlei18N", () => {
   });
 
   it("should handle trimmed content matching", () => {
-    const blocks: ChaiBlock[] = [{ _type: "Paragraph", _id: "1", content: "  Hello  " }];
+    const blocks: ChaiBlock[] = [{ _type: "I18nParagraph", _id: "1", content: "  Hello  " }];
     const currentBlocks: ChaiBlock[] = [
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "2",
         content: "Hello",
         "content-es": "Hola",
       },
     ];
 
-    vi.mocked(getRegisteredChaiBlock).mockReturnValue({
-      type: "Paragraph",
-      label: "Paragraph",
-      i18nProps: ["content"],
-    } as any);
-
     const result = handlei18N(blocks, currentBlocks);
 
     expect(result).toEqual([
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "1",
         content: "  Hello  ",
         "content-es": "Hola",
@@ -137,64 +108,52 @@ describe("handlei18N", () => {
   });
 
   it("should not merge when no matching content is found", () => {
-    const blocks: ChaiBlock[] = [{ _type: "Paragraph", _id: "1", content: "Hello" }];
+    const blocks: ChaiBlock[] = [{ _type: "I18nParagraph", _id: "1", content: "Hello" }];
     const currentBlocks: ChaiBlock[] = [
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "2",
         content: "Goodbye",
         "content-es": "Adiós",
       },
     ];
 
-    vi.mocked(getRegisteredChaiBlock).mockReturnValue({
-      type: "Paragraph",
-      label: "Paragraph",
-      i18nProps: ["content"],
-    } as any);
-
     const result = handlei18N(blocks, currentBlocks);
 
-    expect(result).toEqual([{ _type: "Paragraph", _id: "1", content: "Hello" }]);
+    expect(result).toEqual([{ _type: "I18nParagraph", _id: "1", content: "Hello" }]);
   });
 
   it("should handle multiple blocks of the same type", () => {
     const blocks: ChaiBlock[] = [
-      { _type: "Paragraph", _id: "1", content: "Hello" },
-      { _type: "Paragraph", _id: "2", content: "World" },
+      { _type: "I18nParagraph", _id: "1", content: "Hello" },
+      { _type: "I18nParagraph", _id: "2", content: "World" },
     ];
     const currentBlocks: ChaiBlock[] = [
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "3",
         content: "Hello",
         "content-es": "Hola",
       },
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "4",
         content: "World",
         "content-es": "Mundo",
       },
     ];
 
-    vi.mocked(getRegisteredChaiBlock).mockReturnValue({
-      type: "Paragraph",
-      label: "Paragraph",
-      i18nProps: ["content"],
-    } as any);
-
     const result = handlei18N(blocks, currentBlocks);
 
     expect(result).toEqual([
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "1",
         content: "Hello",
         "content-es": "Hola",
       },
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "2",
         content: "World",
         "content-es": "Mundo",
@@ -203,10 +162,10 @@ describe("handlei18N", () => {
   });
 
   it("should only merge i18n keys with correct prefix", () => {
-    const blocks: ChaiBlock[] = [{ _type: "Paragraph", _id: "1", content: "Hello" }];
+    const blocks: ChaiBlock[] = [{ _type: "I18nParagraph", _id: "1", content: "Hello" }];
     const currentBlocks: ChaiBlock[] = [
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "2",
         content: "Hello",
         "content-es": "Hola",
@@ -216,17 +175,11 @@ describe("handlei18N", () => {
       },
     ];
 
-    vi.mocked(getRegisteredChaiBlock).mockReturnValue({
-      type: "Paragraph",
-      label: "Paragraph",
-      i18nProps: ["content"],
-    } as any);
-
     const result = handlei18N(blocks, currentBlocks);
 
     expect(result).toEqual([
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "1",
         content: "Hello",
         "content-es": "Hola",
@@ -241,7 +194,7 @@ describe("handlei18N", () => {
     const blocks: ChaiBlock[] = [];
     const currentBlocks: ChaiBlock[] = [
       {
-        _type: "Paragraph",
+        _type: "I18nParagraph",
         _id: "1",
         content: "Hello",
         "content-es": "Hola",
@@ -251,21 +204,14 @@ describe("handlei18N", () => {
     const result = handlei18N(blocks, currentBlocks);
 
     expect(result).toEqual([]);
-    expect(getRegisteredChaiBlock).not.toHaveBeenCalled();
   });
 
   it("should handle empty currentBlocks array", () => {
-    const blocks: ChaiBlock[] = [{ _type: "Paragraph", _id: "1", content: "Hello" }];
+    const blocks: ChaiBlock[] = [{ _type: "I18nParagraph", _id: "1", content: "Hello" }];
     const currentBlocks: ChaiBlock[] = [];
-
-    vi.mocked(getRegisteredChaiBlock).mockReturnValue({
-      type: "Paragraph",
-      label: "Paragraph",
-      i18nProps: ["content"],
-    } as any);
 
     const result = handlei18N(blocks, currentBlocks);
 
-    expect(result).toEqual([{ _type: "Paragraph", _id: "1", content: "Hello" }]);
+    expect(result).toEqual([{ _type: "I18nParagraph", _id: "1", content: "Hello" }]);
   });
 });

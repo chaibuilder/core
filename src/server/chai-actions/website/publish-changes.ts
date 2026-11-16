@@ -1,10 +1,13 @@
-import { and, eq, inArray, InferSelectModel, like } from "drizzle-orm";
-import { flattenDeep, isEmpty, uniq } from "lodash-es";
+import { and, eq, getTableColumns, inArray, InferSelectModel, isNotNull, like } from "drizzle-orm";
+import { flattenDeep, isEmpty, omit, uniq } from "lodash-es";
 import { z } from "zod";
+import { getAppFields, getAppRow, updateAppFields } from "~/server/chai-actions/apps/app-store";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { pruneRevisions } from "~/server/chai-actions/revisions/prune-revisions";
+import { addThemePublishRevision } from "~/server/chai-actions/revisions/theme-revisions";
+import { resolveEditSource } from "~/server/chai-actions/utils/edit-source";
 import { LAYOUTS_INDEX_TAG } from "~/server/chai-builder/public/get-layout-id-by-name";
-import { pageSlugTag, slugTag } from "~/server/chai-builder/public/page-routing-cache";
+import { pageSlugTag, slugTag, upstreamSiteTag } from "~/server/chai-builder/public/page-routing-cache";
 import { ActionError } from "../action-error";
 import { ChaiBaseAction } from "../base-action";
 
@@ -65,22 +68,19 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
     this.revisionsEnabled = data.revisions ?? false;
 
     try {
-      const ids = data.ids ?? [];
-      if (ids.length === 0) {
+      if ((data.ids ?? []).length === 0) {
         throw new ActionError("IDS_REQUIRED", "At least one page ID or THEME must be provided");
       }
+      const ids = data.ids!;
+      await this.assertNoTrashedPages(ids);
 
-      const responses = await Promise.all(
-        ids.map((id) => {
-          if (id === "THEME") {
-            return this.publishTheme();
-          }
-          if (id === "DESIGN_TOKENS") {
-            return this.publishDesignToken();
-          }
-          return this.publishPage(id);
-        }),
-      );
+      // Site-wide ids run one after another: each read-modify-writes apps.changes, so running them
+      // concurrently could let one publish put back the flag the other just cleared.
+      const responses: PublishChangesActionResponse[] = [];
+      if (ids.includes("THEME")) responses.push(await this.publishTheme());
+      if (ids.includes("DESIGN_TOKENS")) responses.push(await this.publishDesignToken());
+      const pageIds = ids.filter((id) => id !== "THEME" && id !== "DESIGN_TOKENS");
+      responses.push(...(await Promise.all(pageIds.map((id) => this.publishPage(id)))));
 
       await this.clearChanges(ids);
       const tags = uniq(flattenDeep(responses.map((r) => r.tags)));
@@ -88,6 +88,32 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
       return { tags, paths };
     } catch (error) {
       return this.handleExecutionError(error);
+    }
+  }
+
+  /**
+   * Refuse trashed pages before anything is published: publishing one re-creates its online
+   * row, so the page serves again and stays listed in its parent's menu while hidden from the builder.
+   */
+  private async assertNoTrashedPages(ids: string[]): Promise<void> {
+    const pageIds = ids.filter((id) => id !== "THEME" && id !== "DESIGN_TOKENS");
+    if (pageIds.length === 0) return;
+    const { data, error } = await safeQuery(() =>
+      db
+        .select({ id: schema.appPages.id })
+        .from(schema.appPages)
+        .where(
+          and(
+            inArray(schema.appPages.id, pageIds),
+            eq(schema.appPages.app, this.appId),
+            isNotNull(schema.appPages.deletedAt),
+          ),
+        ),
+    );
+    if (error) throw new ActionError("Error checking trashed pages", "ERROR_PUBLISHING_PAGE", 500, error);
+    const trashed = (data ?? []).map((row) => row.id);
+    if (trashed.length > 0) {
+      throw new ActionError(`Cannot publish trashed pages: ${trashed.join(", ")}`, "PAGE_TRASHED", 409);
     }
   }
 
@@ -105,7 +131,12 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
    */
   private async publishTheme(): Promise<PublishChangesActionResponse> {
     const app = await this.cloneApp();
-    await this.upsertOnlineApp(app, "ERROR_PUBLISHING_THEME");
+    // Theme and design tokens publish separately: the live tokens stay as they are.
+    await this.upsertOnlineApp(app, "ERROR_PUBLISHING_THEME", "designTokens");
+
+    if (this.revisionsEnabled) {
+      await addThemePublishRevision(this.appId, this.context?.userId, { theme: app.theme });
+    }
 
     // Remove 'THEME' from changes array, set null only if no other changes remain
     await this.removeFromChangesArray("THEME", "ERROR_PUBLISHING_THEME");
@@ -118,7 +149,12 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
    */
   private async publishDesignToken(): Promise<PublishChangesActionResponse> {
     const app = await this.cloneApp();
-    await this.upsertOnlineApp(app, "ERROR_PUBLISHING_DESIGN_TOKEN");
+    // Theme and design tokens publish separately: the live theme stays as it is.
+    await this.upsertOnlineApp(app, "ERROR_PUBLISHING_DESIGN_TOKEN", "theme");
+
+    if (this.revisionsEnabled) {
+      await addThemePublishRevision(this.appId, this.context?.userId, { designTokens: app.designTokens });
+    }
 
     // Remove 'DESIGN_TOKENS' from changes array, set null only if no other changes remain
     await this.removeFromChangesArray("DESIGN_TOKENS", "ERROR_PUBLISHING_DESIGN_TOKEN");
@@ -137,31 +173,32 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
    * on the id instead: it preserves row identity (no cascade) and apps_online-only
    * columns (we never overwrite apiKey/createdAt), and still creates the row on a
    * first-ever publish.
+   *
+   * `keepOnline` names the column the other site-wide publish owns (theme vs design tokens): an
+   * existing online row keeps its value, so publishing one never takes the other's draft live. A
+   * first-ever publish still inserts the whole row — there is no live value to keep yet.
    */
-  private async upsertOnlineApp(app: AppData, errorCode: string): Promise<void> {
-    // Columns copied from draft -> published. Deliberately excludes apiKey (lives
-    // only on apps_online) and createdAt (kept from the existing online row).
-    const publishedFields = {
-      name: app.name,
-      user: app.user,
-      settings: app.settings,
-      theme: app.theme,
-      fallbackLang: app.fallbackLang,
-      languages: app.languages,
-      changes: null,
-      deletedAt: app.deletedAt,
-      client: app.client,
-      designTokens: app.designTokens,
-      ai: app.ai,
-      configData: app.configData,
-      consentConfig: app.consentConfig,
-    };
+  private async upsertOnlineApp(app: AppData, errorCode: string, keepOnline: "theme" | "designTokens"): Promise<void> {
+    // Every draft column apps_online also has, so a column a host adds to both tables (a NOT NULL
+    // site type, a derived jsonb snapshot) publishes with the rest instead of failing or going stale.
+    // Deliberately excludes apiKey (lives only on apps_online) and createdAt (kept from the
+    // existing online row); a draft-only column has no apps_online counterpart and is skipped.
+    const onlineColumns = getTableColumns(schema.appsOnline);
+    const publishedFields: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(app)) {
+      if (key === "id" || key === "createdAt" || key === "apiKey") continue;
+      if (Object.hasOwn(onlineColumns, key)) publishedFields[key] = value;
+    }
+    publishedFields.changes = null;
 
     const { error } = await safeQuery(() =>
       db
         .insert(schema.appsOnline)
-        .values({ id: app.id, createdAt: app.createdAt, ...publishedFields })
-        .onConflictDoUpdate({ target: schema.appsOnline.id, set: publishedFields }),
+        .values({ id: app.id, createdAt: app.createdAt, ...publishedFields } as typeof schema.appsOnline.$inferInsert)
+        .onConflictDoUpdate({
+          target: schema.appsOnline.id,
+          set: omit(publishedFields, keepOnline) as Partial<typeof schema.appsOnline.$inferInsert>,
+        }),
     );
 
     if (error) {
@@ -175,23 +212,18 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
    */
   private async removeFromChangesArray(key: string, errorCode: string): Promise<void> {
     // Fetch existing changes array
-    const { data: existingApp, error: fetchError } = await safeQuery(() =>
-      db.select({ changes: schema.apps.changes }).from(schema.apps).where(eq(schema.apps.id, this.appId)),
-    );
+    const { data: existingApp, error: fetchError } = await getAppFields(this.appId, ["changes"]);
 
     if (fetchError) {
       throw new ActionError("Error fetching changes", errorCode, 500, fetchError);
     }
 
-    const existingChanges = (existingApp?.[0]?.changes ?? []) as string[];
+    const existingChanges = (existingApp?.changes ?? []) as string[];
     const updatedChanges = existingChanges.filter((c) => c !== key);
 
-    const { error: updateError } = await safeQuery(() =>
-      db
-        .update(schema.apps)
-        .set({ changes: updatedChanges.length > 0 ? updatedChanges : null })
-        .where(eq(schema.apps.id, this.appId)),
-    );
+    const { error: updateError } = await updateAppFields(this.appId, {
+      changes: updatedChanges.length > 0 ? updatedChanges : null,
+    });
 
     if (updateError) {
       throw new ActionError("Error updating changes", errorCode, 500, updateError);
@@ -202,17 +234,13 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
    * Clone app data from main table
    */
   private async cloneApp(): Promise<AppData> {
-    const { data, error } = await safeQuery(() =>
-      db.query.apps.findFirst({
-        where: eq(schema.apps.id, this.appId),
-      }),
-    );
+    const { data, error } = await getAppRow(this.appId);
 
     if (error || !data) {
       throw new ActionError("Site not found", "SITE_NOT_FOUND", 404, error);
     }
 
-    return data;
+    return data as AppData;
   }
 
   /**
@@ -320,6 +348,8 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
       const usage = await this.getPartialBlockUsage(pageId);
       tags.push(...usage.tags);
       paths.push(...usage.paths);
+      // Linked pages merge this site's partials without listing them in `partialBlocks`.
+      tags.push(upstreamSiteTag(this.appId));
       if (page.pageType === "_layout") {
         tags.push(LAYOUTS_INDEX_TAG);
       }
@@ -331,6 +361,8 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
       // cached "no slug" for this id and rendered dead hrefs.
       const slugChanged = isEmpty(oldSlug) || oldSlug !== page.slug;
       if (slugChanged) {
+        // Linked pages match their links to this site's pages by slug.
+        tags.push(upstreamSiteTag(this.appId));
         // Links may carry either the primary or the variant id
         const linkTargetIds = uniq([pageId, page.id]);
         for (const targetId of linkTargetIds) {
@@ -402,6 +434,10 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
 
     // Destructure to remove fields that shouldn't be copied or are auto-generated
     const { changes: _changes, createdAt: _createdAt, ...pageData } = page;
+    // Language pages render the primary's blocks (get-page.ts), and their cache invalidation rides
+    // on the primary's row. Don't mirror orphaned draft blocks, or the partials/links derived from
+    // them, into the online row: they only trigger redundant revalidations (#2842).
+    if (pageData.primaryPage) Object.assign(pageData, { blocks: [], partialBlocks: "", links: "" });
 
     const { data, error } = await safeQuery(() =>
       db
@@ -409,6 +445,9 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
         .values({
           ...pageData,
           currentEditor: this.context?.userId,
+          // `createRevision` copies this row wholesale on the next publish, so
+          // recording it here also attributes the published revision snapshot.
+          source: resolveEditSource(this.context),
         })
         .returning(),
     );
@@ -440,6 +479,10 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
 
     if (error || !data) {
       throw new ActionError("Page not found", "PAGE_NOT_FOUND", 404, error);
+    }
+    // Re-checked at read time: the page may have been trashed since assertNoTrashedPages.
+    if (data.deletedAt) {
+      throw new ActionError(`Cannot publish trashed page: ${id}`, "PAGE_TRASHED", 409);
     }
 
     return data;

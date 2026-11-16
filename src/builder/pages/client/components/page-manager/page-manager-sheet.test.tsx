@@ -1,93 +1,61 @@
 /**
  * @vitest-environment happy-dom
  */
-import { render, screen } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import PagesManagerSheet from "~/builder/pages/client/components/page-manager/page-manager-sheet";
+import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
+import { mockChaiAction } from "~/tests/builder/msw";
+import { renderInBuilder } from "~/tests/builder/render-in-builder";
 
-// Hoisted: these are captured by the (hoisted) vi.mock factories below.
-const { mockPrimaryPages, mockPanelMount, mockPanelUnmount } = vi.hoisted(() => ({
-  mockPrimaryPages: vi.fn<() => { data: unknown[]; isFetching: boolean }>(),
-  mockPanelMount: vi.fn(),
-  mockPanelUnmount: vi.fn(),
-}));
+/** A server reply the test releases by hand, so "request in flight" is a real, observable state. */
+const deferred = <T,>() => {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((r) => (resolve = r));
+  return { promise, resolve };
+};
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
-vi.mock("~/builder/pages/atom/page-manager", () => ({
-  usePageManagerAtom: () => [false, vi.fn()],
-}));
-
-vi.mock("~/builder/pages/hooks/utils/use-search-params", () => ({
-  // No `?page=` in the URL: the sheet is force-open so the user can pick a page.
-  useSearchParams: () => [new URLSearchParams(""), vi.fn()],
-}));
-
-vi.mock("~/builder/pages/hooks/pages/use-current-page", () => ({
-  usePrimaryPage: () => ({ data: {}, isFetching: false }),
-}));
-
-vi.mock("~/builder/pages/hooks/pages/use-project-pages", () => ({
-  useWebsitePrimaryPages: () => mockPrimaryPages(),
-}));
-
-vi.mock("~/components/ui/sheet", () => ({
-  Sheet: ({ open, children }: { open: boolean; children: React.ReactNode }) => (
-    <div data-testid="sheet" data-open={open ? "true" : "false"}>
-      {open ? children : null}
-    </div>
-  ),
-  SheetContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SheetHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SheetTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  SheetDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-}));
-
-vi.mock("./page-manager-new", async () => {
-  const { useEffect } = await import("react");
-  return {
-    default: () => {
-      useEffect(() => {
-        mockPanelMount();
-        return () => mockPanelUnmount();
-      }, []);
-      return <div data-testid="pages-manager-new" />;
-    },
-  };
-});
+const sheetTitle = () => screen.queryByText("Pages Manager");
+const panelSearchInput = () => screen.getByPlaceholderText("Search pages and blocks...");
 
 describe("PagesManagerSheet", () => {
   beforeEach(() => {
-    mockPrimaryPages.mockReset();
-    mockPanelMount.mockClear();
-    mockPanelUnmount.mockClear();
+    // No `?page=` in the URL: the sheet is force-open so the user can pick a page.
+    window.history.replaceState({}, "", "/");
   });
 
   it("stays open (and keeps the panel mounted) across a later pages refetch", async () => {
-    // Initial load in flight: nothing to show yet.
-    mockPrimaryPages.mockReturnValue({ data: [], isFetching: true });
-    const { rerender } = render(<PagesManagerSheet />);
-    expect(screen.getByTestId("sheet").dataset.open).toBe("false");
+    let reply = deferred<unknown[]>();
+    const websitePages = mockChaiAction(ACTIONS.GET_WEBSITE_PAGES, () => reply.promise);
 
-    // Initial load done, no page selected → forced open.
-    mockPrimaryPages.mockReturnValue({ data: [{ id: "a" }], isFetching: false });
-    rerender(<PagesManagerSheet />);
-    expect(await screen.findByTestId("pages-manager-new")).toBeTruthy();
-    expect(mockPanelMount).toHaveBeenCalledTimes(1);
+    const { queryClient } = renderInBuilder(<PagesManagerSheet />);
+
+    // Initial load in flight: nothing to show yet.
+    await waitFor(() => expect(websitePages.calls).toHaveLength(1));
+    expect(sheetTitle()).toBeNull();
+
+    // Initial load done, no page selected → forced open with the real panel.
+    await act(async () => reply.resolve([{ id: "a", name: "Home", slug: "/", pageType: "page" }]));
+    const input = await screen.findByPlaceholderText("Search pages and blocks...");
+    expect(sheetTitle()).not.toBeNull();
+    expect(await screen.findByText("Home")).toBeTruthy();
 
     // A rename / refresh invalidates GET_WEBSITE_PAGES → refetch. This is NOT an
     // initial load any more: the sheet must not close and remount its panel.
-    mockPrimaryPages.mockReturnValue({ data: [{ id: "a" }], isFetching: true });
-    rerender(<PagesManagerSheet />);
-    expect(screen.getByTestId("sheet").dataset.open).toBe("true");
-    expect(screen.getByTestId("pages-manager-new")).toBeTruthy();
-    expect(mockPanelUnmount).not.toHaveBeenCalled();
+    reply = deferred<unknown[]>();
+    await act(async () => {
+      void queryClient.invalidateQueries({ queryKey: [ACTIONS.GET_WEBSITE_PAGES] });
+    });
+    await waitFor(() => expect(websitePages.calls).toHaveLength(2));
+    expect(queryClient.isFetching({ queryKey: [ACTIONS.GET_WEBSITE_PAGES] })).toBeGreaterThan(0);
+    expect(sheetTitle()).not.toBeNull();
+    // Same DOM node: the panel was not unmounted and mounted again.
+    expect(panelSearchInput()).toBe(input);
+    expect(input.isConnected).toBe(true);
 
-    mockPrimaryPages.mockReturnValue({ data: [{ id: "a", name: "renamed" }], isFetching: false });
-    rerender(<PagesManagerSheet />);
-    expect(screen.getByTestId("sheet").dataset.open).toBe("true");
-    expect(mockPanelMount).toHaveBeenCalledTimes(1);
-    expect(mockPanelUnmount).not.toHaveBeenCalled();
+    await act(async () => reply.resolve([{ id: "a", name: "renamed", slug: "/", pageType: "page" }]));
+    expect(await screen.findByText("renamed")).toBeTruthy();
+    expect(sheetTitle()).not.toBeNull();
+    expect(panelSearchInput()).toBe(input);
+    expect(input.isConnected).toBe(true);
   });
 });

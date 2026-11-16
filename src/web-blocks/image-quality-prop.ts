@@ -13,6 +13,7 @@
 type ImageQualityProp = {
   type: "string";
   title: string;
+  description: string;
   default: string;
   oneOf: { const: string; title: string }[];
 };
@@ -20,11 +21,13 @@ type ImageQualityProp = {
 const buildImageQualityProp = (defaultValue: string): ImageQualityProp => ({
   type: "string",
   title: "Image quality",
+  // Default (65) is what makes banners with small text look pixelated (#4670).
+  description: "Default suits photos. Pick High for banners or any image with text on it: Default blurs small text.",
   default: defaultValue,
   oneOf: [
-    // The stored value stays 'auto' (the resolver's fall-through → no explicit
-    // quality → next/image's default 75); only the label spells out that 75.
-    { const: "auto", title: "Default (75)" },
+    // The stored value stays 'auto'; the resolver maps it to AUTO_IMAGE_QUALITY
+    // (components/ui/image-quality.ts). Only the label spells out the number.
+    { const: "auto", title: "Default (65)" },
     { const: "max", title: "Maximum (100)" },
     { const: "high", title: "High (85)" },
     { const: "balanced", title: "Balanced (65)" },
@@ -35,7 +38,7 @@ const buildImageQualityProp = (defaultValue: string): ImageQualityProp => ({
 
 /**
  * For the Image block: images already flow through next/image, so Auto
- * (optimized at next/image's default 75) matches today's behavior.
+ * (optimized at AUTO_IMAGE_QUALITY, 65) is the default.
  */
 export const imageQualityProp = buildImageQualityProp("auto");
 

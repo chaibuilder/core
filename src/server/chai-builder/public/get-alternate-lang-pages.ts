@@ -21,7 +21,7 @@ async function fetchAlternateLangGroup(
   primaryPageId: string,
 ): Promise<AlternateLangGroupRow[]> {
   const table = draftMode ? schema.appPages : schema.appPagesOnline;
-  const { data } = await safeQuery(() =>
+  const { data, error } = await safeQuery(() =>
     db
       .select({
         id: table.id,
@@ -34,6 +34,10 @@ async function fetchAlternateLangGroup(
       .from(table)
       .where(and(eq(table.app, appId), or(eq(table.primaryPage, primaryPageId), eq(table.id, primaryPageId)))),
   );
+
+  // [] would drop every hreflang alternate and be persisted with no expiry; a throw is never persisted.
+  if (error) throw new Error("FAILED_TO_FETCH_ALTERNATE_PAGES", { cause: error });
+
   return (data ?? []) as AlternateLangGroupRow[];
 }
 
@@ -66,11 +70,9 @@ export async function getAlternateLangPages(
         name: p.name,
         slug: p.slug,
         // The primary page stores an empty `lang`, so its hreflang label is the
-        // site fallback. That value comes from the caller (resolved from site
-        // settings), not `state.fallbackLang` — on the metadata request path the
-        // state is never initialized past its hardcoded "en" default, which would
-        // mislabel the French primary as `en` and overwrite the real `en` variant's
-        // self-hreflang with the French URL.
+        // site fallback, passed in by the caller (resolved from site settings).
+        // Mislabeling the French primary as `en` would overwrite the real `en`
+        // variant's self-hreflang with the French URL.
         lang: p.lang || fallbackLang,
         dynamic: p.dynamic ?? false,
         primaryLang: p.id === primaryPageId,

@@ -1,5 +1,6 @@
 import type { ChaiBlockPropsSchema } from "~/types/common";
-import { registerChaiBlockProps } from "../..";
+import { groupProps, registerChaiBlockProps, stylesProp } from "../..";
+import { getBlockFormSchemas, registerChaiBlock } from "../runtime/core";
 
 describe("registerChaiBlockProps", () => {
   it("should handle empty props", () => {
@@ -197,5 +198,96 @@ describe("registerChaiBlockProps", () => {
         }),
       ).toThrow("Runtime props are not allowed in schema");
     });
+  });
+});
+
+describe("groupProps", () => {
+  it("tags every prop with the group label and keeps the rest of its schema", () => {
+    const grouped = groupProps({
+      label: "Layout",
+      properties: {
+        columns: { type: "number", default: 3, ui: { "ui:widget": "range" } },
+        gap: { type: "string", default: "4" },
+      },
+    });
+
+    expect(grouped).toEqual({
+      columns: { type: "number", default: 3, ui: { "ui:widget": "range" }, group: "Layout" },
+      gap: { type: "string", default: "4", group: "Layout" },
+    });
+  });
+
+  it("keeps props flat when spread into a block schema", () => {
+    const input: ChaiBlockPropsSchema = {
+      properties: {
+        title: { type: "string", default: "Title" },
+        ...groupProps({
+          label: "Layout",
+          properties: { columns: { type: "number", default: 3, ui: { "ui:widget": "range" } } },
+        }),
+      },
+    };
+
+    expect(registerChaiBlockProps(input)).toEqual({
+      schema: {
+        properties: {
+          title: { type: "string", default: "Title" },
+          columns: { type: "number", default: 3, group: "Layout" },
+        },
+      },
+      uiSchema: { columns: { "ui:widget": "range" } },
+    });
+  });
+
+  it("does not share prop objects with its input", () => {
+    const columns = { type: "number" as const, default: 3, ui: { "ui:widget": "range" } };
+    registerChaiBlockProps({ properties: groupProps({ label: "Layout", properties: { columns } }) });
+
+    // registerChaiBlockProps deletes `ui` from the props it is given.
+    expect(columns).toEqual({ type: "number", default: 3, ui: { "ui:widget": "range" } });
+  });
+
+  it("turns a nested group into a subgroup of the outer one", () => {
+    expect(
+      groupProps({
+        label: "Outer",
+        properties: {
+          color: { type: "string" },
+          ...groupProps({ label: "Inner", properties: { gap: { type: "string" } } }),
+        },
+      }),
+    ).toEqual({
+      color: { type: "string", group: "Outer" },
+      gap: { type: "string", group: "Outer", subgroup: "Inner" },
+    });
+  });
+
+  it("throws on a third level of nesting", () => {
+    expect(() =>
+      groupProps({
+        label: "Outer",
+        properties: groupProps({
+          label: "Middle",
+          properties: groupProps({ label: "Inner", properties: { gap: { type: "string" } } }),
+        }),
+      }),
+    ).toThrow('Groups nest at most two levels: "gap" is already in group "Middle" > "Inner"');
+  });
+
+  it("reaches the settings form schema, minus grouped style props", () => {
+    registerChaiBlock(() => null, {
+      type: "GroupPropsBlock",
+      label: "GroupPropsBlock",
+      group: "basic",
+      props: registerChaiBlockProps({
+        properties: groupProps({
+          label: "Layout",
+          properties: { wrapperStyles: stylesProp(""), columns: { type: "number", default: 3 } },
+        }),
+      }),
+    });
+
+    const { schema } = getBlockFormSchemas("GroupPropsBlock") as { schema: any };
+    expect(schema.properties).toEqual({ columns: { type: "number", default: 3, group: "Layout" } });
   });
 });

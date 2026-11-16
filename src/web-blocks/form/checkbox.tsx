@@ -13,7 +13,11 @@ export type CheckboxProps = {
 };
 
 const CheckboxBlock = (props: ChaiBlockComponentProps<CheckboxProps>) => {
-  const { blockProps, fieldName, label, styles, inputStyles, required, checked, showLabel = true } = props;
+  const { blockProps, fieldName, label, styles: rawStyles, inputStyles, required, checked, showLabel = true } = props;
+  // A page imported before `checked` was mapped carries it as a passthrough attribute; spread raw
+  // it makes the input controlled (read-only) beside defaultChecked. Fold it into the default.
+  const { checked: attrChecked, ...styles } = rawStyles ?? {};
+  const isChecked = Boolean(checked) || attrChecked !== undefined;
 
   if (!showLabel)
     return (
@@ -24,7 +28,7 @@ const CheckboxBlock = (props: ChaiBlockComponentProps<CheckboxProps>) => {
         {...styles}
         type="checkbox"
         required={required}
-        defaultChecked={checked}
+        defaultChecked={isChecked}
       />
     );
 
@@ -36,7 +40,7 @@ const CheckboxBlock = (props: ChaiBlockComponentProps<CheckboxProps>) => {
         name={fieldName}
         type="checkbox"
         required={required}
-        defaultChecked={checked}
+        defaultChecked={isChecked}
       />
       {label && <label htmlFor={fieldName}>{label}</label>}
     </div>

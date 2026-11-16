@@ -21,13 +21,18 @@ import { ClearCanvas } from "~/builder/core/components/canvas/topbar/clear-canva
 import { SaveToLibrary } from "~/builder/core/components/sidepanels/panels/outline/save-to-library";
 import { UnlinkLibraryBlock } from "~/builder/core/components/sidepanels/panels/outline/unlink-library-block";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
-import { canAddChildBlock, canDeleteBlock, canDuplicateBlock } from "~/builder/core/functions/block-helpers";
+import {
+  canAddChildBlock,
+  canDeleteBlocks,
+  canDuplicateBlocks,
+  canMoveBlocks,
+} from "~/builder/core/functions/block-helpers";
 import { pubsub } from "~/builder/core/pubsub";
 import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { isPartialBlockType } from "~/builder/hooks/partial-blocks";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useCopyBlocks } from "~/builder/hooks/use-copy-blockIds";
-import { useCreatePartialLabel } from "~/builder/hooks/use-create-partial-label";
+import { useCreatePartialLabel, usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useCutBlockIds } from "~/builder/hooks/use-cut-blockIds";
 import { useDuplicateBlocks } from "~/builder/hooks/use-duplicate-blocks";
 import { usePasteBlocks } from "~/builder/hooks/use-paste-blocks";
@@ -59,8 +64,15 @@ const MakePartialBlock = ({ MenuItem = DropdownMenuItem }: { MenuItem?: React.Co
   const selectedBlock = useSelectedBlock();
   const [, setModalState] = useAtom(makePartialBlockModalAtom);
   const label = useCreatePartialLabel();
+  const partialBlocksEnabled = useBuilderProp("flags.partialBlocks", true);
 
-  if (selectedBlock?._type === "BODY" || selectedBlock?._type === "PartialBlock") return null;
+  if (!partialBlocksEnabled) return null;
+  if (
+    selectedBlock?._type === "BODY" ||
+    selectedBlock?._type === "PartialBlock" ||
+    selectedBlock?._type === "ChaiSlot"
+  )
+    return null;
 
   return (
     <MenuItem
@@ -83,6 +95,7 @@ const CopyPasteBlocks = ({
   const { pasteBlocks } = usePasteBlocks();
   const [, copyBlocks, hasPartialBlocks] = useCopyBlocks();
   const { t } = useTranslation();
+  const { plural } = usePartialTypeLabel();
   const selectedBlock = useSelectedBlock();
   const enableCopyToClipboard = useBuilderProp("flags.copyPaste", true);
 
@@ -99,7 +112,7 @@ const CopyPasteBlocks = ({
     });
 
     if (hasPartialBlocks(selectedBlocks.map((block) => block.id))) {
-      toast.warning("Partial blocks detected. Clone partial blocks?", {
+      toast.warning(t("{{name}} detected. Clone {{name}}?", { name: plural }), {
         cancel: {
           label: t("No"),
           onClick: () => {
@@ -137,7 +150,7 @@ const CopyPasteBlocks = ({
             isFromBody
               ? isEmpty(blocks?.filter((block) => !block?._parent))
               : selectedBlock?._type
-                ? !canDuplicateBlock(selectedBlock._type)
+                ? !canDuplicateBlocks(selectedIds, blocks)
                 : true
           }
           onClick={handleCopy}
@@ -161,13 +174,17 @@ const CopyPasteBlocks = ({
 const CutBlocks = ({ MenuItem = DropdownMenuItem }: { MenuItem?: React.ComponentType<any> }) => {
   const [selectedIds] = useSelectedBlockIds();
   const [, setCutBlockIds] = useCutBlockIds();
+  const [blocks] = useBlocksStore();
   const { t } = useTranslation();
   const enableCopyToClipboard = useBuilderProp("flags.copyPaste", true);
 
   return (
     <>
       {enableCopyToClipboard && (
-        <MenuItem className="flex items-center gap-x-2 text-xs" onClick={() => setCutBlockIds(selectedIds)}>
+        <MenuItem
+          disabled={!canMoveBlocks(selectedIds, blocks)}
+          className="flex items-center gap-x-2 text-xs"
+          onClick={() => setCutBlockIds(selectedIds)}>
           <ScissorsIcon /> {t("Cut")}
         </MenuItem>
       )}
@@ -178,13 +195,12 @@ const CutBlocks = ({ MenuItem = DropdownMenuItem }: { MenuItem?: React.Component
 const RemoveBlocks = ({ MenuItem = DropdownMenuItem }: { MenuItem?: React.ComponentType<any> }) => {
   const [selectedIds] = useSelectedBlockIds();
   const removeBlocks = useRemoveBlocks();
-  const selectedBlock = useSelectedBlock();
+  const [blocks] = useBlocksStore();
   const { t } = useTranslation();
 
   return (
     <MenuItem
-      // @ts-expect-error - canDeleteBlock may return undefined which is falsy
-      disabled={!canDeleteBlock(selectedBlock?._type)}
+      disabled={!canDeleteBlocks(selectedIds, blocks)}
       className="flex items-center gap-x-2 text-xs"
       onClick={() => removeBlocks(selectedIds)}>
       <TrashIcon /> {t("Remove")}
@@ -262,6 +278,7 @@ const BlockContextMenuContent = ({
   const [selectedIds, setSelectedIds] = useSelectedBlockIds();
   const duplicateBlocks = useDuplicateBlocks();
   const selectedBlock = useSelectedBlock();
+  const [blocks] = useBlocksStore();
   const { hasPermission } = usePermissions();
   const { librarySite } = useBuilderProp("flags", { librarySite: false });
 
@@ -334,7 +351,7 @@ const BlockContextMenuContent = ({
             <SquarePlus className="h-3.5 w-3.5" /> {t("Add block")}
           </MenuItem>
           <MenuItem
-            disabled={selectedBlock?._type ? !canDuplicateBlock(selectedBlock._type) : true}
+            disabled={selectedBlock?._type ? !canDuplicateBlocks(selectedIds, blocks) : true}
             className="flex items-center gap-x-2 text-xs"
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation();

@@ -130,6 +130,23 @@ describe("ListTree", () => {
       expect(screen.getByText("Paste")).toBeTruthy();
     });
 
+    it("never reads the clipboard until Paste is clicked", async () => {
+      // Safari and Firefox answer every clipboard read with a native "Paste" prompt.
+      const readText = vi.spyOn(navigator.clipboard, "readText").mockResolvedValue("");
+      const { container } = renderOutline();
+
+      await act(async () => {
+        builderStore.set(presentBlocksAtom, [...builderStore.get(presentBlocksAtom), { _id: "extra", _type: "Text" }] as any);
+      });
+      await act(async () => {
+        fireEvent.contextMenu(container.querySelector('[role="tree"]') as HTMLElement, { clientX: 40, clientY: 40 });
+      });
+
+      expect(screen.getByText("Paste")).toBeTruthy();
+      expect(readText).not.toHaveBeenCalled();
+      readText.mockRestore();
+    });
+
     it("clears the tree selection when the canvas selection is dropped", async () => {
       renderOutline();
 

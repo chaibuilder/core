@@ -8,17 +8,15 @@ export interface TokenUsageSectionItem {
 }
 
 interface TokenUsageSectionProps {
-  title: string;
   items: TokenUsageSectionItem[];
   emptyLabel: string;
   onSelect: (itemId: string) => void;
   icon?: React.ReactNode;
 }
 
-export const TokenUsageSection = ({ title, items, emptyLabel, onSelect, icon }: TokenUsageSectionProps) => {
+export const TokenUsageSection = ({ items, emptyLabel, onSelect, icon }: TokenUsageSectionProps) => {
   return (
     <div className="space-y-1">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{title}</p>
       {items.length > 0 ? (
         <div className="space-y-1 overflow-y-auto">
           {items.map((item) => (

@@ -18,11 +18,15 @@ import { AddBlocksDialog } from "~/builder/core/components/layout/add-blocks-dia
 import { LeftPanelContent } from "~/builder/core/components/layout/left-panel-content";
 import { NoopComponent } from "~/builder/core/components/noop-component";
 import SettingsPanel from "~/builder/core/components/settings/settings-panel";
-import ThemeConfigPanel from "~/builder/core/components/sidepanels/panels/theme-configuration/theme-config-panel";
+import GlobalStylesPanel, {
+  useGlobalStylesTitle,
+} from "~/builder/core/components/sidepanels/panels/global-styles/global-styles-panel";
+import { THEME_PANEL_ID } from "~/builder/hooks/use-unsaved-theme";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
 import { requestChaiPanelClose } from "~/builder/hooks/use-panel-close-guard";
 import { useSidebarActivePanel, useSidebarPanelSwap } from "~/builder/hooks/use-sidebar-active-panel";
-import { useActiveSettingsTab, useRightPanel } from "~/builder/hooks/use-theme";
+import { useRightPanel } from "~/builder/hooks/use-theme";
 import Tooltip from "~/builder/pages/utils/tooltip";
 import { useChaiSidebarPanels } from "~/builder/register-apis";
 import { ChaiSlot } from "~/builder/register-apis/register-chai-slot";
@@ -32,8 +36,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "~/components/ui/sh
 import { TooltipProvider } from "~/components/ui/tooltip";
 import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
 import { isDevelopment } from "~/utils/import-html/general";
-
-const ManageDesignTokens = React.lazy(() => import("../../design-tokens/manage-design-tokens"));
 
 export const DEFAULT_PANEL_WIDTH = 280;
 
@@ -48,7 +50,9 @@ const ProRootLayout: ComponentType = () => {
   const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(false);
 
   const [panel, setRightPanel] = useRightPanel();
-  const [, setActiveSettingsTab] = useActiveSettingsTab();
+  // A view-only page shows the canvas and only the panels that just read (SEO).
+  const readOnly = useReadOnlyMode() !== null;
+  const globalStylesTitle = useGlobalStylesTitle();
   const topPanels = useChaiSidebarPanels("top");
   const bottomPanels = useChaiSidebarPanels("bottom");
 
@@ -62,18 +66,26 @@ const ProRootLayout: ComponentType = () => {
 
   const totalTopPanels = useMemo(() => {
     const totalTopPanels = [topPanels].flat();
-    return totalTopPanels;
-  }, [topPanels]);
+    return readOnly ? totalTopPanels.filter((item) => item.readOnly) : totalTopPanels;
+  }, [topPanels, readOnly]);
+  const sidebarBottomPanels = useMemo(
+    () => (readOnly ? bottomPanels.filter((item) => item.readOnly) : bottomPanels),
+    [bottomPanels, readOnly],
+  );
 
   const { t } = useTranslation();
   const allPanels = useMemo(() => [...topPanels, ...bottomPanels], [topPanels, bottomPanels]);
   const htmlDir = useBuilderProp("htmlDir", "ltr");
+  const defaultPanelWidth = useBuilderProp("panelWidth.left", DEFAULT_PANEL_WIDTH);
+  const configuredRightPanelWidth = useBuilderProp("panelWidth.right", DEFAULT_PANEL_WIDTH);
 
   // Update active panel item and get its width
   const activePanelItem = find(allPanels, (panel) => panel.id === activePanel) ?? first(allPanels);
+  // A view-only page opens only the panels that just read.
+  const canOpenActivePanel = !readOnly || get(activePanelItem, "readOnly", false);
   const addBlocksPanelItem = find(allPanels, { id: "add-block" });
   const outlinePanelItem = find(allPanels, { id: "outline" });
-  const panelWidth = get(activePanelItem, "width", DEFAULT_PANEL_WIDTH);
+  const panelWidth = get(activePanelItem, "width", defaultPanelWidth);
 
   // Update last standard panel ID when active panel changes to a standard panel
   useEffect(() => {
@@ -90,11 +102,11 @@ const ProRootLayout: ComponentType = () => {
     if (lastStandardPanelId) {
       const lastPanel = find(allPanels, { id: lastStandardPanelId });
       if (lastPanel) {
-        return get(lastPanel, "width", DEFAULT_PANEL_WIDTH);
+        return get(lastPanel, "width", defaultPanelWidth);
       }
     }
-    return DEFAULT_PANEL_WIDTH;
-  }, [lastStandardPanelId, allPanels]);
+    return defaultPanelWidth;
+  }, [lastStandardPanelId, allPanels, defaultPanelWidth]);
 
   // Determine the width to use for the left panel
   const leftPanelWidth = useMemo(() => {
@@ -105,23 +117,23 @@ const ProRootLayout: ComponentType = () => {
     // width for the whole drag so the canvas never resizes mid-drag.
     if (panelSwap) {
       const swappedOutPanel = find(allPanels, { id: panelSwap });
-      if (swappedOutPanel) return get(swappedOutPanel, "width", DEFAULT_PANEL_WIDTH);
+      if (swappedOutPanel) return get(swappedOutPanel, "width", defaultPanelWidth);
     }
 
     const currentPanelItem = find(allPanels, { id: activePanel });
     const isStandardPanel = get(currentPanelItem, "view", "standard") === "standard";
-    const currentPanelWidth = get(currentPanelItem, "width", DEFAULT_PANEL_WIDTH);
+    const currentPanelWidth = get(currentPanelItem, "width", defaultPanelWidth);
 
     // If current panel is standard, use its width, otherwise use the last standard panel's width
     return isStandardPanel ? currentPanelWidth : lastStandardPanelWidth;
-  }, [activePanel, lastStandardPanelWidth, allPanels, isLeftPanelCollapsed, panelSwap]);
+  }, [activePanel, lastStandardPanelWidth, allPanels, isLeftPanelCollapsed, panelSwap, defaultPanelWidth]);
 
   // Determine the width to use for the right panel
   const rightPanelWidth = useMemo(() => {
     if (isRightPanelCollapsed) return 0;
     if (activePanel === "ai") return 0;
-    return DEFAULT_PANEL_WIDTH;
-  }, [isRightPanelCollapsed, activePanel]);
+    return configuredRightPanelWidth;
+  }, [isRightPanelCollapsed, activePanel, configuredRightPanelWidth]);
 
   const handleMenuItemClick = useCallback(
     (id: string) => {
@@ -173,69 +185,79 @@ const ProRootLayout: ComponentType = () => {
             </Suspense>
           </div>
           <main className="relative flex h-[calc(100vh-56px)] max-w-full flex-1 flex-row">
-            <div id="sidebar" className="flex w-10 flex-col items-center justify-between bg-background py-1.5">
-              <div className="flex flex-col justify-between gap-y-0.5">
-                {totalTopPanels.map((item, index) => (
-                  <Tooltip key={"button-top-" + index} content={t(item.label)} side="right">
-                    <div id={"panel-btn-" + item.id}>
-                      {createElement(get(item, "button", NoopComponent), {
-                        position: "top",
-                        panelId: item.id,
-                        isActive: activePanel === item.id,
-                        show: () => showPanel(item.id),
-                      })}
-                    </div>
-                  </Tooltip>
-                ))}
-              </div>
-              <div className="flex flex-col space-y-0.5"></div>
-              <div className="flex flex-col">
-                {bottomPanels?.map((item, index) => {
-                  return (
-                    <Tooltip key={"button-bottom-" + index} content={t(item.label)} side="right">
+            {(!readOnly || totalTopPanels.length > 0 || sidebarBottomPanels.length > 0) && (
+              <div id="sidebar" className="flex w-10 flex-col items-center justify-between bg-background py-1.5">
+                <div className="flex flex-col justify-between gap-y-0.5">
+                  {totalTopPanels.map((item, index) => (
+                    <Tooltip key={"button-top-" + index} content={t(item.label)} side="right">
                       <div id={"panel-btn-" + item.id}>
                         {createElement(get(item, "button", NoopComponent), {
-                          position: "bottom",
+                          position: "top",
                           panelId: item.id,
                           isActive: activePanel === item.id,
                           show: () => showPanel(item.id),
                         })}
                       </div>
                     </Tooltip>
-                  );
-                })}
+                  ))}
+                </div>
+                <div className="flex flex-col space-y-0.5"></div>
+                <div className="flex flex-col">
+                  {sidebarBottomPanels?.map((item, index) => {
+                    return (
+                      <Tooltip key={"button-bottom-" + index} content={t(item.label)} side="right">
+                        <div id={"panel-btn-" + item.id}>
+                          {createElement(get(item, "button", NoopComponent), {
+                            position: "bottom",
+                            panelId: item.id,
+                            isActive: activePanel === item.id,
+                            show: () => showPanel(item.id),
+                          })}
+                        </div>
+                      </Tooltip>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-            {/* Side Panel */}
-            <motion.div
-              id="left-panel"
-              className={`relative h-full max-h-full ${isLeftPanelCollapsed ? "border-l" : "border-l dark:border-none"}`}
-              initial={{ width: leftPanelWidth }}
-              animate={{ width: leftPanelWidth }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}>
-              {activePanel !== null &&
-                get(activePanelItem, "view", "standard") === "standard" &&
-                !isLeftPanelCollapsed && (
-                  <LeftPanelContent
-                    activePanel={activePanel}
-                    activePanelItem={activePanelItem}
-                    addBlocksPanelItem={addBlocksPanelItem}
-                    outlinePanelItem={outlinePanelItem}
-                    panelSwap={panelSwap}
-                  />
-                )}
-              {activePanel !== null && (
-                <Tooltip content={isLeftPanelCollapsed ? t("Expand") : t("Collapse")} side="right">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className={`absolute -right-4 top-10 z-10 h-7 w-4 rounded-none rounded-r-md border-none p-0 hover:bg-accent ${isLeftPanelCollapsed ? "bg-orange hover:bg-orange/80" : "bg-surface"}`}
-                    onClick={() => setIsLeftPanelCollapsed((prev) => !prev)}>
-                    {isLeftPanelCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-                  </Button>
-                </Tooltip>
-              )}
-            </motion.div>
+            )}
+            {!readOnly && (
+              <>
+                {/* Side Panel */}
+                <motion.div
+                  id="left-panel"
+                  className={`relative h-full max-h-full ${isLeftPanelCollapsed ? "border-l" : "border-l dark:border-none"}`}
+                  initial={{ width: leftPanelWidth }}
+                  animate={{ width: leftPanelWidth }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}>
+                  {activePanel !== null &&
+                    get(activePanelItem, "view", "standard") === "standard" &&
+                    !isLeftPanelCollapsed && (
+                      <LeftPanelContent
+                        activePanel={activePanel}
+                        activePanelItem={activePanelItem}
+                        addBlocksPanelItem={addBlocksPanelItem}
+                        outlinePanelItem={outlinePanelItem}
+                        panelSwap={panelSwap}
+                      />
+                    )}
+                  {activePanel !== null && (
+                    <Tooltip content={isLeftPanelCollapsed ? t("Expand") : t("Collapse")} side="right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className={`absolute -right-4 top-10 z-10 h-7 w-4 rounded-none rounded-r-md border-none p-0 hover:bg-accent ${isLeftPanelCollapsed ? "bg-orange hover:bg-orange/80" : "bg-surface"}`}
+                        onClick={() => setIsLeftPanelCollapsed((prev) => !prev)}>
+                        {isLeftPanelCollapsed ? (
+                          <ChevronRight className="h-4 w-4" />
+                        ) : (
+                          <ChevronLeft className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </Tooltip>
+                  )}
+                </motion.div>
+              </>
+            )}
 
             <div id="canvas-container" className="flex h-full max-h-full flex-1 flex-col">
               {/* <CanvasTopBar /> */}
@@ -243,90 +265,71 @@ const ProRootLayout: ComponentType = () => {
                 <CanvasArea />
               </Suspense>
             </div>
-            <motion.div
-              id="right-panel"
-              className={`relative h-full max-h-full ${isRightPanelCollapsed ? "border-r" : ""}`}
-              initial={{
-                width: rightPanelWidth,
-              }}
-              animate={{
-                width: rightPanelWidth,
-              }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}>
-              <Tooltip content={isRightPanelCollapsed ? t("Expand") : t("Collapse")} side="left">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={`absolute -left-4 top-10 z-10 h-7 w-4 rounded-none rounded-l-md border-none p-0 hover:bg-accent ${isRightPanelCollapsed ? "bg-orange hover:bg-orange/80" : "bg-surface"}`}
-                  onClick={() => setIsRightPanelCollapsed((prev) => !prev)}>
-                  {isRightPanelCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                </Button>
-              </Tooltip>
-              <div className="no-scrollbar overflow h-full max-h-full overflow-hidden">
-                <div className="flex h-full max-h-full flex-col overflow-hidden p-3">
-                  <h2 className="-mt-1 flex items-center space-x-1 text-base font-bold">
-                    <div className="flex grow items-center gap-2">
-                      <div className="flex w-full items-center justify-between gap-2">
-                        {panel === "ai" ? (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <LightningBoltIcon className="rtl:ml-2" /> {t("AI Assistant")}
+            {!readOnly && (
+              <motion.div
+                id="right-panel"
+                className={`relative h-full max-h-full ${isRightPanelCollapsed ? "border-r" : ""}`}
+                initial={{
+                  width: rightPanelWidth,
+                }}
+                animate={{
+                  width: rightPanelWidth,
+                }}
+                transition={{ duration: 0.3, ease: "easeInOut" }}>
+                <Tooltip content={isRightPanelCollapsed ? t("Expand") : t("Collapse")} side="left">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={`absolute -left-4 top-10 z-10 h-7 w-4 rounded-none rounded-l-md border-none p-0 hover:bg-accent ${isRightPanelCollapsed ? "bg-orange hover:bg-orange/80" : "bg-surface"}`}
+                    onClick={() => setIsRightPanelCollapsed((prev) => !prev)}>
+                    {isRightPanelCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                  </Button>
+                </Tooltip>
+                <div className="no-scrollbar overflow h-full max-h-full overflow-hidden">
+                  <div className="flex h-full max-h-full flex-col overflow-hidden p-3">
+                    <h2 className="-mt-1 flex items-center space-x-1 text-base font-bold">
+                      <div className="flex grow items-center gap-2">
+                        <div className="flex w-full items-center justify-between gap-2">
+                          {panel === "ai" ? (
+                            <>
+                              <div className="flex items-center gap-2">
+                                <LightningBoltIcon className="rtl:ml-2" /> {t("AI Assistant")}
+                              </div>
+                            </>
+                          ) : panel === "theme" ? (
+                            <div className="flex w-full items-center justify-between gap-2">
+                              <div className="flex min-w-0 items-center gap-1">
+                                <div
+                                  className={`flex h-8 items-center space-x-1 truncate text-sm font-medium uppercase`}>
+                                  {globalStylesTitle}
+                                </div>
+                              </div>
+                              <Button
+                                onClick={() => requestChaiPanelClose(THEME_PANEL_ID, () => setRightPanel("block"))}
+                                variant="ghost"
+                                size="icon-xs"
+                                className="text-xs">
+                                <Cross1Icon className="h-3 w-3 rtl:ml-2" />
+                              </Button>
                             </div>
-                          </>
-                        ) : panel === "design-tokens" ? (
-                          <div className="flex w-full items-center justify-between gap-2">
-                            <div className={`flex h-8 items-center space-x-1 truncate text-sm font-medium uppercase`}>
-                              {t("Design Tokens")}
-                            </div>
-                            <Button
-                              onClick={() => {
-                                setActiveSettingsTab("styles");
-                                setRightPanel("block");
-                              }}
-                              variant="ghost"
-                              size="icon-xs"
-                              className="text-xs">
-                              <Cross1Icon className="h-3 w-3 rtl:ml-2" />
-                            </Button>
-                          </div>
-                        ) : panel === "theme" ? (
-                          <div className="flex w-full items-center justify-between gap-2">
-                            <div className={`flex h-8 items-center space-x-1 truncate text-sm font-medium uppercase`}>
-                              {t("Theme Settings")}
-                            </div>
-                            <Button
-                              onClick={() => setRightPanel("block")}
-                              variant="ghost"
-                              size="icon-xs"
-                              className="text-xs">
-                              <Cross1Icon className="h-3 w-3 rtl:ml-2" />
-                            </Button>
-                          </div>
-                        ) : null}
+                          ) : null}
+                        </div>
                       </div>
+                    </h2>
+                    <div className="flex h-full max-h-full min-h-0 w-full">
+                      <Suspense fallback={<div className="h-full w-full animate-pulse rounded-md bg-muted/10" />}>
+                        {panel === "theme" ? <GlobalStylesPanel /> : <SettingsPanel />}
+                      </Suspense>
                     </div>
-                  </h2>
-                  <div className="flex h-full max-h-full w-full">
-                    <Suspense fallback={<div className="h-full w-full animate-pulse rounded-md bg-muted/10" />}>
-                      {panel === "design-tokens" ? (
-                        <React.Suspense fallback={<div className="h-1/2 w-full animate-pulse"></div>}>
-                          <ManageDesignTokens />
-                        </React.Suspense>
-                      ) : panel === "theme" ? (
-                        <ThemeConfigPanel />
-                      ) : (
-                        <SettingsPanel />
-                      )}
-                    </Suspense>
                   </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            )}
           </main>
         </div>
-        <AddBlocksDialog />
+        {!readOnly && <AddBlocksDialog />}
         {/* Drawer View */}
-        {activePanel !== null && get(activePanelItem, "view") === "drawer" && (
+        {canOpenActivePanel && activePanel !== null && get(activePanelItem, "view") === "drawer" && (
           <Sheet open={true} onOpenChange={() => handleNonStandardPanelClose()}>
             <SheetContent
               side="left"
@@ -349,7 +352,7 @@ const ProRootLayout: ComponentType = () => {
           </Sheet>
         )}{" "}
         {/* Modal View */}
-        {activePanel !== null && get(activePanelItem, "view") === "modal" && (
+        {canOpenActivePanel && activePanel !== null && get(activePanelItem, "view") === "modal" && (
           <Dialog open={true} onOpenChange={() => handleNonStandardPanelClose()}>
             <DialogContent className="gap-0 p-0" style={{ maxWidth: `${panelWidth}px` }}>
               <DialogHeader className="border-b border-border px-2 py-3.5">
@@ -369,7 +372,7 @@ const ProRootLayout: ComponentType = () => {
           </Dialog>
         )}
         {/* Overlay View */}
-        {activePanel !== null && get(activePanelItem, "view") === "overlay" && (
+        {canOpenActivePanel && activePanel !== null && get(activePanelItem, "view") === "overlay" && (
           <motion.div
             className="absolute bottom-0 left-12 right-0 top-0 z-50"
             initial={{ opacity: 0 }}

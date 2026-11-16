@@ -3,12 +3,13 @@ import { find, first, has, isEmpty } from "lodash-es";
 import { useCallback } from "react";
 import { toast } from "sonner";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
-import { canAcceptChildBlock } from "~/builder/core/functions/block-helpers";
+import { canAcceptInto, canMoveBlocks, releaseTopLevelLocks } from "~/builder/core/functions/block-helpers";
 import {
   useBlocksStore,
   useBlocksStoreUndoableActions,
 } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useAddBlock } from "~/builder/hooks/use-add-block";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useCutBlockIds } from "~/builder/hooks/use-cut-blockIds";
 import { useCheckPartialCanAdd } from "~/builder/hooks/use-partial-blocks-store";
 import { ChaiBlock } from "~/types/common";
@@ -20,9 +21,9 @@ const isFirefox = () => {
 const useCanPaste = () => {
   const [blocks] = useBlocksStore();
   return (ids: string[], newParentId: string | null) => {
-    const newParentType = (find(blocks, { _id: newParentId }) as ChaiBlock)?._type || null;
     const blockType = first(ids.map((id) => (find(blocks, { _id: id }) as ChaiBlock)?._type));
-    return canAcceptChildBlock(newParentType!, blockType!);
+    if (!canMoveBlocks(ids, blocks)) return false;
+    return canAcceptInto(find(blocks, { _id: newParentId }) as ChaiBlock | undefined, blockType!, blocks);
   };
 };
 
@@ -33,6 +34,7 @@ const useMoveCutBlocks = () => {
   return useCallback(
     (blockIds: Array<string>, newParentId: string[] | string) => {
       const parentId = Array.isArray(newParentId) ? newParentId[0] : newParentId;
+      if (!canMoveBlocks(blockIds, presentBlocks)) return;
       if (newParentId === "root") {
         const newParentBlock = presentBlocks?.filter((block) => !block._parent);
         moveBlocks(blockIds, undefined, newParentBlock?.length || 0);
@@ -53,6 +55,7 @@ export const usePasteBlocks = (): {
   const moveCutBlocks = useMoveCutBlocks();
   const { addPredefinedBlock } = useAddBlock();
   const checkPartialCanAdd = useCheckPartialCanAdd();
+  const { singular } = usePartialTypeLabel();
 
   // Pasted blocks can carry partial references copied from another page where
   // the nesting rules allowed them — re-validate against the current page.
@@ -64,11 +67,11 @@ export const usePasteBlocks = (): {
         if (!partialBlockId) continue;
         const { canAdd, reason } = checkPartialCanAdd(partialBlockId);
         if (!canAdd) {
-          throw new Error(reason || "This partial block cannot be pasted here");
+          throw new Error(reason || `This ${singular} cannot be pasted here`);
         }
       }
     },
-    [checkPartialCanAdd],
+    [checkPartialCanAdd, singular],
   );
 
   const canPasteBlocks = useCanPaste();
@@ -138,7 +141,10 @@ export const usePasteBlocks = (): {
               const clipboardData = JSON.parse(clipboardContent);
               if (has(clipboardData, "_chai_copied_blocks")) {
                 validatePartialRefs(clipboardData._chai_copied_blocks);
-                addPredefinedBlock(clipboardData._chai_copied_blocks, parentId === "root" ? null : parentId);
+                addPredefinedBlock(
+                  releaseTopLevelLocks(clipboardData._chai_copied_blocks),
+                  parentId === "root" ? null : parentId,
+                );
               } else {
                 throw new Error("Nothing to paste");
               }

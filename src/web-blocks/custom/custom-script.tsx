@@ -41,6 +41,8 @@ const Config = {
       scripts: {
         type: "string",
         title: "Script",
+        description:
+          'Runs after the visitor first scrolls, taps or presses a key, or 10 s after the page has loaded and gone idle. Add data-load="load" to a <script> that must be visible before that: it then runs at load and costs LCP and INP on phones. See docs/custom-scripts.md.',
         default: "",
         format: "code",
         placeholder: "<script>console.log('Hello, world!');</script>",

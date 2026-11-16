@@ -1,12 +1,14 @@
-import { get, isEmpty } from "lodash-es";
+import { useStore } from "jotai";
+import { isEmpty } from "lodash-es";
 import { useCallback, useMemo } from "react";
-import { canDeleteBlock } from "~/builder/core/functions/block-helpers";
+import { presentBlocksAtom } from "~/builder/atoms/blocks";
+import { canDuplicateBlocks } from "~/builder/core/functions/block-helpers";
 import { useCopyBlocks as useCopyBlockIds } from "~/builder/hooks/use-copy-blockIds";
 import { useCutBlockIds } from "~/builder/hooks/use-cut-blockIds";
 import { useDuplicateBlocks } from "~/builder/hooks/use-duplicate-blocks";
 import { usePasteBlocks } from "~/builder/hooks/use-paste-blocks";
 import { useRemoveBlocks } from "~/builder/hooks/use-remove-blocks";
-import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
+import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 
 /**
  * Block-selection keyboard commands (copy/cut/paste/duplicate/remove/deselect),
@@ -21,17 +23,20 @@ import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selec
  */
 export const useBlockKeyboardCommands = () => {
   const [ids, setIds] = useSelectedBlockIds();
-  const selectedBlock = useSelectedBlock();
   const removeBlocks = useRemoveBlocks();
   const duplicateBlocks = useDuplicateBlocks();
   const [, setCutBlockIds] = useCutBlockIds();
   const [, setCopyBlockIds] = useCopyBlockIds();
   const { canPaste, pasteBlocks } = usePasteBlocks();
 
+  const store = useStore();
+
   const copy = useCallback(() => {
     if (isEmpty(ids)) return;
+    // A copy pastes as a duplicate, so it follows the duplicate rule.
+    if (!canDuplicateBlocks(ids, store.get(presentBlocksAtom))) return;
     setCopyBlockIds(ids);
-  }, [ids, setCopyBlockIds]);
+  }, [ids, setCopyBlockIds, store]);
 
   const cut = useCallback(() => {
     if (isEmpty(ids)) return;
@@ -50,8 +55,9 @@ export const useBlockKeyboardCommands = () => {
 
   const remove = useCallback(() => {
     if (isEmpty(ids)) return;
-    if (canDeleteBlock(get(selectedBlock, "_type", ""))) removeBlocks(ids);
-  }, [ids, selectedBlock, removeBlocks]);
+    // removeBlocks rejects the whole selection if any block can't be deleted.
+    removeBlocks(ids);
+  }, [ids, removeBlocks]);
 
   const deselect = useCallback(() => setIds([]), [setIds]);
 

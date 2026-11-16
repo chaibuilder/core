@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { Input } from "~/components/ui/input";
 
 interface DynamicSlugInputProps {
+  /** Id of the input, for its `<Label htmlFor>`. */
+  id?: string;
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
@@ -16,6 +18,7 @@ interface DynamicSlugInputProps {
  * that cannot be deleted, and allows users to add content after it.
  */
 export function DynamicSlugInput({
+  id,
   value,
   onChange,
   placeholder = "Enter custom slug part",
@@ -115,6 +118,7 @@ export function DynamicSlugInput({
       <div className="relative">
         <p className="mb-2 text-xs text-gray-500">{`${dynamicPattern}`} is a dynamic segment of slug</p>
         <Input
+          id={id}
           ref={inputRef}
           value={displayValue}
           onChange={handleChange}

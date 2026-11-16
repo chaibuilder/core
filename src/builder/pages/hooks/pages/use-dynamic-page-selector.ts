@@ -80,19 +80,20 @@ const useGetDynamicPages = ({
   const { selectedLang, fallbackLang } = useLanguages();
   const { data: currentPage } = usePrimaryPage();
   const pageType = currentPage?.pageType;
+  const pageSlug = currentPage?.slug;
   const apiUrl = useApiUrl();
   const fetchAPI = useFetch();
 
   const lang = resolveEffectiveLang(selectedLang, fallbackLang);
 
   const { data, isFetching, isSuccess } = useQuery<DynamicPage[]>({
-    queryKey: [ACTIONS.GET_DYNAMIC_PAGES, query, identifier, pageType, lang],
+    queryKey: [ACTIONS.GET_DYNAMIC_PAGES, query, identifier, pageType, pageSlug, lang],
     staleTime: 60 * 60 * 1000,
     placeholderData: [],
     queryFn: async () => {
       const resData = await fetchAPI(apiUrl, {
         action: ACTIONS.GET_DYNAMIC_PAGES,
-        data: { query, identifier, pageType, lang },
+        data: { query, identifier, pageType, pageSlug, lang },
       });
       return (resData || []) as DynamicPage[];
     },
@@ -109,6 +110,7 @@ export const useDynamicPageSelector = () => {
   const fetchAPI = useFetch();
   const { data: currentPage } = usePrimaryPage();
   const pageType = currentPage?.pageType;
+  const pageSlug = currentPage?.slug;
   const isDynamic = currentPage?.dynamic;
   const pageTypeRecord = usePageType(pageType ?? "");
 
@@ -255,7 +257,7 @@ export const useDynamicPageSelector = () => {
 
   // [3] Active page query
   const { data: activePageData, isSuccess: isActiveQuerySuccess } = useQuery({
-    queryKey: [ACTIONS.GET_DYNAMIC_PAGES, "active", lookupIdentifier, effectiveLang, pageType],
+    queryKey: [ACTIONS.GET_DYNAMIC_PAGES, "active", lookupIdentifier, effectiveLang, pageType, pageSlug],
     enabled:
       !!pageType &&
       !!isDynamic &&
@@ -267,7 +269,7 @@ export const useDynamicPageSelector = () => {
         // Specific page requested via URL or lang switch
         const resData = await fetchAPI(apiUrl, {
           action: ACTIONS.GET_DYNAMIC_PAGES,
-          data: { query: "", identifier: lookupIdentifier, lang: effectiveLang, pageType },
+          data: { query: "", identifier: lookupIdentifier, lang: effectiveLang, pageType, pageSlug },
         });
         return (resData as any)?.[0] || null;
       }
@@ -279,6 +281,10 @@ export const useDynamicPageSelector = () => {
   // [4] Post-query effect (resolve lookup result)
   useEffect(() => {
     if (!isActiveQuerySuccess) return;
+    // With an item selected and no lookup pending, [3] is disabled and its data is
+    // a cached first-item fallback from earlier. Applying it would undo the
+    // lookup [2] just queued on a language switch and reset the selection.
+    if (!lookupIdentifier && dynamicPageIdentifier) return;
 
     if (activePageData) {
       // Translation or specific page found
@@ -296,7 +302,7 @@ export const useDynamicPageSelector = () => {
       setFailedLookupIdentifier(lookupIdentifier);
       setLookupIdentifier(null);
     }
-  }, [isActiveQuerySuccess, activePageData, lookupIdentifier, currentPage?.id, setDynamicPage]);
+  }, [isActiveQuerySuccess, activePageData, lookupIdentifier, dynamicPageIdentifier, currentPage?.id, setDynamicPage]);
 
   // [4.1] Sync selected page name from updated list. A manual selection keys off the
   // typed identifier, so it only matches here when that identifier is a real item's

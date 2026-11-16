@@ -3,11 +3,9 @@ import { defineConfig } from "drizzle-kit";
 
 config({ path: ".env.test", override: true });
 
-const url = process.env.TEST_DATABASE_URL!;
-
-if (!url) {
-  throw new Error("TEST_DATABASE_URL is not set in .env.test");
-}
+// Tests build their schema in memory (src/tests/setup/apply-schema.ts); this config only backs
+// `db:test:generate` / `db:test:studio` for inspecting the schema by hand.
+const url = process.env.TEST_DATABASE_URL || "file:./.tmp/chaibuilder_test.sqlite";
 
 export default defineConfig({
   // Edition-specific schema barrel (core tables only in chaicore, the full union in chaipro).

@@ -11,7 +11,6 @@ import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { useRevisionsEnabled } from "~/builder/pages/hooks/use-revisions-enabled";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import type { ChaiPageType } from "~/types/actions";
-import { usePagesProps } from "../utils/use-pages-props";
 
 type CreatePageMutationResult = {
   page: {
@@ -90,15 +89,13 @@ export const useUpdatePage = () => {
   const fetchAPI = useFetch();
   const { data: activePage } = useCurrentActivePage();
   const { data: pageTypes } = usePageTypes();
-  const [pagesProps] = usePagesProps();
   return useMutation({
     mutationFn: async (updatedPage: Partial<any>) => {
       const response = await fetchAPI(apiUrl, {
         action: ACTIONS.UPDATE_PAGE,
-        data: {
-          ...(updatedPage || {}),
-          addInRevision: get(pagesProps, "flags.revisions.drafts", false),
-        },
+        // Draft-revision snapshotting is decided server-side from
+        // `features.revisions.drafts` — see UpdatePageAction.
+        data: { ...(updatedPage || {}) },
       });
       return response;
     },

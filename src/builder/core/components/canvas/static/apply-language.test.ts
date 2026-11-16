@@ -299,4 +299,30 @@ describe("applyLanguage", () => {
       expect(result.title).toBe("Numeric Language Title");
     });
   });
+
+  describe("i18nDefaultProps", () => {
+    const config: ChaiBlockConfig = { ...mockChaiBlock, i18nDefaultProps: ["buttonText"] };
+
+    it("renders a blank translation as unset instead of the fallback value", () => {
+      const result = applyLanguage(createMockBlock({ "buttonText-fr": "  " }), "fr", config);
+      expect(result.buttonText).toBeUndefined();
+      expect(result.title).toBe("Original Title");
+    });
+
+    it("renders a translation on a block without the bare prop", () => {
+      const { buttonText: _omit, ...block } = createMockBlock({ "buttonText-fr": "Bouton" });
+      expect(applyLanguage(block as ChaiBlock, "fr", config).buttonText).toBe("Bouton");
+    });
+
+    it("renders a structured translation and clears an empty one", () => {
+      const listConfig: ChaiBlockConfig = { ...mockChaiBlock, i18nDefaultProps: ["title"] };
+      expect(applyLanguage(createMockBlock({ "title-fr": ["a"] }), "fr", listConfig).title).toEqual(["a"]);
+      expect(applyLanguage(createMockBlock({ "title-fr": [] }), "fr", listConfig).title).toBeUndefined();
+    });
+
+    it("renders a non-blank translation", () => {
+      const result = applyLanguage(createMockBlock({ "buttonText-fr": "Bouton" }), "fr", config);
+      expect(result.buttonText).toBe("Bouton");
+    });
+  });
 });

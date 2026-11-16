@@ -23,10 +23,12 @@ import {
 import { useDragParentHighlight } from "~/builder/core/components/canvas/dnd/drag-and-drop/hooks/use-drag-parent-highlight";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
 import { builderStore } from "~/builder/atoms/store";
+import { canMoveBlocks } from "~/builder/core/functions/block-helpers";
 import { useBlocksStoreUndoableActions } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useAddBlock } from "~/builder/hooks/use-add-block";
 import { useBlockHighlight } from "~/builder/hooks/use-block-highlight";
 import { useCanvasIframe } from "~/builder/hooks/use-canvas-iframe";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useCheckPartialCanAdd } from "~/builder/hooks/use-partial-blocks-store";
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useSelectedStylingBlocks } from "~/builder/hooks/use-selected-styling-blocks";
@@ -73,6 +75,7 @@ export const useBlockDrop = () => {
   const [renderKey, setRenderKey] = useAtom(canvasRenderKeyAtom);
   const updateContent = useUpdateBlocksProps();
   const checkPartialCanAdd = useCheckPartialCanAdd();
+  const { singular } = usePartialTypeLabel();
 
   // Get the document from the iframe element
   const iframeDoc = (iframe as HTMLIFrameElement)?.contentDocument;
@@ -186,6 +189,7 @@ export const useBlockDrop = () => {
       }
 
       if (isExistingBlock) {
+        if (!canMoveBlocks([dropBlock._id], allBlocks)) return;
         // Move existing block to new position
         moveBlocks([dropBlock._id], parentId === null ? undefined : parentId, index);
         clearHighlight();
@@ -207,7 +211,7 @@ export const useBlockDrop = () => {
           const partialBlockId = dropBlock.partialBlockId || "";
           const { canAdd, reason } = checkPartialCanAdd(partialBlockId);
           if (!canAdd) {
-            toast.error(reason || "Cannot add this partial block");
+            toast.error(reason || `Cannot add this ${singular}`);
             return;
           }
           addCoreBlock(
@@ -253,6 +257,7 @@ export const useBlockDrop = () => {
       setRenderKey,
       updateContent,
       checkPartialCanAdd,
+      singular,
     ],
   );
 };

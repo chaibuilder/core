@@ -1,6 +1,7 @@
 import type { ChaiPageType } from "~/types/actions";
+import type { ChaiActionSurface } from "~/types/chai-action";
 import type { CollectionConfig } from "~/types/collection-config";
-import type { ChaiPageProps } from "~/types/common";
+import type { ChaiBlock, ChaiPageProps } from "~/types/common";
 import type { ChaiTrashableEntity } from "~/types/trash";
 
 /**
@@ -74,6 +75,11 @@ export type ChaiRequestContext = {
    * `delegatedPermissions` is absent this value is used and both fields are populated.
    */
   delegatedScopes?: string[] | null;
+  /**
+   * HOW: which surface this request came through. Reaches every action as
+   * `context.surface`; write attribution prefers it over guessing from the role.
+   */
+  surface?: ChaiActionSurface | null;
   /**
    * HOW: read draft content (builder + preview) instead of published content. Default `false`.
    * Drives both the source tables and the cache keys, so draft and live never collide.
@@ -217,6 +223,52 @@ export type ChaiDynamicTemplateTieHandler = <T extends ChaiDynamicTemplateCandid
   slug: string,
 ) => T | undefined | Promise<T | undefined>;
 
+/** A page a site may link to, as the Add New Page dropdown lists it (upstream pages). */
+export type ChaiUpstreamPageOption = {
+  id: string;
+  name: string;
+  pageType: string | null;
+  /** Prefills the linked page's slug; the name is slugified when absent. */
+  slug?: string | null;
+  /** Heading the dropdown groups the page under. */
+  group?: string | null;
+  /** A dynamic template: the linked page takes its parent's path, so it has no slug of its own. */
+  dynamic?: boolean;
+};
+
+/**
+ * Where upstream pages come from. The host owns them: ChaiBuilder stores only their id in a
+ * page's `upstream` column. The host also registers the `LIST_UPSTREAM_PAGES` action, returning
+ * `{ pages: ChaiUpstreamPageOption[] }`, and revalidates `upstreamPageTag(id)` when a page's
+ * published content changes.
+ */
+export type ChaiUpstreamPageSource = {
+  /**
+   * Page `id` if site `appId` may link it on `userId`'s behalf, else null. Gates creating a
+   * linked page and resetting a clone back to its upstream page.
+   */
+  findLinkable(args: {
+    id: string;
+    appId: string;
+    userId: string;
+  }): Promise<{
+    id: string;
+    name: string;
+    pageType: string | null;
+    dynamic?: boolean;
+  } | null>;
+  /**
+   * The published content a linked page of site `appId` renders and a clone copies, made that site's
+   * (its links, partials and other ids pointing at the site's own rows), or null when it is gone.
+   * `live` is a live render: match the site's published rows, since only those render. Otherwise
+   * (editor, preview, clone) match its drafts.
+   */
+  getContent(
+    id: string,
+    args: { appId: string; live?: boolean },
+  ): Promise<{ blocks: ChaiBlock[]; seo: Record<string, unknown> } | null>;
+};
+
 /**
  * Page type entry (includes both page types and partials)
  */
@@ -237,13 +289,27 @@ export type { ChaiRepeaterDataEntry } from "~/types/repeater-data";
  * convention: tags returned under `$cacheTags` are registered on the consuming
  * route during live render only (never in the builder, never in draft) and are
  * always stripped from the page data. Tags must be tenant-scoped.
+ *
+ * A dynamic template matches a URL by its segment pattern alone, so the item
+ * behind that URL may not exist. Return `$notFound: true` to say so: the live
+ * route then 404s instead of rendering the template with unresolved bindings
+ * (an empty page under a 200). Like `$cacheTags` the key is always stripped
+ * from the page data, and it is ignored in the builder, where the template
+ * must stay editable with no item selected.
+ *
+ * The not-found answer is a separate branch of the result union rather than an
+ * optional key on `T`: a provider typed `ChaiPageTypeDataProvider<{ doc: Doc }>`
+ * has no `doc` to return when there is no item, so intersecting the two would
+ * force every such provider to either widen `T` or cast.
  */
+export type ChaiPageTypeNotFound = { $notFound: true; $cacheTags?: string[] };
+
 export type ChaiPageTypeDataProvider<T = Record<string, any>> = (ctx: {
   lang: string;
   draft: boolean;
   inBuilder: boolean;
   pageProps: ChaiPageProps;
-}) => Promise<T & { $cacheTags?: string[] }>;
+}) => Promise<(T & { $cacheTags?: string[]; $notFound?: false }) | ChaiPageTypeNotFound>;
 
 /**
  * Block data provider function

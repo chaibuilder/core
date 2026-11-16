@@ -674,7 +674,7 @@ export function detectDropZone(
   }
 
   // Priority 2: Check if pointer is near parent edges (for nested layouts)
-  if (parentElement && parentBlockId) {
+  if (parentElement && parentBlockId && parentBlockId !== "canvas") {
     const parentEdge = detectParentEdgeProximity(parentElement, pointerX, pointerY, parentOrientation);
 
     if (parentEdge) {

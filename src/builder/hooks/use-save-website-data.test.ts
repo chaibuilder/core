@@ -1,28 +1,19 @@
 // @vitest-environment happy-dom
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { act, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
+import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
 import { useSaveWebsiteData } from "./use-save-website-data";
 
-const { onSaveWebsiteData } = vi.hoisted(() => ({ onSaveWebsiteData: vi.fn() }));
-
-vi.mock("~/builder/hooks/use-builder-prop", () => ({
-  useBuilderProp: () => onSaveWebsiteData,
-}));
-
-vi.mock("~/builder/hooks/use-theme", () => ({
-  useTheme: () => [{ fontFamily: { heading: "Arial", body: "Arial" }, borderRadius: "8px", colors: {} }],
-}));
-
-vi.mock("~/builder/atoms/builder", () => ({ chaiDesignTokensAtom: {} }));
-vi.mock("~/builder/atoms/store", () => ({ builderStore: { get: () => ({}) } }));
+const THEME = { fontFamily: { heading: "Arial", body: "Arial" }, borderRadius: "8px", colors: {} };
 
 describe("useSaveWebsiteData", () => {
-  beforeEach(() => onSaveWebsiteData.mockReset());
-
   it("sends theme and tokens in one combined save", async () => {
-    onSaveWebsiteData.mockResolvedValue(true);
-    const { result } = renderHook(() => useSaveWebsiteData());
-    const theme = { fontFamily: { heading: "Arial", body: "Arial" }, borderRadius: "8px", colors: {} } as any;
+    const onSaveWebsiteData = vi.fn().mockResolvedValue(true);
+    const { result } = renderHookInBuilder(() => useSaveWebsiteData(), {
+      builderProps: { onSaveWebsiteData },
+      theme: THEME,
+    });
+    const theme = { ...THEME } as any;
     const designTokens = { "dt#card": { name: "Card", value: "rounded-lg" } };
 
     await act(() => result.current.saveThemeAndDesignTokens(theme, designTokens));
@@ -33,12 +24,29 @@ describe("useSaveWebsiteData", () => {
     });
   });
 
+  it("saves the design tokens from the store when none are passed", async () => {
+    const onSaveWebsiteData = vi.fn().mockResolvedValue(true);
+    const designTokens = { "dt#btn": { name: "Button", value: "px-4" } };
+    const { result } = renderHookInBuilder(() => useSaveWebsiteData(), {
+      builderProps: { onSaveWebsiteData },
+      designTokens,
+    });
+
+    await act(() => result.current.saveDesignTokens());
+
+    expect(onSaveWebsiteData).toHaveBeenCalledWith({ type: "DESIGN_TOKENS", data: designTokens });
+  });
+
   it("queues saves instead of dropping a request while another save is active", async () => {
     let releaseFirst!: () => void;
-    onSaveWebsiteData
+    const onSaveWebsiteData = vi
+      .fn()
       .mockImplementationOnce(() => new Promise<void>((resolve) => (releaseFirst = resolve)))
       .mockResolvedValueOnce(true);
-    const { result } = renderHook(() => useSaveWebsiteData());
+    const { result } = renderHookInBuilder(() => useSaveWebsiteData(), {
+      builderProps: { onSaveWebsiteData },
+      theme: THEME,
+    });
 
     const first = result.current.saveWebsiteData({ type: "DESIGN_TOKENS", data: {} });
     const second = result.current.saveWebsiteData({ type: "DESIGN_TOKENS", data: {} });

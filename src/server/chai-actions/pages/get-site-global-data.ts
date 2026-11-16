@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { fetchConfigGlobalData } from "~/server/defaults";
+import { fetchConfigGlobalData } from "~/server/defaults/config-registry";
 import { ChaiBaseAction } from "../base-action";
 
 export type GetSiteGlobalDataActionData = {

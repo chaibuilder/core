@@ -58,7 +58,28 @@ xShowBlocksAtom.debugLabel = "xShowBlocksAtom";
 export const selectedLibraryAtom = atomWithStorage<string | null>("_selectedLibrary", null);
 selectedLibraryAtom.debugLabel = "selectedLibraryAtom";
 
+// Last group picked in the Library tab, keyed by library id: each library has its own groups.
+export const selectedLibraryGroupAtom = atomWithStorage<Record<string, string>>("_selectedLibraryGroup", {});
+selectedLibraryGroupAtom.debugLabel = "selectedLibraryGroupAtom";
+
 export const dataBindingActiveAtom = atom(true);
 dataBindingActiveAtom.debugLabel = "dataBindingActiveAtom";
+
+/**
+ * @atom
+ * Collapsed settings-panel group labels (see `groupProps`), keyed by block type.
+ * A block type with no entry yet shows each group at its `defaultOpen`.
+ */
+export const collapsedSettingsGroupsAtom = atom<Record<string, string[]>>({});
+collapsedSettingsGroupsAtom.debugLabel = "collapsedSettingsGroupsAtom";
+
+/**
+ * @atom
+ * Group labels the settings form is currently rendering, keyed by block type. Set
+ * by the grouped form template while mounted, so the expand/collapse-all toggle
+ * shows exactly when grouped sections are on screen.
+ */
+export const renderedSettingsGroupsAtom = atom<Record<string, { labels: string[]; closedByDefault: string[] }>>({});
+renderedSettingsGroupsAtom.debugLabel = "renderedSettingsGroupsAtom";
 export const canvasThemeStorageKey = "chai-builder-canvas-theme";
 export const lsThemeAtom = atomWithStorage<ChaiTheme>(canvasThemeStorageKey, defaultThemeValues);

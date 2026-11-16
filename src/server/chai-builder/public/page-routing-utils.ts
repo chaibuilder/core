@@ -1,4 +1,4 @@
-import { getResolvedPageTypes } from "~/server/defaults";
+import { getResolvedPageTypes } from "~/server/defaults/config-registry";
 import { ChaiPageType } from "~/types";
 
 export {

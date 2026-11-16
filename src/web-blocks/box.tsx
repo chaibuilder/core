@@ -18,12 +18,14 @@ const Component = (props: ChaiBlockComponentProps<BoxProps>) => {
     nestedChildren = <EmptySlot inBuilder={inBuilder} />;
   }
 
-  let cssStyles = {};
-  if (backgroundImage) {
-    cssStyles = { backgroundImage: `url(${backgroundImage})` };
-  }
+  // Only emit `style` when there is a background image: an always-present
+  // `style: {}` is serialised into the RSC flight payload for every Box.
+  const style = backgroundImage ? { backgroundImage: `url(${backgroundImage})` } : undefined;
+  // `styles` carries the authored `styles_attrs`, which can include a `style`
+  // string; it was always overridden here and React rejects string styles.
+  const { style: _authored, ...styleAttrs } = (styles ?? {}) as Record<string, unknown>;
 
-  return React.createElement(tag, { ...blockProps, ...styles, style: cssStyles }, nestedChildren);
+  return React.createElement(tag, { ...blockProps, ...styleAttrs, ...(style ? { style } : {}) }, nestedChildren);
 };
 
 const Config: ChaiBlockConfig = {

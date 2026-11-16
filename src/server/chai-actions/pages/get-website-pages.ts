@@ -29,6 +29,9 @@ type GetWebsitePagesActionResponse = Array<{
   links: string | null;
   partialBlocks: string | null;
   metadata: Record<string, unknown> | null;
+  /** The page this one renders while `useUpstream` is on (upstream pages). */
+  upstream: string | null;
+  useUpstream: boolean;
 }>;
 
 export class GetWebsitePagesAction extends ChaiBaseAction<GetWebsitePagesActionData, GetWebsitePagesActionResponse> {
@@ -69,6 +72,8 @@ export class GetWebsitePagesAction extends ChaiBaseAction<GetWebsitePagesActionD
           links: schema.appPages.links,
           partialBlocks: schema.appPages.partialBlocks,
           metadata: schema.appPages.metadata,
+          upstream: schema.appPages.upstream,
+          useUpstream: schema.appPages.useUpstream,
         })
         .from(schema.appPages)
         .where(and(eq(schema.appPages.app, appId), eq(schema.appPages.lang, lang), isNull(schema.appPages.deletedAt))),

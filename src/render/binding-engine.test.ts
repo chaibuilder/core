@@ -213,6 +213,12 @@ describe("visibility", () => {
     expect(resolveBindingVisibility("{{vehicle.km <= 100000}}", { vehicle: { km: 45000 } })).toBe(true);
   });
 
+  it("ignores whitespace around the braces", () => {
+    const binding = " {{vehicle.stock_status == 'Réservé'}} ";
+    expect(resolveBindingVisibility(binding, { vehicle: { stock_status: "Réservé" } })).toBe(true);
+    expect(resolveBindingVisibility(binding, { vehicle: { stock_status: "Vendu" } })).toBe(false);
+  });
+
   it("respects && / || precedence without parentheses", () => {
     // `a || b && c` === `a || (b && c)`
     const data = (a: boolean, b: boolean, c: boolean) => ({ f: { a, b, c } });

@@ -1,7 +1,8 @@
-import { startsWith } from "lodash-es";
+import { escape, startsWith } from "lodash-es";
 import { cache } from "react";
-import { getResolvedPageType } from "~/server/defaults";
+import { getResolvedPageType } from "~/server/defaults/config-registry";
 import type { ChaiBlock } from "~/types";
+import { getFallbackLang } from "../internal/init";
 import { getInitializedState } from "../state";
 import { withRequestCache } from "./cache-utils";
 import { resolvePageSlugs } from "./get-page-slug-by-id";
@@ -12,26 +13,48 @@ type LinkRef = {
   href: string;
 };
 
-function extractLinksFromBlocks(blocks: ChaiBlock[]): LinkRef[] {
+type ExtractedLinks = {
+  linkRefs: LinkRef[];
+  /** Indexes of blocks containing any `pageType:` string — the only blocks the transform pass can change. */
+  linkBlockIndexes: Set<number>;
+};
+
+/**
+ * `href="pageType:…"` inside an HTML string (an anchor in rich text). The prop is
+ * not itself a reference, so it is matched per anchor rather than by prefix.
+ */
+const EMBEDDED_REF_HREF_SOURCE = /(\shref\s*=\s*)(["'])(pageType:[^"']*)\2/.source;
+const EMBEDDED_REF_HREF_REGEX = new RegExp(EMBEDDED_REF_HREF_SOURCE, "gi");
+// Non-global twin for detection: `.test()` on a /g regex is stateful (lastIndex).
+const EMBEDDED_REF_HREF_TEST = new RegExp(EMBEDDED_REF_HREF_SOURCE, "i");
+
+const hasEmbeddedRef = (value: string) => value.includes("pageType:") && EMBEDDED_REF_HREF_TEST.test(value);
+
+function extractLinksFromBlocks(blocks: ChaiBlock[]): ExtractedLinks {
   const linkRefs: LinkRef[] = [];
   const seen = new Set<string>();
+  const linkBlockIndexes = new Set<number>();
+  let blockHasLink = false;
+
+  function addRef(href: string) {
+    const parts = href.split(":");
+    if (parts.length === 3 && parts[1] && parts[2] && !seen.has(href)) {
+      seen.add(href);
+      linkRefs.push({ pageTypeKey: parts[1], id: parts[2], href });
+    }
+  }
 
   function processValue(value: any) {
     if (!value) return;
 
     if (typeof value === "string" && startsWith(value, "pageType:")) {
-      const parts = value.split(":");
-      if (parts.length === 3 && parts[1] && parts[2]) {
-        const href = value;
-        if (!seen.has(href)) {
-          seen.add(href);
-          linkRefs.push({
-            pageTypeKey: parts[1],
-            id: parts[2],
-            href,
-          });
-        }
-      }
+      // Flag on ANY `pageType:` string, not only well-formed refs: the transform's
+      // `pageId` backfill fires on href shape alone, so malformed refs still matter.
+      blockHasLink = true;
+      addRef(value);
+    } else if (typeof value === "string" && hasEmbeddedRef(value)) {
+      blockHasLink = true;
+      for (const match of value.matchAll(EMBEDDED_REF_HREF_REGEX)) addRef(match[3]);
     } else if (typeof value === "object" && value !== null) {
       if (Array.isArray(value)) {
         value.forEach(processValue);
@@ -41,8 +64,12 @@ function extractLinksFromBlocks(blocks: ChaiBlock[]): LinkRef[] {
     }
   }
 
-  blocks.forEach((block) => processValue(block));
-  return linkRefs;
+  blocks.forEach((block, index) => {
+    blockHasLink = false;
+    processValue(block);
+    if (blockHasLink) linkBlockIndexes.add(index);
+  });
+  return { linkRefs, linkBlockIndexes };
 }
 
 // Stable function reference for caching - defined once at module level
@@ -53,7 +80,7 @@ async function resolveLinksData(
   pageId: string,
   blocks: ChaiBlock[],
 ): Promise<ChaiBlock[]> {
-  const linkRefs = extractLinksFromBlocks(blocks);
+  const { linkRefs, linkBlockIndexes } = extractLinksFromBlocks(blocks);
   if (linkRefs.length === 0) {
     return blocks;
   }
@@ -111,6 +138,16 @@ async function resolveLinksData(
       return linkMap.get(value) || value;
     }
 
+    // An unresolvable embedded ref becomes "#" like a Link block's: a literal
+    // `pageType:` href is a dead link for the visitor. Escaped: the URL is spliced
+    // into a quoted attribute of raw HTML.
+    if (typeof value === "string" && hasEmbeddedRef(value)) {
+      return value.replace(
+        EMBEDDED_REF_HREF_REGEX,
+        (_match, prefix, quote, ref) => `${prefix}${quote}${escape(linkMap.get(ref) || "#")}${quote}`,
+      );
+    }
+
     if (Array.isArray(value)) {
       return value.map(transformValue);
     }
@@ -133,13 +170,14 @@ async function resolveLinksData(
     return value;
   }
 
-  return blocks.map((block) => transformValue(block) as ChaiBlock);
+  // Copy-on-write: only blocks containing links are re-built; link-less blocks keep identity.
+  return blocks.map((block, index) => (linkBlockIndexes.has(index) ? (transformValue(block) as ChaiBlock) : block));
 }
 
 export const resolveLinksInPageBlocks = cache(
   async (page: { id: string; blocks: ChaiBlock[]; lang?: string }, lang?: string): Promise<ChaiBlock[]> => {
     const state = getInitializedState();
-    const resolvedLang = lang || state.lang || state.fallbackLang;
+    const resolvedLang = lang || state.lang || (await getFallbackLang());
 
     return await withRequestCache(resolveLinksData, "resolveLinksData")(
       state.appId!,

@@ -1,5 +1,6 @@
 import "~/server/only-server";
-import type { ChaiAction } from "~/types/chai-action";
+import { declaredPermissionKeysOf } from "~/server/chai-actions/permission-keys";
+import type { ChaiAction, ChaiRequiredPermission } from "~/types/chai-action";
 import type { ChaiServerPlugin } from "~/types/plugin";
 import type {
   ChaiBuilderServerConfigInput,
@@ -43,9 +44,17 @@ export function setPluginMediaManager(
   };
 }
 
-/** Assigns `requiredPermission` on an action instance and returns it (same as core's `wp`). */
-export function withActionPermission<T extends ChaiAction<any, any>>(action: T, permission: string): T {
+/**
+ * Assigns `requiredPermission` on an action instance and returns it (same as core's
+ * `wp`). Also records `declaredPermissionKeys`; a payload-aware resolver must be
+ * built with `permissionResolver()` or this throws.
+ */
+export function withActionPermission<T extends ChaiAction<any, any>>(
+  action: T,
+  permission: ChaiRequiredPermission<any>,
+): T {
   action.requiredPermission = permission;
+  action.declaredPermissionKeys = declaredPermissionKeysOf(permission);
   return action;
 }
 
@@ -85,6 +94,9 @@ export {
   type ChaiActionHookName,
 } from "./action-hooks";
 export { getChaiRequestHeader } from "./request-headers";
+// MCP tool/instruction registration. SDK-free: a plugin contributes tools whether or
+// not the app installed `@modelcontextprotocol/sdk` and mounted the transport.
+export * from "~/server/mcp/api";
 export {
   registerChaiRequestMiddleware,
   resetChaiRequestMiddlewareForTests,

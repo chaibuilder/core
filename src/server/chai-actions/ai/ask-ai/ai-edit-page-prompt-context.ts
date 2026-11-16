@@ -4,6 +4,7 @@ import { getAllRegisteredChaiBlocks } from "~/registry";
 import { getRegisteredChaiPipes } from "~/registry/pipes";
 import { serializePipeLiteral } from "~/render/binding-pipes";
 import { getResolvedPageType } from "~/server/defaults/config-registry";
+import { stripDesignContextKeys } from "~/utils/design-context";
 import { ChaiAIActionData } from "../../base-ai-action";
 
 /**
@@ -12,7 +13,7 @@ import { ChaiAIActionData } from "../../base-ai-action";
  * PartialBlock and Repeater are NOT here — they are special blocks documented
  * separately in the system prompt.
  */
-const CORE_BLOCK_TYPES = new Set([
+export const CORE_BLOCK_TYPES = new Set([
   "Box",
   "Button",
   "Checkbox",
@@ -47,16 +48,60 @@ export const buildDesignTokensList = (designTokens: ChaiAIActionData["designToke
     .join("\n");
 };
 
+type RegisteredCustomBlock = ReturnType<typeof getAllRegisteredChaiBlocks>[string];
+
+/**
+ * True for a registry entry the AI treats as a custom block: not a core
+ * (semantic HTML) type, and not a data-provider-only stub registered before
+ * its block. Page-type availability is checked separately.
+ */
+export const isCustomCatalogBlock = (registryKey: string, block: RegisteredCustomBlock): boolean => {
+  const blockType = block.type ?? registryKey;
+  if (!blockType || CORE_BLOCK_TYPES.has(blockType)) return false;
+  // Skip data-provider-only registry stubs created before block registration.
+  return Boolean(block.label ?? block.props);
+};
+
+/** The custom blocks available on a page type, as `[registryKey, block]` in registry order. */
+export const getCustomCatalogBlocks = (pageType?: string): [string, RegisteredCustomBlock][] =>
+  Object.entries(getAllRegisteredChaiBlocks()).filter(
+    ([registryKey, block]) =>
+      isCustomCatalogBlock(registryKey, block) && isBlockAvailableForPageType(block, pageType || "page"),
+  );
+
+/** A prop the AI may set: style, runtime and hidden props are builder-managed. */
+export const isCatalogProp = (prop: any): boolean => !prop?.styles && !prop?.runtime && !prop?.hidden;
+
+/**
+ * The `<chai-*>` tag a custom block renders as in AI-HTML. Separators other
+ * than letters and digits become single hyphens, so a namespaced type
+ * (`Shadcn/Carousel`) still gives a valid element name (`chai-shadcn-carousel`)
+ * instead of `chai-shadcn/-carousel`.
+ */
+export const customBlockHtmlTag = (blockType: string): string =>
+  `chai-${blockType
+    .replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`)
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^-|-$/g, "")}`;
+
+/**
+ * The opening tag to write for a custom block: the tag alone when the
+ * importer derives the type back from it, else with an explicit chai-type
+ * (namespaced types such as `Shadcn/Carousel` cannot round-trip a tag name).
+ */
+export const customBlockHtmlOpenTag = (blockType: string): string => {
+  const tag = customBlockHtmlTag(blockType);
+  const derived = tag
+    .replace(/^chai-/, "")
+    .split("-")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join("");
+  return derived === blockType ? `<${tag}>` : `<${tag} chai-type="${blockType}">`;
+};
+
 export const buildCustomBlockCatalog = (pageType?: string): string => {
-  const allBlocks = getAllRegisteredChaiBlocks();
-  const customBlockEntries = Object.entries(allBlocks).filter(([registryKey, block]) => {
-    const blockType = block.type ?? registryKey;
-    if (!blockType || CORE_BLOCK_TYPES.has(blockType) || !isBlockAvailableForPageType(block, pageType || "page")) {
-      return false;
-    }
-    // Skip data-provider-only registry stubs created before block registration.
-    return Boolean(block.label ?? block.props);
-  });
+  const customBlockEntries = getCustomCatalogBlocks(pageType);
 
   if (customBlockEntries.length === 0) {
     return "No custom blocks registered.";
@@ -67,7 +112,7 @@ export const buildCustomBlockCatalog = (pageType?: string): string => {
       const blockType = b.type ?? registryKey;
       const props = b.props?.schema?.properties
         ? Object.entries(b.props.schema.properties as Record<string, any>)
-            .filter(([, v]) => !v?.styles && !v?.runtime && !v?.hidden)
+            .filter(([, v]) => isCatalogProp(v))
             .map(([key, v]) => {
               const type = Array.isArray(v?.type) ? v.type.join("|") : (v?.type ?? "any");
               const def = v?.default !== undefined ? ` (default: ${JSON.stringify(v.default)})` : "";
@@ -77,9 +122,8 @@ export const buildCustomBlockCatalog = (pageType?: string): string => {
             .join("\n")
         : "  (no declared props)";
       const wrapperNote = b.wrapper ? " [wrapper — can contain child blocks]" : "";
-      const kebabType = blockType.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`).replace(/^-/, "");
       // b.description is defined on ChaiBlockConfig — use it as the primary AI hint
-      return `### ${blockType} → <chai-${kebabType}>${wrapperNote}\nDescription: ${b.description ?? b.label}\nProps:\n${props}`;
+      return `### ${blockType} → ${customBlockHtmlOpenTag(blockType)}${wrapperNote}\nDescription: ${b.description ?? b.label}\nProps:\n${props}`;
     })
     .join("\n\n");
 };
@@ -203,13 +247,15 @@ export const fillAiEditSystemPromptContext = (
   prompt = prompt.replace("{{DATA_BINDING_PIPES}}", buildDataBindingPipesText());
   prompt = prompt.replace("{{PAGE_TYPE_CONTEXT}}", buildPageTypeContext(data?.options?.pageType));
 
-  if (data.context) {
+  // The design-system keys are not part of this prompt yet (see ~/utils/design-context).
+  const context = stripDesignContextKeys(data.context);
+  if (context) {
     prompt += "\n\n## Additional Information";
-    if (data.context?.site) {
-      prompt += `\n\n## Website Information\n${JSON.stringify(data.context.site)}`;
+    if (context?.site) {
+      prompt += `\n\n## Website Information\n${JSON.stringify(context.site)}`;
     }
-    if (data.context?.page) {
-      prompt += `\n\n## Page Information\n${JSON.stringify(data.context.page)}`;
+    if (context?.page) {
+      prompt += `\n\n## Page Information\n${JSON.stringify(context.page)}`;
     }
   }
 

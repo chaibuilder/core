@@ -30,10 +30,14 @@ export const StylingPropSelect = ({ value, options, onValueChange }: StylingProp
           <ChevronDownIcon className="ml-2 h-3 w-3 shrink-0 opacity-50" />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-        <Command>
+      {/* Cap to the space Radix measures below/above the trigger. min-h-0 lets Command and
+          CommandList shrink inside it so the list scrolls instead of overflowing the viewport. */}
+      <PopoverContent
+        className="flex max-h-[var(--radix-popover-content-available-height)] w-[var(--radix-popover-trigger-width)] flex-col p-0"
+        align="start">
+        <Command className="min-h-0">
           <CommandInput placeholder={t("Search element...")} className="h-7 border-0 shadow-none" />
-          <CommandList>
+          <CommandList className="min-h-0">
             <CommandEmpty>{t("No element found.")}</CommandEmpty>
             {options.map((opt) => (
               <CommandItem

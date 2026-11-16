@@ -23,8 +23,17 @@ export const useI18nBlocks = () => {
               ? Object.keys(block).filter((key) => i18nProps.find((prop) => key.startsWith(prop)))
               : i18nProps.map((prop) => (lang ? `${prop}-${lang}` : prop));
           const blockProps: Record<string, any> = pick(block, ["_id"]);
+          const isLangCode = !!lang && lang !== "ALL";
           each(keys, (key) => {
-            blockProps[key] = get(block, key, get(block, key.replace(`-${lang}`, "")));
+            const value = get(block, key);
+            // A blank translation (`content-en: ""` or `"   "`) gives the model
+            // nothing to edit; send the default-language text so it can translate it.
+            if (value === undefined || (isLangCode && typeof value === "string" && value.trim() === "")) {
+              const defaultKey = key.replace(`-${lang}`, "");
+              blockProps[defaultKey] = get(block, defaultKey);
+            } else {
+              blockProps[key] = value;
+            }
           });
           return blockProps;
         }),

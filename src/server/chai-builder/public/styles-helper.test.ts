@@ -1,16 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-const { mockStat, mockReadFile } = vi.hoisted(() => ({
-  mockStat: vi.fn(),
-  mockReadFile: vi.fn(),
-}));
-
-vi.mock("fs/promises", () => ({
-  default: {
-    stat: mockStat,
-    readFile: mockReadFile,
-  },
-}));
+import fs from "fs/promises";
+import os from "os";
+import path from "path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const BASE_CSS = `
 @layer properties;
@@ -26,25 +17,42 @@ const BASE_CSS = `
 @property --tw-shadow { syntax: "*"; inherits: false; initial-value: 0 0 #0000; }
 `;
 
-const useBaseCss = (css: string = BASE_CSS, mtimeMs = 1000) => {
-  mockStat.mockResolvedValue({ mtimeMs, size: css.length });
-  mockReadFile.mockResolvedValue(css);
+// The global stylesheet is a real file in a temp dir; `CHAI_GLOBAL_CSS_PATH` points the helper at it.
+let tmpDir: string;
+let cssPath: string;
+
+/** Writes the global stylesheet with an explicit mtime (seconds), the cache's change signal. */
+const writeBaseCss = async (css: string = BASE_CSS, mtimeSec = 1000) => {
+  await fs.writeFile(cssPath, css, "utf-8");
+  await fs.utimes(cssPath, mtimeSec, mtimeSec);
 };
 
-const importHelper = async () => {
-  const module = await import("./styles-helper");
-  return module;
+/** Same byte length, same mtime: invisible to the stat-based cache check, so only a re-read would see it. */
+const rewriteKeepingStat = async (css: string, mtimeSec = 1000) => {
+  expect(Buffer.byteLength(css)).toBe(Buffer.byteLength(BASE_CSS));
+  await writeBaseCss(css, mtimeSec);
 };
+const BASE_CSS_WITHOUT_BG_RED = BASE_CSS.replace(".bg-red-500", ".bg-red-600");
+
+// The parsed-stylesheet cache is module state; each test gets a fresh module instance.
+const importHelper = async () => import("./styles-helper");
+
+beforeEach(async () => {
+  vi.resetModules();
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "chai-styles-helper-"));
+  cssPath = path.join(tmpDir, "chaistyles.css");
+  vi.stubEnv("CHAI_GLOBAL_CSS_PATH", cssPath);
+});
+
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+  await fs.rm(tmpDir, { recursive: true, force: true });
+});
 
 describe("filterDuplicateStyles", () => {
-  afterEach(() => {
-    vi.resetModules();
-    mockStat.mockReset();
-    mockReadFile.mockReset();
-  });
-
   it("removes top-level rules whose selectors exist in the base stylesheet", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { filterDuplicateStyles } = await importHelper();
 
     const result = await filterDuplicateStyles(".bg-red-500 { background: red; } .p-4 { padding: 1rem; }");
@@ -54,7 +62,7 @@ describe("filterDuplicateStyles", () => {
   });
 
   it("keeps duplicate selectors that live inside a media query", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { filterDuplicateStyles } = await importHelper();
 
     const result = await filterDuplicateStyles(
@@ -67,7 +75,7 @@ describe("filterDuplicateStyles", () => {
   });
 
   it("removes :root custom properties already declared in the base stylesheet, keeps the rest", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { filterDuplicateStyles } = await importHelper();
 
     const result = await filterDuplicateStyles(
@@ -80,7 +88,7 @@ describe("filterDuplicateStyles", () => {
   });
 
   it("removes the :root rule entirely when all of its custom properties are duplicates", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { filterDuplicateStyles } = await importHelper();
 
     const result = await filterDuplicateStyles(":root, :host { --color-red-500: red; --spacing: 0.25rem; }");
@@ -89,7 +97,7 @@ describe("filterDuplicateStyles", () => {
   });
 
   it("removes @property registrations already made in the base stylesheet", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { filterDuplicateStyles } = await importHelper();
 
     const result = await filterDuplicateStyles(
@@ -101,7 +109,7 @@ describe("filterDuplicateStyles", () => {
   });
 
   it("keeps duplicate selectors nested inside @supports and @layer blocks", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { filterDuplicateStyles } = await importHelper();
 
     const input =
@@ -113,7 +121,7 @@ describe("filterDuplicateStyles", () => {
   });
 
   it("keeps rules whose selectors are not in the base stylesheet", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { filterDuplicateStyles } = await importHelper();
 
     const input = ".not-in-base { color: blue; }";
@@ -121,74 +129,65 @@ describe("filterDuplicateStyles", () => {
   });
 
   it("returns the input unchanged when the base stylesheet cannot be read", async () => {
-    mockStat.mockRejectedValue(new Error("ENOENT"));
+    // No file written: the configured path does not exist.
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const { filterDuplicateStyles } = await importHelper();
 
     const input = ".bg-red-500 { background: red; }";
     expect(await filterDuplicateStyles(input)).toBe(input);
     expect(errorSpy).toHaveBeenCalled();
-    errorSpy.mockRestore();
   });
 
   it("returns the input unchanged when the input css is unparsable", async () => {
-    useBaseCss();
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    await writeBaseCss();
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const { filterDuplicateStyles } = await importHelper();
 
     const input = ".broken { color: red;";
     expect(await filterDuplicateStyles(input)).toBe(input);
-    errorSpy.mockRestore();
   });
 
   it("parses the base stylesheet once across calls when the file is unchanged", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { filterDuplicateStyles } = await importHelper();
 
-    await filterDuplicateStyles(".bg-red-500 { background: red; }");
-    await filterDuplicateStyles(".text-lg { font-size: 1.125rem; }");
-    await filterDuplicateStyles(".p-4 { padding: 1rem; }");
+    expect(await filterDuplicateStyles(".bg-red-500 { background: red; }")).not.toContain(".bg-red-500");
 
-    expect(mockReadFile).toHaveBeenCalledTimes(1);
-    expect(mockStat).toHaveBeenCalledTimes(3);
+    // Content changes but size and mtime do not: a cached index still treats .bg-red-500 as global.
+    await rewriteKeepingStat(BASE_CSS_WITHOUT_BG_RED);
+    expect(await filterDuplicateStyles(".bg-red-500 { background: red; }")).not.toContain(".bg-red-500");
+    expect(await filterDuplicateStyles(".text-lg { font-size: 1.125rem; }")).not.toContain(".text-lg");
+    expect(await filterDuplicateStyles(".p-4 { padding: 1rem; }")).toContain(".p-4");
   });
 
   it("re-parses the base stylesheet when the file changes on disk", async () => {
-    useBaseCss(BASE_CSS, 1000);
+    await writeBaseCss(BASE_CSS, 1000);
     const { filterDuplicateStyles } = await importHelper();
 
     const first = await filterDuplicateStyles(".bg-red-500 { background: red; }");
     expect(first).not.toContain(".bg-red-500");
 
     // Base stylesheet no longer contains .bg-red-500, so the rule must survive.
-    useBaseCss(".other { color: green; }", 2000);
+    await writeBaseCss(".other { color: green; }", 2000);
     const second = await filterDuplicateStyles(".bg-red-500 { background: red; }");
     expect(second).toContain(".bg-red-500");
-    expect(mockReadFile).toHaveBeenCalledTimes(2);
+    expect(await filterDuplicateStyles(".other { color: green; }")).not.toContain(".other");
   });
 
   it("still filters correctly after a failed read once the file becomes readable", async () => {
-    mockStat.mockRejectedValueOnce(new Error("ENOENT"));
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "error").mockImplementation(() => {});
     const { filterDuplicateStyles } = await importHelper();
 
     expect(await filterDuplicateStyles(".bg-red-500 { background: red; }")).toContain(".bg-red-500");
 
-    useBaseCss();
+    await writeBaseCss();
     expect(await filterDuplicateStyles(".bg-red-500 { background: red; }")).not.toContain(".bg-red-500");
-    errorSpy.mockRestore();
   });
 });
 
 describe("getGlobalStylesFingerprint", () => {
-  afterEach(() => {
-    vi.resetModules();
-    mockStat.mockReset();
-    mockReadFile.mockReset();
-  });
-
   it("returns a stable content hash for the same file", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { getGlobalStylesFingerprint } = await importHelper();
 
     const first = await getGlobalStylesFingerprint();
@@ -199,18 +198,17 @@ describe("getGlobalStylesFingerprint", () => {
   });
 
   it("changes when the global stylesheet changes", async () => {
-    useBaseCss(BASE_CSS, 1000);
+    await writeBaseCss(BASE_CSS, 1000);
     const { getGlobalStylesFingerprint } = await importHelper();
     const first = await getGlobalStylesFingerprint();
 
-    useBaseCss(".other { color: green; }", 2000);
+    await writeBaseCss(".other { color: green; }", 2000);
     const second = await getGlobalStylesFingerprint();
 
     expect(second).not.toBe(first);
   });
 
   it('returns "none" when the global stylesheet is missing', async () => {
-    mockStat.mockRejectedValue(new Error("ENOENT"));
     const { getGlobalStylesFingerprint } = await importHelper();
 
     expect(await getGlobalStylesFingerprint()).toBe("none");
@@ -218,26 +216,21 @@ describe("getGlobalStylesFingerprint", () => {
 });
 
 describe("preloadBaseStyleSelectors", () => {
-  afterEach(() => {
-    vi.resetModules();
-    mockStat.mockReset();
-    mockReadFile.mockReset();
-  });
-
   it("warms the selector cache so the next filter call skips the file read", async () => {
-    useBaseCss();
+    await writeBaseCss();
     const { filterDuplicateStyles, preloadBaseStyleSelectors } = await importHelper();
 
     preloadBaseStyleSelectors();
-    await vi.waitFor(() => expect(mockReadFile).toHaveBeenCalledTimes(1));
+    // Let the background parse finish, then change the content without touching size/mtime.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    await rewriteKeepingStat(BASE_CSS_WITHOUT_BG_RED);
 
+    // Filtering still sees .bg-red-500 as global: the index came from the preload, not a new read.
     const result = await filterDuplicateStyles(".bg-red-500 { background: red; }");
     expect(result).not.toContain(".bg-red-500");
-    expect(mockReadFile).toHaveBeenCalledTimes(1);
   });
 
   it("swallows errors instead of rejecting", async () => {
-    mockStat.mockRejectedValue(new Error("ENOENT"));
     const { preloadBaseStyleSelectors } = await importHelper();
 
     expect(() => preloadBaseStyleSelectors()).not.toThrow();

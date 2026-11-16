@@ -1,12 +1,29 @@
+import { getDrizzleCasing, getMappedDrizzleClient, mapChaiTables, type ChaiTableMapping } from "~/db/table-mapping";
 import { drizzle as drizzleLibSql, type LibSQLDatabase } from "drizzle-orm/libsql";
 import { createClient, type Client as LibSqlClient } from "@libsql/client";
 import * as schema from "~/drizzle/schema.sqlite";
 import { asDbInstance, type ChaiDbSetup } from "~/db/core";
 import { chaiDrizzleLogger } from "~/db/logger";
 
+/**
+ * `tables` is the drizzle schema record to run on (tables and, optionally, relations); defaults
+ * to the core tables under the default naming. Pass `createChaiSqliteSchema(naming).schema` for a
+ * programmatic naming. `schema` is the older spelling of the same option.
+ */
 export type LibsqlDbInput =
-  | { url: string; authToken?: string; schema?: Record<string, unknown> }
-  | { drizzle: LibSQLDatabase<any>; schema?: Record<string, unknown> };
+  | {
+      url: string;
+      authToken?: string;
+      tableMapping?: ChaiTableMapping;
+      tables?: Record<string, unknown>;
+      schema?: Record<string, unknown>;
+    }
+  | {
+      drizzle: LibSQLDatabase<any>;
+      tableMapping?: ChaiTableMapping;
+      tables?: Record<string, unknown>;
+      schema?: Record<string, unknown>;
+    };
 
 export function createLibSqlInstance(
   url: string,
@@ -28,17 +45,26 @@ function assertSingleLibsqlInput(input: LibsqlDbInput): void {
 export function createLibsqlDB(input: LibsqlDbInput): ChaiDbSetup {
   assertSingleLibsqlInput(input);
 
-  const activeSchema = input.schema ?? schema;
+  const activeSchema = mapChaiTables(input.tables ?? input.schema ?? schema, input.tableMapping, schema);
+  const schemas = { schema: activeSchema, schemaDefaults: schema, tableMapping: input.tableMapping };
+
+  if ("drizzle" in input && input.tableMapping && Object.keys(input.tableMapping).length > 0) {
+    const client = getMappedDrizzleClient<LibSqlClient>(input.drizzle);
+    const casing = getDrizzleCasing(input.drizzle);
+    const withSchema = (tables: Record<string, unknown>) =>
+      asDbInstance(drizzleLibSql(client, { schema: tables, casing, logger: chaiDrizzleLogger }));
+    return { ...schemas, drizzle: withSchema(activeSchema), dialect: "sqlite", withSchema };
+  }
 
   if ("drizzle" in input) {
-    return { drizzle: asDbInstance(input.drizzle), schema: activeSchema, dialect: "sqlite" };
+    return { ...schemas, drizzle: asDbInstance(input.drizzle), dialect: "sqlite" };
   }
 
   const client = createClient({ url: input.url, authToken: input.authToken });
   const db = drizzleLibSql(client, { schema: activeSchema, logger: chaiDrizzleLogger });
   return {
+    ...schemas,
     drizzle: asDbInstance(db),
-    schema: activeSchema,
     dialect: "sqlite",
     withSchema: (mergedSchema) =>
       asDbInstance(drizzleLibSql(client, { schema: mergedSchema, logger: chaiDrizzleLogger })),
@@ -49,3 +75,5 @@ export function createLibsqlDB(input: LibsqlDbInput): ChaiDbSetup {
 }
 
 export type { LibSqlClient, LibSQLDatabase };
+
+export type { ChaiTableMapping } from "~/db/table-mapping";

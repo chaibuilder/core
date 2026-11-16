@@ -20,8 +20,19 @@ export const setDraftMode = (draftMode: boolean): void => {
   state.draftMode = draftMode;
 };
 
-export const getFallbackLang = (): string => {
+/**
+ * Site default language. Seeded by `getPagePayload` on the page path; any other
+ * entry point (data providers, sitemap/feed builders, `resolveLink` outside a
+ * page render) lands on a fresh request state, so read it from the cached site
+ * settings instead of a literal — a hardcoded "en" made `resolveLink(ref, "en")`
+ * return the French primary slug on French-default sites.
+ */
+export const getFallbackLang = async (): Promise<string> => {
   const state = verifyInit();
+  if (state.fallbackLang) return state.fallbackLang;
+  const siteSettings = await getSiteSettings().catch(() => null);
+  // Seed even on a failed lookup: one answer per request state beats re-querying.
+  state.fallbackLang = siteSettings?.fallbackLang || "en";
   return state.fallbackLang;
 };
 

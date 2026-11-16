@@ -5,6 +5,7 @@ import { getFrameworkAdapter } from "~/server/framework-adapter";
 import { runChaiRequestMiddleware } from "~/server/plugin-api/request-middleware";
 import { ChaiBlock } from "~/types";
 import type { ChaiFullPage } from "~/types/pages";
+import { getFallbackLang } from "../internal/init";
 import { getInitializedState } from "../state";
 import { withRequestCache } from "./cache-utils";
 import { getAlternateLangPages } from "./get-alternate-lang-pages";
@@ -15,8 +16,9 @@ import { resolvePageBySlug } from "./get-page-by-slug";
 import { getPageDetails } from "./get-page-details";
 import { getPartialPageBySlug } from "./get-partial-page-by-slug";
 import { getSiteSettings } from "./get-site-settings";
+import { getUpstreamFullPage, linkedUpstreamId } from "./get-upstream-full-page";
 import { registerCacheTags } from "./register-cache-tags";
-import type { PageRoutingMetadata } from "./page-routing-cache";
+import { type PageRoutingMetadata, upstreamPageTag, upstreamSiteTag } from "./page-routing-cache";
 
 /**
  * The SEO editor persists an "empty" JSON-LD as the string `"{}"` (or `"[]"`),
@@ -30,14 +32,15 @@ async function fetchPageMetadata(page: PageRoutingMetadata, fallbackLang: string
   const primaryPageId = page.primaryPage ?? page.id;
   // Resolve the site fallback BEFORE fetching alternate-language pages: the primary page
   // stores an empty `lang`, so the alternate hreflang labels must derive from the site's
-  // real fallback — not the request-state default, which is only the hardcoded "en"
-  // placeholder on the metadata request path. Mislabeling the French primary as `en`
-  // overwrites the English variant's self-hreflang with the French URL.
+  // real fallback. Mislabeling the French primary as `en` overwrites the English
+  // variant's self-hreflang with the French URL.
   const siteSettings = await getSiteSettings();
   const finalFallbackLang = siteSettings?.fallbackLang || fallbackLang;
-  const [details, alternatePages] = await Promise.all([
+  const upstreamId = linkedUpstreamId(page);
+  const [details, alternatePages, upstream] = await Promise.all([
     getPageDetails(page.id),
     getAlternateLangPages(primaryPageId, page.id, finalFallbackLang),
+    upstreamId ? getUpstreamFullPage(upstreamId) : Promise.resolve(null),
   ]);
 
   return {
@@ -46,7 +49,7 @@ async function fetchPageMetadata(page: PageRoutingMetadata, fallbackLang: string
     slug: page.slug,
     lang: page.lang || finalFallbackLang,
     primaryPage: page.primaryPage,
-    seo: details.seo ?? {},
+    seo: (upstream ? upstream.seo : details.seo) ?? {},
     currentEditor: details.currentEditor,
     pageType: page.pageType!,
     lastSaved: details.lastSaved!,
@@ -59,6 +62,7 @@ async function fetchPageMetadata(page: PageRoutingMetadata, fallbackLang: string
     alternatePages,
     tracking: details.tracking,
     metadata: details.metadata ?? {},
+    ...(upstreamId ? { upstream: upstreamId } : {}),
   };
 }
 
@@ -73,8 +77,12 @@ async function fetchPageData(page: PageRoutingMetadata, fallbackLang: string): P
   // A language/alternate page references a distinct primary page; it inherits
   // that primary's shared JSON-LD (staging getFullPage.ts:69-74).
   const isLanguagePage = !!page.primaryPage && page.primaryPage !== page.id;
+  // A linked page renders its upstream page's blocks and SEO. Tag the route before fetching, so
+  // a 404 for a missing upstream also clears when the upstream is published again.
+  const upstreamId = linkedUpstreamId(page);
+  if (upstreamId) await registerCacheTags([upstreamPageTag(upstreamId), upstreamSiteTag(getInitializedState().appId!)]);
   const [fullPage, details, primaryDetails, breadcrumbPages, alternatePages] = await Promise.all([
-    getFullPage(primaryPageId, { mergePartials: true }),
+    upstreamId ? getUpstreamFullPage(upstreamId) : getFullPage(primaryPageId, { mergePartials: true }),
     getPageDetails(page.id),
     isLanguagePage ? getPageDetails(primaryPageId) : Promise.resolve(null),
     getBreadcrumb(page.id),
@@ -86,7 +94,7 @@ async function fetchPageData(page: PageRoutingMetadata, fallbackLang: string): P
   // actual documents — the Car/Vehicle + AutomotiveBusiness/AutoDealer schemas
   // the routes render via `globalJsonLdsData`. Language pages inherit the
   // primary's global refs, and its seo.jsonLD when they have none of their own.
-  let seo = (details.seo ?? {}) as Record<string, unknown>;
+  let seo = ((upstreamId ? fullPage.seo : details.seo) ?? {}) as Record<string, unknown>;
   let globalJsonLdIds = details.globalJsonLds ?? [];
   if (primaryDetails) {
     globalJsonLdIds = primaryDetails.globalJsonLds ?? [];
@@ -121,6 +129,7 @@ async function fetchPageData(page: PageRoutingMetadata, fallbackLang: string): P
     tracking: details.tracking,
     metadata: details.metadata ?? {},
     globalJsonLdsData,
+    ...(upstreamId ? { upstream: upstreamId } : {}),
   };
 }
 
@@ -140,7 +149,8 @@ async function redirectOrNotFound(slug: string): Promise<never> {
   const adapter = getFrameworkAdapter();
   const state = getInitializedState();
 
-  const redirect = await runChaiRequestMiddleware({ slug, lang: state.lang || state.fallbackLang });
+  const lang = state.lang || (await getFallbackLang());
+  const redirect = await runChaiRequestMiddleware({ slug, lang });
   if (redirect && redirect.redirect !== slug) {
     return adapter.redirect(redirect.redirect, redirect.permanent);
   }
@@ -148,7 +158,7 @@ async function redirectOrNotFound(slug: string): Promise<never> {
   const handled = await resolveConfigPageNotFound({
     slug,
     appId: state.appId!,
-    lang: state.lang || state.fallbackLang,
+    lang,
     draft: state.draftMode,
   });
   if (handled) {
@@ -163,11 +173,11 @@ export const getPageForMetadata = cache(async (slug: string): Promise<ChaiFullPa
     return (await getPartialPageBySlug(slug)) as unknown as ChaiFullPage;
   }
 
-  const state = getInitializedState();
+  getInitializedState();
 
   try {
     const page = await resolvePageMatch(slug);
-    return await withRequestCache(fetchPageMetadata, "fetchPageMetadata")(page, state.fallbackLang);
+    return await withRequestCache(fetchPageMetadata, "fetchPageMetadata")(page, await getFallbackLang());
   } catch (error) {
     if (error instanceof Error && error.message === "PAGE_NOT_FOUND") {
       await redirectOrNotFound(slug);
@@ -181,11 +191,11 @@ export const getPage = cache(async (slug: string): Promise<ChaiFullPage> => {
     return (await getPartialPageBySlug(slug)) as unknown as ChaiFullPage;
   }
 
-  const state = getInitializedState();
+  getInitializedState();
 
   try {
     const page = await resolvePageMatch(slug);
-    return await withRequestCache(fetchPageData, "fetchPageData")(page, state.fallbackLang);
+    return await withRequestCache(fetchPageData, "fetchPageData")(page, await getFallbackLang());
   } catch (error) {
     if (error instanceof Error && error.message === "PAGE_NOT_FOUND") {
       await redirectOrNotFound(slug);

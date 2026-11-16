@@ -4,10 +4,6 @@
 import { render, screen } from "@testing-library/react";
 import { isMacPlatform } from "./help-panel";
 
-vi.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
-}));
-
 const setPlatform = (userAgentDataPlatform: string | undefined, platform: string) => {
   Object.defineProperty(navigator, "userAgentData", {
     value: userAgentDataPlatform ? { platform: userAgentDataPlatform } : undefined,
@@ -16,8 +12,11 @@ const setPlatform = (userAgentDataPlatform: string | undefined, platform: string
   Object.defineProperty(navigator, "platform", { value: platform, configurable: true });
 };
 
+// The modifier key is computed when help-panel loads, so each case loads a fresh module graph. The
+// fresh react-i18next instance is initialised with the English bundle the same way the builder does.
 const renderPanel = async () => {
   vi.resetModules();
+  await import("~/builder/core/locales/load");
   const { helpPanel } = await import("./help-panel");
   const Panel = helpPanel.panel;
   render(<Panel />);

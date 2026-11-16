@@ -8,23 +8,25 @@
  * — invisible until React's client-side `$RC` unhides it. With the flag on the
  * same markup must land in the shell, with no hidden container at all.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-// `vi.hoisted` so the registry is initialized before the hoisted `vi.mock`
-// factories, matching how the rest of the suite wires mock state.
-const { registeredBlocks } = vi.hoisted(() => ({
-  registeredBlocks: {} as Record<string, any>,
-}));
-
-vi.mock("~/registry", () => ({
-  getRegisteredChaiBlock: (type: string) => registeredBlocks[type],
-  resolveChaiBlockComponent: (registeredBlock: any) => registeredBlock?.component ?? null,
-  syncBlocksWithDefaultProps: (blocks: any[]) => blocks,
-}));
-
 import { renderToReadableStream } from "react-dom/server.browser";
-import { RenderChaiBlocksSDK } from "./render-chai-blocks-sdk";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { registerChaiBlock } from "~/registry";
 import { shouldInlineDataProviders } from "./inline-data-providers";
+import { RenderChaiBlocksSDK } from "./render-chai-blocks-sdk";
+
+/** Registers the test block in the real registry (re-registering replaces its component and provider). */
+const registerVehicleList = (overrides: { component?: React.ComponentType<any>; dataProvider?: () => any } = {}) => {
+  registerChaiBlock(
+    (overrides.component ?? VehicleList) as any,
+    {
+      type: "TestVehicleList",
+      label: "TestVehicleList",
+      group: "test",
+      dataProvider: overrides.dataProvider ?? (() => ({})),
+      suspenseFallback: Skeleton,
+    } as any,
+  );
+};
 
 const VEHICLE_MARKER = 'data-testid="vehicle-link"';
 
@@ -137,17 +139,17 @@ const visibleShell = (html: string) => {
 
 describe("inline data providers (opt-out via CHAI_DISABLE_INLINE_DATA_PROVIDERS)", () => {
   beforeEach(() => {
-    registeredBlocks.TestVehicleList = {
-      component: VehicleList,
-      dataProvider: () => ({}),
-      suspenseFallback: Skeleton,
-    };
+    registerVehicleList();
     // Inline is the default; the streaming test opts back out explicitly.
-    delete process.env.CHAI_DISABLE_INLINE_DATA_PROVIDERS;
+    vi.stubEnv("CHAI_DISABLE_INLINE_DATA_PROVIDERS", undefined);
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("streams content into a hidden container when disabled (the no-JS bug)", async () => {
-    process.env.CHAI_DISABLE_INLINE_DATA_PROVIDERS = "true";
+    vi.stubEnv("CHAI_DISABLE_INLINE_DATA_PROVIDERS", "true");
     const html = await renderPage();
 
     // The real markup exists in the document...
@@ -176,7 +178,7 @@ describe("inline data providers (opt-out via CHAI_DISABLE_INLINE_DATA_PROVIDERS)
     // awaiting the promise itself, or these per-block timing logs silently
     // vanish on the default path — blinding the instrumentation used to
     // measure the TTFB cost inlining introduces.
-    process.env.LOG_PAGE_BUILD_TIMINGS = "true";
+    vi.stubEnv("LOG_PAGE_BUILD_TIMINGS", "true");
     const logged: string[] = [];
     const spy = vi.spyOn(console, "log").mockImplementation((...args: unknown[]) => {
       logged.push(String(args[0]));
@@ -186,7 +188,6 @@ describe("inline data providers (opt-out via CHAI_DISABLE_INLINE_DATA_PROVIDERS)
       await renderPage();
     } finally {
       spy.mockRestore();
-      delete process.env.LOG_PAGE_BUILD_TIMINGS;
     }
 
     expect(logged).toContain("[page-build] blockAwaitStart");
@@ -195,14 +196,12 @@ describe("inline data providers (opt-out via CHAI_DISABLE_INLINE_DATA_PROVIDERS)
 
   it("passes resolved provider data through and strips $cacheTags", async () => {
     const seen: any[] = [];
-    registeredBlocks.TestVehicleList = {
+    registerVehicleList({
       component: (props: any) => {
         seen.push(props);
         return <VehicleList vehicles={props.vehicles} />;
       },
-      dataProvider: () => ({}),
-      suspenseFallback: Skeleton,
-    };
+    });
 
     const stream = await renderToReadableStream(
       // `draft` so `consumeProviderTags(dataProps, !draft)` strips `$cacheTags`
@@ -240,13 +239,11 @@ describe("inline data providers (opt-out via CHAI_DISABLE_INLINE_DATA_PROVIDERS)
     // page render; instead the custom block must degrade to nothing, matching
     // the streaming path (where the boundary — FallbackComponent `() => null` —
     // catches it).
-    registeredBlocks.TestVehicleList = {
-      component: VehicleList,
+    registerVehicleList({
       dataProvider: () => {
         throw new Error("provider boom");
       },
-      suspenseFallback: Skeleton,
-    };
+    });
     const Boundary = ({ children }: { children: React.ReactNode }) => <>{children}</>;
     // This catch bypasses the injected boundary's own onError, so it must log
     // or the failure is invisible in production. Capture into a local array —
@@ -290,13 +287,11 @@ describe("inline data providers (opt-out via CHAI_DISABLE_INLINE_DATA_PROVIDERS)
     // No blockErrorBoundary → the guard rethrows, preserving the streaming
     // path's behavior for unwrapped core/structural blocks. An unguarded throw
     // in the shell (nothing suspended) rejects the stream promise.
-    registeredBlocks.TestVehicleList = {
-      component: VehicleList,
+    registerVehicleList({
       dataProvider: () => {
         throw new Error("provider boom");
       },
-      suspenseFallback: Skeleton,
-    };
+    });
 
     await expect(
       renderToReadableStream(

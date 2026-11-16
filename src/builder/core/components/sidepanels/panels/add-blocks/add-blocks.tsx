@@ -12,11 +12,13 @@ import ImportHTML from "~/builder/core/components/sidepanels/panels/add-blocks/i
 import UILibrariesPanel from "~/builder/core/components/sidepanels/panels/add-blocks/libraries-panel";
 import { PartialBlocks } from "~/builder/core/components/sidepanels/panels/add-blocks/partial-blocks";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
-import { canAcceptChildBlock, canBeNestedInside } from "~/builder/core/functions/block-helpers";
+import { canAcceptInto, canBeNestedInside } from "~/builder/core/functions/block-helpers";
 import { mergeClasses } from "~/builder/core/main";
 import { pubsub } from "~/builder/core/pubsub";
 import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { useFeatureLabel } from "~/builder/hooks/use-feature-label";
+import { useLibraryChaiBlocks } from "~/builder/hooks/use-library-chai-blocks";
 import { usePartialTabLabel } from "~/builder/hooks/use-create-partial-label";
 import { usePartialBlocksList } from "~/builder/hooks/use-partial-blocks-store";
 import { usePermissions } from "~/builder/hooks/use-permissions";
@@ -271,7 +273,7 @@ export const ChaiBuilderBlocks = ({
                         ).map((block, blockIndex) => {
                           const isDisabled =
                             !dnd &&
-                            (!canAcceptChildBlock(parentType!, block.type) ||
+                            (!canAcceptInto(find(allBlocks, (b) => b._id === parentId), block.type, allBlocks) ||
                               !canBeNestedInside(parentType!, block.type));
                           const key = block.type + "-" + index + "-" + blockIndex;
                           return renderBlock ? (
@@ -328,9 +330,12 @@ const AddBlocksPanel = ({
   const [tab, setTab] = useAtom(addBlockTabAtom);
   const [, setCategory] = useAtom(showPredefinedBlockCategoryAtom);
   const importHtmlEnabled = useBuilderProp("flags.importHtml", true);
+  const partialBlocksEnabled = useBuilderProp("flags.partialBlocks", true);
   const { data: partialBlocksList } = usePartialBlocksList();
-  const hasPartialBlocks = Object.keys(partialBlocksList || {}).length > 0;
+  const hasPartialBlocks = partialBlocksEnabled && Object.keys(partialBlocksList || {}).length > 0;
   const partialTabLabel = usePartialTabLabel();
+  const libraryLabel = useFeatureLabel("library");
+  const blocksLabel = useFeatureLabel("blocks");
   const { hasPermission } = usePermissions();
 
   // A search queries the Library, Blocks and Global Blocks sources together.
@@ -358,7 +363,8 @@ const AddBlocksPanel = ({
   const addBlockAdditionalTabs = useChaiAddBlockTabs();
   const canImportHTML = importHtmlEnabled && hasPermission(CHAI_PERMISSIONS["pages:update"]);
   const uiLibraries = useChaiLibraries();
-  const hasUiLibraries = uiLibraries.length > 0;
+  const libraryChaiBlocks = useLibraryChaiBlocks();
+  const hasUiLibraries = uiLibraries.length > 0 || libraryChaiBlocks.length > 0;
 
   // If current tab is "library" but there are no UI libraries, switch to "core" tab
   useEffect(() => {
@@ -404,11 +410,11 @@ const AddBlocksPanel = ({
           }`}>
           {hasUiLibraries && (
             <TabsTrigger value="library" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
-              {t("Library")}
+              {libraryLabel}
             </TabsTrigger>
           )}
           <TabsTrigger value="core" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
-            {t("Blocks")}
+            {blocksLabel}
           </TabsTrigger>
           {hasPartialBlocks && (
             <TabsTrigger value="partials" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>

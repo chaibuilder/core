@@ -6,6 +6,7 @@ import {
   useBlocksStore,
   useBlocksStoreUndoableActions,
 } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
+import { canDeleteBlock } from "~/builder/core/functions/block-helpers";
 import { removeNestedBlocks } from "~/builder/hooks/use-remove-blocks";
 import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { DropdownMenuItem } from "~/components/ui/dropdown-menu";
@@ -16,8 +17,11 @@ export const useUnwrapBlock = () => {
   const { setNewBlocks } = useBlocksStoreUndoableActions();
   const [blocks] = useBlocksStore();
 
+  // Unwrap deletes the wrapper itself; its children move with it as a parent action.
+  const canUnwrapInstance = !!selectedBlock && canDeleteBlock(selectedBlock);
+
   const unwrapBlock = useCallback(() => {
-    if (!selectedBlock) return;
+    if (!selectedBlock || !canUnwrapInstance) return;
 
     const children = blocks.filter((b) => b._parent === selectedBlock._id);
     const parentId = selectedBlock._parent;
@@ -44,9 +48,9 @@ export const useUnwrapBlock = () => {
     } else {
       setBlockIds([]);
     }
-  }, [selectedBlock, blocks, setNewBlocks, setBlockIds]);
+  }, [selectedBlock, canUnwrapInstance, blocks, setNewBlocks, setBlockIds]);
 
-  const canUnwrap = !!selectedBlock && selectedBlock._type === "Box";
+  const canUnwrap = !!selectedBlock && selectedBlock._type === "Box" && canUnwrapInstance;
 
   return {
     unwrapBlock,

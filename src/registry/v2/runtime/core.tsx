@@ -6,7 +6,6 @@ import {
   has,
   isArray,
   isEmpty,
-  isPlainObject,
   isString,
   keys,
   memoize,
@@ -16,7 +15,7 @@ import {
 } from "lodash-es";
 import React, { useMemo } from "react";
 import { STYLES_KEY } from "~/constants/STRINGS";
-import type { ChaiBlockConfig, ChaiBlockStyleVariant } from "~/types/blocks";
+import type { ChaiBlockConfig, ChaiBlockVariant } from "~/types/blocks";
 import { ChaiBlockComponentProps } from "~/types/blocks";
 import { ChaiBlock, ChaiBlockPropsSchema, ChaiPageProps } from "~/types/common";
 
@@ -53,30 +52,24 @@ export const getRegisteredChaiBlock = (
 
 type RegisteredBlock = ChaiBlockConfig & { component: React.ComponentType<ChaiBlockComponentProps> };
 
-/**
- * A style variant is a plain object of style-prop names to class strings. React
- * components are excluded by the `$$typeof` check — `React.memo`/`forwardRef`
- * results are plain objects as far as lodash is concerned.
- */
-const isStyleVariant = (variant: unknown): variant is ChaiBlockStyleVariant =>
-  isPlainObject(variant) && !has(variant, "$$typeof");
-
-const getBlockVariant = (registeredBlock: RegisteredBlock | null | undefined, variant?: string) =>
+const getBlockVariant = (
+  registeredBlock: RegisteredBlock | null | undefined,
+  variant?: string,
+): ChaiBlockVariant | undefined =>
   registeredBlock && variant ? get(registeredBlock, ["variants", variant]) : undefined;
 
 /**
  * Resolves the component to render for a block instance. A block may register
  * named `variants` alongside its default component; `block._variant` picks one.
- * An absent, empty, unknown or style-only variant name falls back to the default
- * component, so a variant that was renamed or unregistered never breaks a saved page.
+ * An absent, empty or unknown variant name, or a variant without a `component`,
+ * falls back to the default, so a renamed or removed variant never breaks a saved page.
  */
 export const resolveChaiBlockComponent = (
   registeredBlock: RegisteredBlock | null | undefined,
   variant?: string,
 ): React.ComponentType<ChaiBlockComponentProps> | null => {
   if (!registeredBlock) return null;
-  const variantValue = getBlockVariant(registeredBlock, variant);
-  const variantComponent = isStyleVariant(variantValue) ? undefined : variantValue;
+  const variantComponent = getBlockVariant(registeredBlock, variant)?.component;
   return (variantComponent as React.ComponentType<ChaiBlockComponentProps>) ?? get(registeredBlock, "component", null);
 };
 
@@ -85,53 +78,66 @@ const toChaiStylesValue = (classes: string) =>
   // segments; a bare class list becomes the user-facing (winning) segment.
   classes.startsWith(STYLES_KEY) ? classes : `${STYLES_KEY},${classes}`;
 
+const isStylesProp = (registeredBlock: RegisteredBlock, prop: string) =>
+  get(registeredBlock, ["props", "schema", "properties", prop, "styles"]) === true;
+
+// Default of a prop declared only inside an `allOf` if/then branch, which getBlockDefaultProps skips.
+const getConditionalDefault = (registeredBlock: RegisteredBlock, prop: string) => {
+  const rules = get(registeredBlock, ["props", "schema", "allOf"], []) as unknown[];
+  const path = ["then", "properties", prop, "default"];
+  const rule = rules.find((candidate) => has(candidate, path));
+  return rule ? get(rule, path) : undefined;
+};
+
 /**
- * Style props written into the block when `variant` is selected in the builder.
- * Style variants are applied at edit time, not at render time — the classes land
- * in the block's own style props, so the saved page needs no variant lookup and
- * the style panel keeps working on the result.
+ * Props written into the block when `variant` is selected in the builder.
+ * Variants are applied at edit time, not at render time — the values land in the
+ * block's own props, so the saved page needs no variant lookup and the style
+ * panel keeps working on the result.
  *
- * The keys returned are the union of every style prop any style variant of this
- * block controls, so switching between variants (or back to Default) always
- * resets props the newly selected variant does not set back to their schema
- * default, instead of leaving the previous variant's classes behind.
+ * The keys returned are the union of every prop any variant of this block
+ * controls, so switching between variants (or back to Default) always resets
+ * props the newly selected variant does not set back to their schema default
+ * (including defaults declared in `allOf` branches), instead of leaving the
+ * previous variant's values behind.
  *
- * Returns undefined when the block has no style variants at all.
+ * Returns undefined when no variant of the block sets any props.
  */
-export const getChaiBlockStyleVariantProps = (
+export const getChaiBlockVariantProps = (
   registeredBlock: RegisteredBlock | null | undefined,
   variant?: string,
-): Record<string, string> | undefined => {
-  const variants = get(registeredBlock, "variants", {}) as Record<string, unknown>;
+): Record<string, unknown> | undefined => {
+  const variants = get(registeredBlock, "variants", {}) as Record<string, ChaiBlockVariant>;
   const controlledProps = new Set<string>();
-  each(variants, (value) => {
-    if (isStyleVariant(value)) each(keys(value), (styleProp) => controlledProps.add(styleProp));
-  });
+  each(variants, (value) => each(keys(value?.props), (prop) => controlledProps.add(prop)));
   if (controlledProps.size === 0) return undefined;
 
-  const selected = getBlockVariant(registeredBlock, variant);
-  const selectedStyles = (isStyleVariant(selected) ? selected : {}) as Record<string, unknown>;
+  const selectedProps = getBlockVariant(registeredBlock, variant)?.props ?? {};
   const defaults = getBlockDefaultProps(registeredBlock!.type);
 
-  const styleProps: Record<string, string> = {};
-  controlledProps.forEach((styleProp) => {
-    const classes = selectedStyles[styleProp];
-    styleProps[styleProp] = isString(classes)
-      ? toChaiStylesValue(classes)
-      : (get(defaults, styleProp, `${STYLES_KEY},`) as string);
+  const variantProps: Record<string, unknown> = {};
+  controlledProps.forEach((prop) => {
+    const isStyles = isStylesProp(registeredBlock!, prop);
+    if (has(selectedProps, prop)) {
+      const value = selectedProps[prop];
+      variantProps[prop] = isStyles && isString(value) ? toChaiStylesValue(value) : value;
+    } else {
+      const defaultValue = has(defaults, prop) ? get(defaults, prop) : getConditionalDefault(registeredBlock!, prop);
+      variantProps[prop] = defaultValue === undefined && isStyles ? `${STYLES_KEY},` : defaultValue;
+    }
   });
-  return styleProps;
+  return variantProps;
 };
 
 // REGISTERED_CHAI_BLOCKS is mutated after module load (late registration,
 // re-registration, HMR), so plain memoize(type) can cache stale results.
 // This skips caching while the type is unregistered, and registry mutations
 // call invalidateBlockMemoCaches(type) to evict entries for updated types.
-type MemoizedByRegisteredType<T> = ((type: keyof typeof REGISTERED_CHAI_BLOCKS) => T) & {
+export type MemoizedByRegisteredType<T> = ((type: keyof typeof REGISTERED_CHAI_BLOCKS) => T) & {
   cache: { delete: (key: string) => boolean };
 };
 
-const memoizeByRegisteredType = <T,>(
+export const memoizeByRegisteredType = <T,>(
   getter: (type: keyof typeof REGISTERED_CHAI_BLOCKS) => T,
 ): MemoizedByRegisteredType<T> => {
   const memoized = memoize(getter);
@@ -147,7 +153,8 @@ export const getBlockDefaultProps = memoizeByRegisteredType((type: keyof typeof 
   const properties = get(schema, "properties", {});
   const defaultProps: Record<string, any> = {};
   each(properties, (propSchema: ChaiBlockPropsSchema, key) => {
-    if (has(propSchema, "block")) {
+    // Slot props are filled from child blocks at render, never stored on the block.
+    if (has(propSchema, "block") || (propSchema as any).slot) {
       return;
     }
     set(defaultProps, key, (propSchema as any).default);
@@ -173,7 +180,8 @@ const getMemoizedBlockFormSchemas = memoizeByRegisteredType(
     const blockUiSchema = registeredBlock.props?.uiSchema ?? {};
     const schema = cloneDeep(blockSchema) as RJSFSchema;
     const properties = get(schema, "properties", {}) as Record<string, any>;
-    const nonStylesProperties = omitBy(properties, (prop) => prop?.styles === true);
+    // Slot props are filled by child blocks, so the settings form never shows them.
+    const nonStylesProperties = omitBy(properties, (prop) => prop?.styles === true || prop?.slot === true);
     const uiSchema = cloneDeep(blockUiSchema || {});
     const variantNames = keys(get(registeredBlock, "variants", {}));
 
@@ -196,6 +204,7 @@ const getMemoizedBlockFormSchemas = memoizeByRegisteredType(
       },
       ...nonStylesProperties,
     });
+    set(uiSchema, "_variant", { "ui:widget": "variant", "ui:label": false });
     // RJSF errors on properties missing from an explicit ui:order.
     if (isArray(get(uiSchema, "ui:order"))) {
       set(uiSchema, "ui:order", ["_variant", ...(get(uiSchema, "ui:order") as string[])]);
@@ -218,10 +227,21 @@ export const getBlockFormSchemas = (
   };
 };
 
-const MEMOIZED_BLOCK_GETTERS = [getBlockDefaultProps, getBlockI18nProps, getBlockAIProps, getMemoizedBlockFormSchemas];
+const MEMOIZED_BLOCK_GETTERS = new Map<string, MemoizedByRegisteredType<unknown>>(
+  Object.entries({ getBlockDefaultProps, getBlockI18nProps, getBlockAIProps, getMemoizedBlockFormSchemas }),
+);
+
+// getBlockRuntimeProps lives in the render-helper module
+// (builder/core/components/canvas/static/), not here, so that module registers
+// its memoized getter through this hook to opt into the same cache invalidation
+// on block (re)registration. Keyed by name, so a hot-reloaded module replaces its
+// previous getter instead of adding another.
+export const registerMemoizedBlockGetter = (name: string, getter: MemoizedByRegisteredType<unknown>) => {
+  MEMOIZED_BLOCK_GETTERS.set(name, getter);
+};
 
 const invalidateBlockMemoCaches = (type: keyof typeof REGISTERED_CHAI_BLOCKS) => {
-  for (const getter of MEMOIZED_BLOCK_GETTERS) {
+  for (const getter of MEMOIZED_BLOCK_GETTERS.values()) {
     getter.cache.delete(type);
   }
 };

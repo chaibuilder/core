@@ -158,6 +158,7 @@ const PageManagerSearchAndFilter = ({
   const tabLabel = usePartialTabLabel();
   const { data: pageTypes } = usePageTypes();
   const layoutPagesEnabled = useBuilderProp("flags.layoutPages", false);
+  const partialBlocksEnabled = useBuilderProp("flags.partialBlocks", true);
   const isMultiLingual = languages.length > 1;
 
   // Partial page types (no slug) usable as global blocks. Layouts are always
@@ -185,13 +186,13 @@ const PageManagerSearchAndFilter = ({
               <RefreshPagesList />
               <ExpandCollapse pages={pages} />
               {category === "pages" && (
-                <Button variant="default" onClick={() => onAddPage({ pageType: "page" })} size="sm">
+                <Button id="add-page-button" variant="default" onClick={() => onAddPage({ pageType: "page" })} size="sm">
                   <Plus className="mr-1 h-4 w-4" />
                   <span>{t("Add Page")}</span>
                 </Button>
               )}
-              {category === "partials" && defaultPartialType && (
-                <Button variant="default" onClick={() => onAddPage({ pageType: defaultPartialType.key })} size="sm">
+              {category === "partials" && partialBlocksEnabled && defaultPartialType && (
+                <Button id="create-partial-button" variant="default" onClick={() => onAddPage({ pageType: defaultPartialType.key })} size="sm">
                   <Plus className="mr-1 h-4 w-4" />
                   <span>{t("Create {{name}}", { name: defaultPartialType.name })}</span>
                 </Button>
@@ -231,14 +232,6 @@ const PageManagerSearchAndFilter = ({
 
           {/* Right Side: Filters */}
           <div className="flex shrink-0 items-center justify-end gap-2 overflow-x-auto">
-            {!search && (
-              <TagFilterSelector
-                selectedTags={selectedTags}
-                setSelectedTags={setSelectedTags}
-                availableTags={availableTags}
-              />
-            )}
-            
             {(category === "pages" || search) && isMultiLingual && (
               <div className="flex items-center gap-1">
                 <LanguageSelector
@@ -266,6 +259,15 @@ const PageManagerSearchAndFilter = ({
             )}
           </div>
         </div>
+
+        {/* Third Row: Tag filter (partials only) — its own full-width row so the chips wrap instead of overflowing */}
+        {!search && category === "partials" && (
+          <TagFilterSelector
+            selectedTags={selectedTags}
+            setSelectedTags={setSelectedTags}
+            availableTags={availableTags}
+          />
+        )}
       </div>
     </TooltipProvider>
   );

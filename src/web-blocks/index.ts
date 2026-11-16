@@ -7,6 +7,7 @@ import { Component as GlobalBlock, Config as GlobalBlockConfig } from "~/web-blo
 import { Component as IconBlock, Config as IconBlockConfig } from "~/web-blocks/custom/icon";
 import { PartialBlock, PartialBlockConfig } from "~/web-blocks/custom/partial-block";
 import { PageSlot, PageSlotConfig } from "~/web-blocks/custom/page-slot";
+import { ChaiSlot, ChaiSlotConfig } from "~/web-blocks/custom/chai-slot";
 import { Column, ColumnConfig, Component as Row, Config as RowConfig } from "~/web-blocks/custom/row-col";
 import { Component as DividerBlock, Config as DividerBlockConfig } from "~/web-blocks/divider";
 import { Component as EmptyBox, Config as EmptyBoxConfig } from "~/web-blocks/empty-box";
@@ -80,6 +81,7 @@ const loadWebBlocks = () => {
   registerChaiBlock(GlobalBlock, GlobalBlockConfig);
   registerChaiBlock(PartialBlock, PartialBlockConfig);
   registerChaiBlock(PageSlot, PageSlotConfig);
+  registerChaiBlock(ChaiSlot, ChaiSlotConfig);
   registerChaiBlock(Row, RowConfig);
   registerChaiBlock(Column, ColumnConfig);
   registerChaiBlock(Repeater, RepeaterConfig);

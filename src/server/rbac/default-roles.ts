@@ -41,14 +41,7 @@ export const DEFAULT_ROLE_MAPS: ChaiRolesAndPermissions = {
   superadmin: { permissions: ["*"] },
 
   editor: {
-    permissions: [
-      "app:read",
-      "pages:*",
-      "partials:*",
-      "assets:*",
-      "library:*",
-      "ai:*",
-    ],
+    permissions: ["app:read", "pages:*", "partials:*", "assets:*", "library:*", "ai:*"],
   },
 
   designer: {
@@ -59,19 +52,17 @@ export const DEFAULT_ROLE_MAPS: ChaiRolesAndPermissions = {
       "assets:*",
       "library:*",
       "theme:edit",
-      "app:publish_theme",
+      "theme:publish",
+      "design_tokens:read",
+      "design_tokens:create",
+      "design_tokens:edit",
+      "design_tokens:delete",
       "ai:*",
     ],
   },
 
   viewer: {
-    permissions: [
-      "app:read",
-      "pages:read",
-      "partials:read",
-      "assets:read",
-      "library:read",
-    ],
+    permissions: ["app:read", "pages:read", "partials:read", "assets:read", "library:read"],
   },
 
   user: {

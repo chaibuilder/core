@@ -1,6 +1,7 @@
 import { get, isEmpty } from "lodash-es";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useSidebarActivePanel } from "~/builder/hooks/use-sidebar-active-panel";
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
@@ -30,6 +31,7 @@ const countAllChildren = (pageId: string, allPages: ChaiPage[]): number => {
 
 function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
   const { t } = useTranslation();
+  const { singular } = usePartialTypeLabel();
   const [, setQueryParams] = useSearchParams();
   const { mutate: deletePage, isPending: isDeleting } = useDeletePage();
   const { data: allPages = [] } = useWebsitePrimaryPages();
@@ -132,7 +134,7 @@ function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
           {isPartial && pagesUsingPartial.length > 0 && (
             <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm">
               <div className="font-semibold text-destructive">
-                {t("Warning: This partial is currently used in the following pages")}:
+                {t("Warning: This {{name}} is currently used in the following pages", { name: singular })}:
               </div>
               <ul className="mt-2 list-inside list-disc space-y-1 text-destructive">
                 {pagesUsingPartial.map(({ id, name }) => (

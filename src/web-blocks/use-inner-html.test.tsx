@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { render, renderHook } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { Component as HeadingBlock } from "./heading";
 import { Component as RichTextBlock } from "./rte";
 import { useInnerHtml } from "./use-inner-html";
@@ -10,6 +10,31 @@ import { useInnerHtml } from "./use-inner-html";
 // when the HTML is unchanged. In the builder canvas every block re-renders on selection,
 // so the whole page's markup was re-injected per click. `useInnerHtml` memoizes the object
 // on the string so React leaves the DOM alone until the HTML actually changes.
+//
+// `cache()` only memoizes under React's real react-server dispatcher; the plain "react"
+// build resolved in tests is a passthrough (see the hook's doc comment). Fake a
+// request-scoped cache so the cross-instance sharing `useInnerHtml` relies on for RSC
+// flight de-duplication is actually exercised below.
+// eslint-disable-next-line no-restricted-syntax
+vi.mock("react", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("react")>();
+  const memo = new Map<unknown, Map<string, unknown>>();
+  return {
+    ...actual,
+    cache:
+      (fn: (arg: string) => unknown) =>
+      (arg: string) => {
+        let byArg = memo.get(fn);
+        if (!byArg) {
+          byArg = new Map();
+          memo.set(fn, byArg);
+        }
+        if (!byArg.has(arg)) byArg.set(arg, fn(arg));
+        return byArg.get(arg);
+      },
+  };
+});
+
 describe("useInnerHtml / block innerHTML stability", () => {
   const props = (content: string) => ({ blockProps: { "data-block-id": "x" }, styles: {}, content }) as any;
 
@@ -51,5 +76,17 @@ describe("useInnerHtml / block innerHTML stability", () => {
     expect(result.current).toBe(empty);
     rerender({ html: "" });
     expect(result.current).toBe(empty);
+  });
+
+  it("shares the same __html object across instances for equal HTML (request-scoped cache)", () => {
+    const a = renderHook(() => useInnerHtml("<p>shared</p>"));
+    const b = renderHook(() => useInnerHtml("<p>shared</p>"));
+    expect(a.result.current).toBe(b.result.current);
+  });
+
+  it("does not share the object across instances for different HTML", () => {
+    const a = renderHook(() => useInnerHtml("<p>one</p>"));
+    const b = renderHook(() => useInnerHtml("<p>two</p>"));
+    expect(a.result.current).not.toBe(b.result.current);
   });
 });

@@ -5,11 +5,17 @@ import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { hasPermission } from "~/server/rbac/permissions";
 import { pruneRevisions } from "~/server/chai-actions/revisions/prune-revisions";
+import { isRestoreRevisionMetadata } from "~/server/chai-actions/revisions/revision-metadata";
+import { resolveEditSource } from "~/server/chai-actions/utils/edit-source";
 import { PageTreeBuilder } from "~/server/chai-actions/utils/page-tree-builder";
+import { getConfigFeature, isFeatureEnabled } from "~/server/defaults/config-registry";
+import { linkedUpstreamId } from "~/server/chai-builder/public/get-upstream-full-page";
 import { pageDetailsTagsForMutation } from "~/server/chai-builder/public/page-details-cache";
 import { routingTagsForMutation, type RoutingSlugUpdate } from "~/server/chai-builder/public/page-routing-cache";
 import { computePartialIdsClosure } from "~/server/chai-builder/public/partial-merge-utils";
 import { ChaiBlock } from "~/types/common";
+import type { ChaiServerFeatures } from "~/types/server-config";
+import { derivePageRefs } from "~/utils/derive-page-refs";
 import { ActionError } from "../action-error";
 import { ChaiBaseAction } from "../base-action";
 import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
@@ -20,6 +26,7 @@ import {
   findExistingHomepage,
   type HomepageSlugUpdate,
 } from "./demote-existing-homepage";
+import { nextLastSaved } from "./next-last-saved";
 import { normalizeTags, PARTIAL_TAGS_METADATA_KEY } from "./partial-metadata";
 import { SlugChangeHandler } from "./slug-change-handler";
 
@@ -32,6 +39,14 @@ export type UpdatePageActionData = {
 
   // templates columns
   blocks?: ChaiBlock[];
+  /**
+   * Optimistic concurrency for a blocks save: the page's `lastSaved` as the
+   * caller read it (null for a page never saved). The save is applied only if
+   * the row still has that value, so two read-modify-write clients (an agent's
+   * parallel tool calls) cannot silently overwrite each other; otherwise it
+   * throws PAGE_CHANGED and writes nothing. Omit to save unconditionally.
+   */
+  ifLastSaved?: string | null;
   currentEditor?: string;
 
   // pages table
@@ -51,10 +66,14 @@ export type UpdatePageActionData = {
   metadata?: Record<string, unknown>;
   links?: string;
   partialBlocks?: string;
+  /** @deprecated Ignored — the closure is recomputed from `blocks` server-side. */
   partialIds?: string[];
+  /** @deprecated Ignored — derived from `blocks` server-side (see `derivePageRefs`). */
   linkPageIds?: string[];
+  /** @deprecated Ignored — derived from `blocks` server-side (see `derivePageRefs`). */
   designTokens?: Record<string, Record<string, string>>;
   tracking?: Record<string, any>;
+  /** @deprecated Ignored — decided server-side from `features.revisions.drafts`. */
   addInRevision?: boolean;
 };
 
@@ -85,6 +104,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     return z.object({
       id: z.string().nonempty(),
       blocks: z.array(z.any()).optional(),
+      ifLastSaved: z.union([z.string(), z.null()]).optional(),
       currentEditor: z.string().optional(),
       slug: z.string().optional(),
       name: z.string().optional(),
@@ -97,10 +117,12 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       needTranslations: z.boolean().optional(),
       description: z.string().optional(),
       tags: z.array(z.string().min(1).max(50)).optional(),
+      tracking: z.record(z.string(), z.any()).optional(),
+      // Accepted but ignored — now derived/decided server-side. Kept so
+      // existing clients that still send them don't fail validation.
       partialIds: z.array(z.string()).optional(),
       linkPageIds: z.array(z.string()).optional(),
       designTokens: z.record(z.string(), z.record(z.string(), z.string())).optional(),
-      tracking: z.record(z.string(), z.any()).optional(),
       addInRevision: z.boolean().optional(),
     });
   }
@@ -114,20 +136,14 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     this.routingSlugUpdates = [];
     this.redirectTags = [];
     try {
+      await this.assertContentEditable(data);
       if (this.isOnlyBlocksUpdate(data)) {
         // Language pages (primaryPage IS NOT NULL) are metadata-only rows:
         // their blocks are never read — content is always resolved from the
         // primary page's blocks. Skip the write so we never deposit dead/stale
         // blocks on them (#2842).
         if (!(await this.isLanguagePage(data.id))) {
-          await this.updateBlocks(
-            data.id,
-            data.blocks!,
-            data.linkPageIds || [],
-            data.partialIds || [],
-            data.designTokens || {},
-            data?.addInRevision
-          );
+          await this.updateBlocks(data.id, data.blocks!, data.ifLastSaved);
         }
         return await this.buildResponse(data.id, data);
       }
@@ -194,7 +210,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
         await this.handleSlugChangeWithHandler(data.id, filteredData);
       } else {
         // Simple update without slug or parent change
-        await this.updatePageInDatabase(data.id, filteredData, data?.addInRevision);
+        await this.updatePageInDatabase(data.id, filteredData);
       }
 
       // The slug handlers cascade the promoted page's own children but not its
@@ -229,18 +245,14 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     }
   }
 
-  async updateBlocks(
-    pageId: string,
-    blocks: ChaiBlock[],
-    linkPageIds: string[],
-    partialIds: string[],
-    designTokens: Record<string, Record<string, string>>,
-    addInRevision?: boolean
-  ) {
-    // The client-sent partialIds closure is only as complete as the partials
-    // it happened to have loaded — recompute it from the database so the
-    // denormalized column stays correct when nested partials change.
-    let partialBlocks = partialIds.join("|");
+  async updateBlocks(pageId: string, blocks: ChaiBlock[], ifLastSaved?: string | null) {
+    // Every denormalized column below is a pure function of `blocks`, so it is
+    // derived here rather than taken from the request: a client that omits them
+    // (the MCP tools send `{ id, blocks }`) would otherwise blank the columns,
+    // and a client that sends them can only be as correct as the state it
+    // happened to have loaded.
+    const { linkPageIds, designTokens } = derivePageRefs(blocks);
+    let partialBlocks: string | undefined;
     let reindexConsumers = false;
     try {
       const { data: currentRow } = await safeQuery(() =>
@@ -258,14 +270,21 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       const row = currentRow?.[0];
       reindexConsumers = !!row && isEmpty(row.slug) && ((row.partialBlocks as string) ?? "") !== partialBlocks;
     } catch (error) {
-      console.error("Failed to recompute partial ids closure, using client-provided ids:", { pageId, error });
+      // Leave the stored closure alone rather than writing a wrong one — a
+      // stale value still resolves the partials this page had, an empty one
+      // would drop the page out of every usage lookup.
+      console.error("Failed to recompute partial ids closure, leaving the stored value unchanged:", { pageId, error });
     }
-    await this.updatePageInDatabase(pageId, {
-      blocks,
-      links: linkPageIds.join("|"),
-      partialBlocks,
-      designTokens,
-    }, addInRevision);
+    await this.updatePageInDatabase(
+      pageId,
+      {
+        blocks,
+        links: linkPageIds.join("|"),
+        ...(partialBlocks !== undefined ? { partialBlocks } : {}),
+        designTokens,
+      },
+      ifLastSaved,
+    );
 
     if (reindexConsumers) {
       await this.reindexPartialConsumers(pageId, new Set([pageId]));
@@ -302,10 +321,10 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       if (visited.has(consumer.id)) continue;
       visited.add(consumer.id);
       // Guard against LIKE substring false positives
-      if (!(((consumer.partialBlocks as string) ?? "").split("|").includes(partialId))) continue;
+      if (!((consumer.partialBlocks as string) ?? "").split("|").includes(partialId)) continue;
       try {
         const closure = (await computePartialIdsClosure((consumer.blocks as ChaiBlock[]) ?? [], this.appId)).join("|");
-        if (closure === (((consumer.partialBlocks as string)) ?? "")) continue;
+        if (closure === ((consumer.partialBlocks as string) ?? "")) continue;
         const { error } = await safeQuery(() =>
           db
             .update(schema.appPages)
@@ -397,11 +416,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
    * homepage changed to another page type while keeping "/".
    */
   private async enforceHomepageRules(pageId: string, filteredData: Partial<UpdatePageActionData>): Promise<void> {
-    if (
-      filteredData.slug === undefined &&
-      filteredData.pageType === undefined &&
-      filteredData.parent === undefined
-    ) {
+    if (filteredData.slug === undefined && filteredData.pageType === undefined && filteredData.parent === undefined) {
       return;
     }
 
@@ -429,10 +444,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     // treating it as root would demote the current homepage before the slug
     // update fails on the invalid foreign key.
     if (effectivePageType !== "page" || effectiveParent !== null || page.primaryPage) {
-      throw new ActionError(
-        "Only a root-level page of type 'page' can be the homepage",
-        "INVALID_HOMEPAGE_PAGE_TYPE",
-      );
+      throw new ActionError("Only a root-level page of type 'page' can be the homepage", "INVALID_HOMEPAGE_PAGE_TYPE");
     }
   }
 
@@ -523,10 +535,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     // The variants may already carry an entry from the parent-change handler;
     // replace it so redirects and cache tags reflect the actual final route.
     const movedIds = new Set(updates.map((update) => update.id));
-    this.routingSlugUpdates = [
-      ...this.routingSlugUpdates.filter((update) => !movedIds.has(update.id)),
-      ...updates,
-    ];
+    this.routingSlugUpdates = [...this.routingSlugUpdates.filter((update) => !movedIds.has(update.id)), ...updates];
   }
 
   /**
@@ -551,10 +560,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
   /**
    * Merge a metadata patch into the page's existing metadata jsonb, keeping other keys intact.
    */
-  private async buildMergedMetadata(
-    pageId: string,
-    patch: Record<string, unknown>,
-  ): Promise<Record<string, unknown>> {
+  private async buildMergedMetadata(pageId: string, patch: Record<string, unknown>): Promise<Record<string, unknown>> {
     const { data: page, error } = await safeQuery(() =>
       db.query.appPages.findFirst({
         where: and(eq(schema.appPages.id, pageId), eq(schema.appPages.app, this.appId)),
@@ -585,9 +591,13 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     const slugUpdates = await this.slugChangeHandler!.handleSlugChangeWithTree(pageId, filteredData);
     this.routingSlugUpdates = slugUpdates;
 
-    // Batch update all slugs
+    // Batch update all slugs. Merge markers under the lock so this path
+    // accumulates `changes` like the simple update does instead of overwriting.
     const changes = this.determineChangeTypes(filteredData);
-    await this.slugChangeHandler!.batchUpdateSlugs(slugUpdates, filteredData, pageId, changes);
+    await this.withChangeLock(pageId, async () => {
+      const mergedChanges = await this.mergeChangeTypes(pageId, changes);
+      await this.slugChangeHandler!.batchUpdateSlugs(slugUpdates, filteredData, pageId, mergedChanges);
+    });
   }
 
   /**
@@ -601,9 +611,13 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     const slugUpdates = await this.slugChangeHandler!.handleParentChangeWithTree(pageId, filteredData);
     this.routingSlugUpdates = slugUpdates;
 
-    // Batch update all slugs
+    // Batch update all slugs. Merge markers under the lock so this path
+    // accumulates `changes` like the simple update does instead of overwriting.
     const changes = this.determineChangeTypes(filteredData);
-    await this.slugChangeHandler!.batchUpdateSlugs(slugUpdates, filteredData, pageId, changes);
+    await this.withChangeLock(pageId, async () => {
+      const mergedChanges = await this.mergeChangeTypes(pageId, changes);
+      await this.slugChangeHandler!.batchUpdateSlugs(slugUpdates, filteredData, pageId, mergedChanges);
+    });
   }
 
   /**
@@ -619,62 +633,145 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     if (dataKeys.includes("seo")) {
       changes.push("SEO");
     }
+    if (dataKeys.includes("tracking")) {
+      changes.push("Tracking");
+    }
 
     return changes.length > 0 ? changes : ["Updated"];
   }
 
-  private async addSaveEntryInRevision(
-    pageId: string,
-    page: any,
-  ) {
+  /**
+   * Known change markers in display order. "Updated" is the generic-edit
+   * marker (a name/slug/parent save that touches none of blocks/seo/tracking);
+   * it accumulates like the rest instead of being superseded, because the
+   * surgical publishers clear only their own marker — bulkPublishSeo strips
+   * just "SEO" and keeps "Updated", so an unpublished generic edit must stay
+   * flagged after a column-only publish. Truly-unknown values sort after these.
+   */
+  private static readonly CHANGE_TYPE_ORDER = ["Page", "SEO", "Tracking", "Updated"];
+
+  /**
+   * Serializes the read-merge-write of a page's `changes` array within this
+   * process, keyed by page: without it two concurrent UPDATE_PAGE calls read
+   * the same array and the later write drops the other's marker.
+   * ponytail: per-instance lock — concurrent saves on separate serverless
+   * instances can still race; move to a DB-side atomic array merge if that shows up.
+   */
+  private static readonly changeLocks = new Map<string, Promise<unknown>>();
+
+  private async withChangeLock<T>(pageId: string, fn: () => Promise<T>): Promise<T> {
+    const key = `${this.appId}:${pageId}`;
+    const prev = UpdatePageAction.changeLocks.get(key) ?? Promise.resolve();
+    const run = prev.then(
+      () => fn(),
+      () => fn(),
+    );
+    const tail = run.catch(() => {});
+    UpdatePageAction.changeLocks.set(key, tail);
+    try {
+      return await run;
+    } finally {
+      // Drop the key once the chain drains so the map stays bounded.
+      if (UpdatePageAction.changeLocks.get(key) === tail) {
+        UpdatePageAction.changeLocks.delete(key);
+      }
+    }
+  }
+
+  /**
+   * `changes` is the page's pending-publish marker, cleared by
+   * PUBLISH_CHANGES, so it must ACCUMULATE across saves between two
+   * publishes — a save touching only `seo` or `tracking` must not erase a
+   * "Page" marker a previous block save left. Call inside `withChangeLock`.
+   */
+  private async mergeChangeTypes(pageId: string, current: string[]): Promise<string[]> {
+    const { data, error } = await safeQuery(() =>
+      db
+        .select({ changes: schema.appPages.changes })
+        .from(schema.appPages)
+        .where(and(eq(schema.appPages.id, pageId), eq(schema.appPages.app, this.appId)))
+        .limit(1),
+    );
+
+    // A read failure must not masquerade as "no pending markers": writing this
+    // save's types alone would erase the page's accumulated changes. Abort.
+    if (error) {
+      throw new ActionError("Failed to read pending change markers", "FETCH_FAILED");
+    }
+
+    const existing = (data?.[0]?.changes ?? []) as string[];
+    const all = [...existing, ...current];
+    const known = UpdatePageAction.CHANGE_TYPE_ORDER.filter((type) => all.includes(type));
+    const others = [...new Set(all.filter((type) => !UpdatePageAction.CHANGE_TYPE_ORDER.includes(type)))];
+    const merged = [...known, ...others];
+
+    return merged.length > 0 ? merged : ["Updated"];
+  }
+
+  private async addSaveEntryInRevision(pageId: string, page: any) {
     try {
       const { data: lastPublishedResult } = await safeQuery(() =>
-        db.select({ currentEditor: schema.appPagesOnline.currentEditor, createdAt: schema.appPagesOnline.createdAt })
+        db
+          .select({ currentEditor: schema.appPagesOnline.currentEditor, createdAt: schema.appPagesOnline.createdAt })
           .from(schema.appPagesOnline)
           .where(and(eq(schema.appPagesOnline.app, this.appId), eq(schema.appPagesOnline.id, pageId)))
           .orderBy(desc(schema.appPagesOnline.createdAt))
-          .limit(1)
+          .limit(1),
       );
-      
+
       const { data: lastDraftResult } = await safeQuery(() =>
-        db.select({ uid: schema.appPagesRevisions.uid, type: schema.appPagesRevisions.type, currentEditor: schema.appPagesRevisions.currentEditor, createdAt: schema.appPagesRevisions.createdAt })
+        db
+          .select({
+            uid: schema.appPagesRevisions.uid,
+            type: schema.appPagesRevisions.type,
+            currentEditor: schema.appPagesRevisions.currentEditor,
+            source: schema.appPagesRevisions.source,
+            createdAt: schema.appPagesRevisions.createdAt,
+            metadata: schema.appPagesRevisions.metadata,
+          })
           .from(schema.appPagesRevisions)
           .where(and(eq(schema.appPagesRevisions.id, pageId), eq(schema.appPagesRevisions.app, this.appId)))
           .orderBy(desc(schema.appPagesRevisions.createdAt))
-          .limit(1)
+          .limit(1),
       );
 
       const published = lastPublishedResult?.[0];
       const draft = lastDraftResult?.[0];
+      const source = resolveEditSource(this.context);
 
+      // `source` joins the coalesce key: an MCP token carries the uid of the
+      // person who created it, so without it an agent edit would silently merge
+      // into that person's own last draft and inherit its attribution.
+      // A restore row records one exact operation and carries a label saying so.
+      // It matches the coalesce key exactly (same actor, same source, type
+      // 'draft'), so without this the next save would rewrite its content in
+      // place and leave the label describing content that is no longer there.
       let shouldUpdateLastDraftEntry =
         draft &&
-        draft.type === 'draft' &&
-        draft.currentEditor === this.context?.userId;
+        draft.type === "draft" &&
+        draft.currentEditor === this.context?.userId &&
+        draft.source === source &&
+        !isRestoreRevisionMetadata(draft.metadata);
 
-      if (
-        published &&
-        draft &&
-        new Date(published.createdAt).getTime() >
-          new Date(draft.createdAt).getTime()
-      ) {
+      if (published && draft && new Date(published.createdAt).getTime() > new Date(draft.createdAt).getTime()) {
         shouldUpdateLastDraftEntry = false;
       }
 
       if (shouldUpdateLastDraftEntry) {
         const { error } = await safeQuery(() =>
-          db.update(schema.appPagesRevisions)
+          db
+            .update(schema.appPagesRevisions)
             .set({
               seo: page.seo,
               blocks: page.blocks,
               tracking: page.tracking,
               createdAt: new Date().toISOString(),
             })
-            .where(eq(schema.appPagesRevisions.uid, draft?.uid as string))
+            .where(eq(schema.appPagesRevisions.uid, draft?.uid as string)),
         );
 
         if (error) {
-          console.error('Error updating draft revision entry:', {
+          console.error("Error updating draft revision entry:", {
             pageId,
             revisionUid: draft?.uid,
             error,
@@ -682,24 +779,24 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
         }
       } else {
         const { error } = await safeQuery(() =>
-          db.insert(schema.appPagesRevisions)
-            .values({
-              id: pageId,
-              app: this.appId,
-              blocks: page.blocks || [],
-              type: 'draft',
-              currentEditor: this.context?.userId,
-              name: page.name || "",
-              slug: page.slug || "",
-              pageType: page.pageType,
-              lang: page.lang || "",
-              seo: page.seo,
-              tracking: page.tracking,
-            })
+          db.insert(schema.appPagesRevisions).values({
+            id: pageId,
+            app: this.appId,
+            blocks: page.blocks || [],
+            type: "draft",
+            currentEditor: this.context?.userId,
+            source,
+            name: page.name || "",
+            slug: page.slug || "",
+            pageType: page.pageType,
+            lang: page.lang || "",
+            seo: page.seo,
+            tracking: page.tracking,
+          }),
         );
 
         if (error) {
-          console.error('Error inserting draft revision entry:', {
+          console.error("Error inserting draft revision entry:", {
             pageId,
             error,
           });
@@ -709,39 +806,72 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       }
     } catch (error) {
       // soft-fail — revision write should never block a save
-      console.error('Error adding save entry in revisions:', { pageId, error });
+      console.error("Error adding save entry in revisions:", { pageId, error });
     }
   }
 
   /**
    * Update the page in the database (simple update without slug change)
    */
-  private async updatePageInDatabase(pageId: string, filteredData: Partial<UpdatePageActionData>, addInRevision?: boolean): Promise<void> {
+  private async updatePageInDatabase(
+    pageId: string,
+    filteredData: Partial<UpdatePageActionData>,
+    ifLastSaved?: string | null,
+  ): Promise<void> {
     const changes = this.determineChangeTypes(filteredData);
-    const { error, data: updatedPageData } = await safeQuery(() =>
-      db
-        .update(schema.appPages)
-        .set({
-          ...filteredData,
-          changes,
-          lastSaved: new Date().toISOString(),
-        })
-        .where(and(eq(schema.appPages.id, pageId), eq(schema.appPages.app, this.appId))).returning({
-          name: schema.appPages.name,
-          slug: schema.appPages.slug,
-          blocks: schema.appPages.blocks,
-          pageType: schema.appPages.pageType,
-          lang: schema.appPages.lang,
-          seo: schema.appPages.seo,
-          tracking: schema.appPages.tracking,
-          currentEditor: schema.appPages.currentEditor
-        }),
-    );
+    // Read-merge-write of `changes` must be atomic against concurrent saves.
+    const updatedPageData = await this.withChangeLock(pageId, async () => {
+      const mergedChanges = await this.mergeChangeTypes(pageId, changes);
+      const { error, data } = await safeQuery(() =>
+        db
+          .update(schema.appPages)
+          .set({
+            ...filteredData,
+            changes: mergedChanges,
+            lastSaved: nextLastSaved(ifLastSaved),
+          })
+          .where(
+            and(
+              eq(schema.appPages.id, pageId),
+              eq(schema.appPages.app, this.appId),
+              // A conditional UPDATE is atomic per row (the row lock is taken
+              // before the WHERE is re-checked), so this holds across server
+              // instances, unlike withChangeLock.
+              ifLastSaved === undefined
+                ? undefined
+                : ifLastSaved === null
+                  ? isNull(schema.appPages.lastSaved)
+                  : eq(schema.appPages.lastSaved, ifLastSaved),
+            ),
+          )
+          .returning({
+            name: schema.appPages.name,
+            slug: schema.appPages.slug,
+            blocks: schema.appPages.blocks,
+            pageType: schema.appPages.pageType,
+            lang: schema.appPages.lang,
+            seo: schema.appPages.seo,
+            tracking: schema.appPages.tracking,
+            currentEditor: schema.appPages.currentEditor,
+          }),
+      );
 
-    if (error) {
-      throw new ActionError("Error updating page", "ERROR_UPDATING_PAGE");
-    }
+      if (error) {
+        throw new ActionError("Error updating page", "ERROR_UPDATING_PAGE");
+      }
+      if (ifLastSaved !== undefined && (data?.length ?? 0) === 0) {
+        throw new ActionError(
+          "The page was saved by another edit since it was read; nothing was saved",
+          "PAGE_CHANGED",
+          409,
+        );
+      }
+      return data;
+    });
 
+    // Language rows keep the pre-existing semantics: only a blocks write
+    // propagates, and it propagates THIS write's types, not the primary row's
+    // merged history (a language row has SEO/tracking markers of its own).
     if (changes.includes("Page")) {
       const { error: error2 } = await safeQuery(() =>
         db
@@ -755,8 +885,38 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
       }
     }
 
-    if (addInRevision && updatedPageData?.[0]) {
+    // Whether a save snapshots a draft revision is a property of the site, not
+    // of the caller: the builder, the MCP tools and every other UPDATE_PAGE
+    // client must produce the same history.
+    //
+    // Both flags are required. `drafts` only narrows a feature that is already
+    // on — `{ enabled: false, drafts: true }` is a disabled feature, not an
+    // opt-in, and writing revisions for it would fill a table the UI never
+    // shows. `getConfigFeature` returns undefined when the revisions plugin is
+    // not registered (the OSS builder), which is the correct "off". The key is cast: its type
+    // comes from the revisions plugin's module augmentation, which core must not depend on
+    // (the declaration build slices entries, so a core slice never sees it).
+    const revisions = getConfigFeature("revisions" as keyof ChaiServerFeatures) as
+      | { enabled?: boolean; drafts?: boolean }
+      | undefined;
+    if (revisions?.enabled === true && revisions.drafts === true && updatedPageData?.[0]) {
       await this.addSaveEntryInRevision(pageId, updatedPageData[0]);
+    }
+  }
+
+  /** A linked page's blocks and SEO are its upstream page's: they can't change until it is cloned. */
+  private async assertContentEditable(data: UpdatePageActionData): Promise<void> {
+    if ((data.blocks === undefined && data.seo === undefined) || !isFeatureEnabled("upstreamPages")) return;
+    const { data: rows, error } = await safeQuery(() =>
+      db
+        .select({ upstream: schema.appPages.upstream, useUpstream: schema.appPages.useUpstream })
+        .from(schema.appPages)
+        .where(and(eq(schema.appPages.id, data.id), eq(schema.appPages.app, this.appId)))
+        .limit(1),
+    );
+    if (error) throw new ActionError("Error updating page", "ERROR_UPDATING_PAGE", 500, error);
+    if (rows?.[0] && linkedUpstreamId(rows[0])) {
+      throw new ActionError("A linked page can't be edited until it is duplicated", "UPSTREAM_PAGE_LINKED", 409);
     }
   }
 

@@ -7,6 +7,7 @@ import { getActiveChaiBuilderConfig } from "~/server/defaults/config-registry";
 import { ChaiDesignTokens, ChaiTheme } from "~/types";
 import type { ChaiFullPage } from "~/types/pages";
 import { applyDesignTokens } from "~/utils";
+import { getSiteContentWidthCss } from "~/utils/site-layout-css";
 import { JSONLD } from "./json-ld";
 
 /**
@@ -43,9 +44,10 @@ export const ChaiPageCSS = async (props: { page: ChaiFullPage }) => {
   const pageBlocks = await withPhase("ChaiPageCSS.applyDesignTokens", async () =>
     applyDesignTokens(page.blocks ?? [], designTokens),
   );
-  const styles = page
-    ? await withPhase("ChaiPageCSS.getPageStyles", () => chaiBuilder.getPageStyles(page.id, pageBlocks))
+  const pageStyles = page
+    ? await withPhase("ChaiPageCSS.getPageStyles", () => chaiBuilder.getPageStyles(page.id, pageBlocks, page.upstream))
     : null;
+  const styles = [getSiteContentWidthCss(theme), pageStyles].filter(Boolean).join(" ");
   const bodyFont = get(theme, "fontFamily.body", "Arial");
   const headingFont = get(theme, "fontFamily.heading", "Arial");
   const { fontStyles, preloads } = await withPhase("ChaiPageCSS.getFontStyles", () =>

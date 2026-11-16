@@ -24,6 +24,14 @@ describe("hasPermission", () => {
     expect(hasPermission(["*"], "users:remove")).toBe(true);
   });
 
+  it("lets a retired key a stored role still grants satisfy its replacement", () => {
+    expect(hasPermission(["app:publish_theme"], "theme:publish")).toBe(true);
+    expect(hasPermission(["design_tokens:publish"], "theme:publish")).toBe(true);
+    expect(hasPermission(["app:*"], "theme:publish")).toBe(true);
+    expect(hasPermission(["app:publish_theme"], "theme:edit")).toBe(false);
+    expect(hasPermission(["theme:publish"], "app:publish_theme")).toBe(false);
+  });
+
   it("matches entity wildcard pages:*", () => {
     expect(hasPermission(["pages:*"], "pages:read")).toBe(true);
     expect(hasPermission(["pages:*"], "pages:delete")).toBe(true);
@@ -60,21 +68,13 @@ describe("expandGrantMap", () => {
   });
 
   it("revoke false wins over wildcard grant", () => {
-    const result = expandGrantMap({ "*": true, "pages:delete": false }, [
-      "pages:read",
-      "pages:delete",
-      "assets:read",
-    ]);
+    const result = expandGrantMap({ "*": true, "pages:delete": false }, ["pages:read", "pages:delete", "assets:read"]);
     expect(result).toContain("pages:read");
     expect(result).not.toContain("pages:delete");
   });
 
   it("revokes entity:* after wildcard-all grant", () => {
-    const result = expandGrantMap({ "*": true, "pages:*": false }, [
-      "pages:read",
-      "pages:create",
-      "assets:read",
-    ]);
+    const result = expandGrantMap({ "*": true, "pages:*": false }, ["pages:read", "pages:create", "assets:read"]);
     expect(result).not.toContain("pages:read");
     expect(result).not.toContain("pages:create");
     expect(result).toContain("assets:read");

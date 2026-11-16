@@ -53,7 +53,7 @@ export const useUploadAsset = () => {
  *
  * `XMLHttpRequest` rather than `fetch` for one reason: only XHR exposes
  * `upload.onprogress`. The multipart body matches the format the server's
- * `parseMultipartActionBody` expects: `action`, `meta` (JSON), and `file`.
+ * `parseMultipartActionBody` expects: `action`, `meta` (JSON), `file` and an optional `thumbnail`.
  */
 const putFile = (
   url: string,
@@ -63,12 +63,15 @@ const putFile = (
   token: string | undefined,
   onProgress: (loaded: number, total: number) => void,
   onFinalizing: () => void,
+  thumbnail?: Blob,
 ) =>
   new Promise<any>((resolve, reject) => {
     const form = new FormData();
     form.append("action", action);
     form.append("meta", JSON.stringify(meta));
     form.append("file", file, file instanceof File ? file.name : String(meta.name ?? "upload"));
+    // A client-rendered preview for files the server cannot derive one from (video).
+    if (thumbnail) form.append("thumbnail", thumbnail, "poster");
 
     const request = new XMLHttpRequest();
     request.open("POST", url);
@@ -132,6 +135,7 @@ export const useStreamUploadAsset = () => {
         folderId?: string;
         width?: number;
         height?: number;
+        thumbnail?: Blob;
       }>,
     ) => {
       const token = await getAccessToken();
@@ -173,6 +177,7 @@ export const useStreamUploadAsset = () => {
               pendingBodiesRef.current -= 1;
               if (pendingBodiesRef.current <= 0) setIsFinalizing(true);
             },
+            asset.thumbnail,
           );
         }),
       );

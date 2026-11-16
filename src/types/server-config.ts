@@ -12,10 +12,12 @@ import type {
   ChaiGlobalDataProvider,
   ChaiDynamicTemplateTieHandler,
   ChaiPageNotFoundHandler,
+  ChaiUpstreamPageSource,
   ChaiPageTypeEntry,
   ChaiTrashEntry,
 } from "~/types/chaibuilder-config";
 import type { ChaiDbSetup } from "~/types/db";
+import type { ChaiDesignSystemFeature } from "~/types/design-system";
 import type { ChaiRequestMiddlewareEntry, ChaiSchemaFragment, ChaiServerPlugin, ChaiSetupHook } from "~/types/plugin";
 import type { ChaiRolesAndPermissions } from "~/types/rbac";
 
@@ -180,8 +182,15 @@ export interface ChaiMediaManagerConfig extends ChaiPluginMediaManagerConfig {
  * These keys are NOT settable via the app `features` input — see
  * {@link ChaiServerFeaturesInput}.
  */
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- open for plugin augmentation
-export interface ChaiPluginFeatures {}
+export interface ChaiPluginFeatures {
+  /**
+   * The site design system (DESIGN.md-style rules, design checks, theme tools for agents).
+   * Set by the MCP plugin's `designSystem` option. Declared here rather than by augmentation
+   * so core (the builder's AI flows, when they adopt it) can read the same flag. Absent or
+   * `enabled: false` means every existing flow is unchanged.
+   */
+  designSystem?: ChaiDesignSystemFeature;
+}
 
 /**
  * Server-backed builder features. Only features the core itself implements are
@@ -190,7 +199,12 @@ export interface ChaiPluginFeatures {}
 export interface ChaiServerFeatures extends ChaiPluginFeatures {
   /** Trash panel and soft-delete flows. Defaults from configured trash entities. */
   trash: boolean;
-  /** AI panel and ask-AI flows. Defaults from whether any AI models are configured. */
+  /**
+   * Every builder AI feature: the AI panel, Ask AI on the canvas and in the style panel,
+   * AI theme, SEO, alt-text and image tools. Off also refuses every model-calling action
+   * on the server. MCP tools are unaffected. On whenever any AI models are configured
+   * (the default config ships some); set `features: { ai: false }` to turn AI off.
+   */
   ai: boolean;
   /** Copy/paste of blocks and classes. */
   copyPaste: boolean;
@@ -202,6 +216,8 @@ export interface ChaiServerFeatures extends ChaiPluginFeatures {
   importHtml: boolean;
   /** Import-theme entry in the theme panel. */
   importTheme: boolean;
+  /** Partials in the editor: "Create partial" in the block menu, the pages manager's Partials "Create" button, and the Add Blocks partials tab and search results. */
+  partialBlocks: boolean;
   /** "Go to settings" on the block floating actions. */
   gotoSettings: boolean;
   /** Drag and drop on the canvas and add-blocks panel. */
@@ -214,6 +230,12 @@ export interface ChaiServerFeatures extends ChaiPluginFeatures {
   resetSeoToDefault: boolean;
   /** Pages manager sheet and its top bar trigger. */
   pagesManager: boolean;
+  /** ChaiBuilder name, version and docs links in the editor (console banner, page-type help). Off for white-label hosts. */
+  chaiBranding: boolean;
+  /** Linked pages that render a host-supplied upstream page (`upstream` / `useUpstream` page columns). */
+  upstreamPages: boolean;
+  /** "Site layout" select in the Theme panel. */
+  siteLayout: boolean;
 }
 
 /**
@@ -308,6 +330,8 @@ export type ResolvedChaiBuilderServerConfig = {
   transformSiteSettings: ChaiSiteSettingsTransform | undefined;
   /** Null = the SDK keeps its registration-order tie-break between dynamic templates. */
   resolveDynamicTemplateTie: ChaiDynamicTemplateTieHandler | null;
+  /** Null = no upstream pages: linking, rendering and cloning refuse. */
+  upstreamPageSource: ChaiUpstreamPageSource | null;
 };
 
 export type ChaiBuilderServerConfigInput = {
@@ -333,6 +357,8 @@ export type ChaiBuilderServerConfigInput = {
    * nothing to keep the SDK's registration-order default.
    */
   resolveDynamicTemplateTie?: ChaiDynamicTemplateTieHandler;
+  /** Where linked pages' upstream pages come from (`features.upstreamPages`). */
+  upstreamPageSource?: ChaiUpstreamPageSource;
   pageTypes?: ChaiPageTypeEntry[];
   /** @deprecated Use `chaiCollections` instead. */
   collections?: ChaiCollectionEntry[];

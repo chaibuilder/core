@@ -21,6 +21,18 @@ describe("blocksToAiHtml", () => {
     expect(html).toContain(">Hello</h2>");
   });
 
+  test("emits resolved can-* hints instead of the raw instance flags", () => {
+    const blocks: ChaiBlock[] = [
+      { _id: "box", _type: "Box", styles: "#styles:,", _canMove: false, _canDelete: true },
+      { _id: "img", _type: "Image", image: "a.png", _canDuplicate: false },
+    ];
+    const html = blocksToAiHtml(blocks);
+    expect(html).toMatch(/<div[^>]*can-move='false'/);
+    expect(html).toMatch(/<chai-image[^>]*can-duplicate='false'/);
+    expect(html).not.toContain("can-delete");
+    expect(html).not.toContain("_can-");
+  });
+
   test("nests children via _parent", () => {
     const blocks: ChaiBlock[] = [
       { _id: "box", _type: "Box", styles: "#styles:,flex" },
@@ -32,13 +44,31 @@ describe("blocksToAiHtml", () => {
 
   test("renders Link href/target as an anchor", () => {
     const blocks: ChaiBlock[] = [
-      { _id: "l", _type: "Link", styles: "#styles:,underline", link: { href: "/about", target: "_blank" }, content: "About" },
+      {
+        _id: "l",
+        _type: "Link",
+        styles: "#styles:,underline",
+        link: { href: "/about", target: "_blank" },
+        content: "About",
+      },
     ];
     const html = blocksToAiHtml(blocks);
     expect(html).toContain("<a ");
     expect(html).toContain("href='/about'");
     expect(html).toContain("target='_blank'");
     expect(html).toContain(">About</a>");
+  });
+
+  test("a pageType: page reference survives export → import", async () => {
+    const ref = "pageType:blog-post:11111111-1111-4111-8111-111111111111";
+    const blocks: ChaiBlock[] = [
+      { _id: "l", _type: "Link", styles: "#styles:,underline", link: { type: "pageType", href: ref }, content: "Post" },
+    ];
+    const html = blocksToAiHtml(blocks);
+    expect(html).toContain(`href='${ref}'`);
+
+    const [imported] = await getBlocksFromHTML(html);
+    expect(imported.link).toMatchObject({ type: "pageType", href: ref });
   });
 
   test("Image (not a core block) becomes <chai-image> with image prop", () => {
@@ -118,8 +148,7 @@ describe("blocksToAiHtml", () => {
 describe("blocksToAiHtml round-trip via getBlocksFromHTML", () => {
   beforeEach(() => {
     // Container types accept children so nesting survives the round-trip.
-    vi.spyOn(blockHelpers, "canAddChildBlock")
-      .mockImplementation((parentType?: string) => parentType === "Box");
+    vi.spyOn(blockHelpers, "canAddChildBlock").mockImplementation((parentType?: string) => parentType === "Box");
   });
 
   test("core block tree survives blocks -> html -> blocks", async () => {
@@ -141,6 +170,47 @@ describe("blocksToAiHtml round-trip via getBlocksFromHTML", () => {
     // Heading text is preserved.
     const heading = reimported.find((b) => b._type === "Heading");
     expect(heading?.content).toBe("Section");
+  });
+
+  test("style block CSS survives blocks -> html -> blocks", async () => {
+    const css = '#faq summary>span:nth-of-type(2){display:none!important}\n.x::before{content:"</style>  &lt; \\2603"}';
+    const blocks: ChaiBlock[] = [
+      { _id: "css", _type: "Box", tag: "style" },
+      { _id: "rule", _type: "Text", _parent: "css", content: css },
+    ];
+
+    const html = blocksToAiHtml(blocks);
+    expect(html).not.toContain("<span");
+    expect(html).toContain('content:"&lt;/style>  &amp;lt; \\2603"');
+
+    const imported = await getBlocksFromHTML(html);
+    const text = imported.find((b) => b._type === "Text");
+    expect(text?.content).toBe(css);
+    expect(imported.find((b) => b.tag === "style")?.styles_attrs?.["data-chai-style-encoding"]).toBeUndefined();
+  });
+
+  test("style CSS survives a quoted > in a style attribute", async () => {
+    const css = '.x::before { content: "a  b"; }\n.x { color: red; }';
+    const blocks: ChaiBlock[] = [
+      { _id: "css", _type: "Box", tag: "style", styles_attrs: { media: "screen and (width > 600px)" } },
+      { _id: "rule", _type: "Text", _parent: "css", content: css },
+    ];
+
+    const imported = await getBlocksFromHTML(blocksToAiHtml(blocks));
+    expect(imported.find((b) => b._type === "Text")?.content).toBe(css);
+  });
+
+  test("an existing style attribute cannot shadow the transport marker", async () => {
+    const css = '.x::before { content: "</style>  &lt;"; }';
+    const blocks: ChaiBlock[] = [
+      { _id: "css", _type: "Box", tag: "style", styles_attrs: { "data-chai-style-encoding": "legacy" } },
+      { _id: "rule", _type: "Text", _parent: "css", content: css },
+    ];
+
+    const html = blocksToAiHtml(blocks);
+    expect(html.match(/data-chai-style-encoding=/g)).toHaveLength(1);
+    const imported = await getBlocksFromHTML(html);
+    expect(imported.find((b) => b._type === "Text")?.content).toBe(css);
   });
 
   test("server serializer conforms to builder transformNode AI-HTML", async () => {
@@ -202,21 +272,21 @@ describe("blocksToAiHtml round-trip via getBlocksFromHTML", () => {
 
   test("Icon with a Lucide SVG exports icon-name and drops the raw svg", () => {
     const svg = "<svg class='lucide lucide-arrow-right'><path d='M0 0'/></svg>";
-    const html = blocksToAiHtml([{ _id: "i", _type: "Icon", icon: svg }])
+    const html = blocksToAiHtml([{ _id: "i", _type: "Icon", icon: svg }]);
 
-    expect(html).toContain("icon-name='arrow-right'")
-    expect(html).not.toContain("<path")
-  })
+    expect(html).toContain("icon-name='arrow-right'");
+    expect(html).not.toContain("<path");
+  });
 
   test("Icon whose SVG has no lucide-* token keeps the raw icon prop", () => {
     // Without a derivable name, dropping `icon` too would leave the element
     // carrying neither — the icon would be lost on a read -> edit round-trip.
-    const svg = "<svg viewBox='0 0 24 24'><path d='M1 1'/></svg>"
-    const html = blocksToAiHtml([{ _id: "i", _type: "Icon", icon: svg }])
+    const svg = "<svg viewBox='0 0 24 24'><path d='M1 1'/></svg>";
+    const html = blocksToAiHtml([{ _id: "i", _type: "Icon", icon: svg }]);
 
-    expect(html).not.toContain("icon-name=")
-    expect(html).toContain("viewBox")
-  })
+    expect(html).not.toContain("icon-name=");
+    expect(html).toContain("viewBox");
+  });
 
   test("extractBlockHtmlSlices can slice a converted page by bid", () => {
     const blocks: ChaiBlock[] = [

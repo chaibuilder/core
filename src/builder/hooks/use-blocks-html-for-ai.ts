@@ -2,11 +2,17 @@ import { parse, stringify } from "himalaya";
 import { kebabCase } from "lodash-es";
 import { useCallback } from "react";
 import { getCurrentBlocks } from "~/builder/atoms/store";
-import { canAddChildBlock } from "~/builder/core/functions/block-helpers";
+import { canAddChildBlock, getBlockActionAttrs, getSlotAcceptAttrs } from "~/builder/core/functions/block-helpers";
 import { useCanvasIframe } from "~/builder/hooks/use-canvas-iframe";
 import { getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlock } from "~/types";
 import { CORE_BLOCKS } from "~/utils/core-blocks";
+import {
+  encodeStyleText,
+  preserveStyleText,
+  STYLE_TEXT_ENCODING,
+  STYLE_TEXT_ENCODING_ATTR,
+} from "~/utils/style-text-transport";
 
 export type HimalayaNode = {
   type: "element" | "text" | "comment";
@@ -21,6 +27,9 @@ type Options = {
   additionalCoreBlocks?: string[];
 };
 
+// Never exported as attributes; action flags are re-emitted as resolved `can-*` hints.
+const STRUCTURAL_KEYS = ["_id", "_type", "_parent", "_index", "_canDelete", "_canMove", "_canDuplicate"];
+
 const ATTRIBUTES_TO_REMOVE = [
   "data-block-index",
   "draggable",
@@ -32,9 +41,13 @@ const ATTRIBUTES_TO_REMOVE = [
 ];
 
 const cleanNode = (node: HimalayaNode): HimalayaNode | null => {
-  // Remove script, style, and link tags
+  // Remove script, style, and link tags. A <style> that is a block (carries
+  // data-block-id) is page content and must reach the AI; canvas-injected
+  // <style>/<link> tags (Tailwind, fonts) have no block id and stay dropped.
   if (node.type === "element" && ["script", "style", "link"].includes(node.tagName || "")) {
-    return null;
+    const isStyleBlock =
+      node.tagName === "style" && node.attributes?.some((attr) => attr.key === "data-block-id" && attr.value);
+    if (!isStyleBlock) return null;
   }
 
   if (node.type === "comment") {
@@ -68,6 +81,16 @@ const cleanNode = (node: HimalayaNode): HimalayaNode | null => {
   return node;
 };
 
+// The child blocks inside a custom block's rendered markup, without the markup around them.
+const findChildBlockNodes = (nodes: HimalayaNode[] = []): HimalayaNode[] =>
+  nodes.flatMap((child) =>
+    child.type !== "element"
+      ? []
+      : child.attributes?.some((attr) => attr.key === "data-block-type")
+        ? [child]
+        : findChildBlockNodes(child.children),
+  );
+
 export const transformNode = (node: HimalayaNode, currentBlocks: ChaiBlock[], options: Options = {}): HimalayaNode => {
   // Only process element nodes
   if (node.type !== "element" || !node.attributes) {
@@ -96,6 +119,20 @@ export const transformNode = (node: HimalayaNode, currentBlocks: ChaiBlock[], op
     }
   }
 
+  // Style block: CSS is raw text. Re-emit it from the stored Text children
+  // (the canvas may wrap it in <span>) in the entity-encoded transport form
+  // that html-to-json decodes.
+  if (node.tagName === "style") {
+    const styleId = node.attributes.find((attr) => attr.key === "data-block-id")?.value;
+    const css = currentBlocks
+      .filter((block) => block._parent === styleId && block._type === "Text")
+      .map((block) => String((block as ChaiBlock & { content?: string }).content ?? ""))
+      .join("");
+    node.children = css ? [{ type: "text", content: encodeStyleText(css) }] : [];
+    node.attributes = node.attributes.filter((attr) => attr.key !== STYLE_TEXT_ENCODING_ATTR);
+    node.attributes.push({ key: STYLE_TEXT_ENCODING_ATTR, value: STYLE_TEXT_ENCODING });
+  }
+
   // Find data-block-type attribute
   const blockTypeAttr = node.attributes.find((attr) => attr.key === "data-block-type");
   const blockIdAttr = node.attributes.find((attr) => attr.key === "data-block-id");
@@ -106,6 +143,8 @@ export const transformNode = (node: HimalayaNode, currentBlocks: ChaiBlock[], op
     if (CORE_BLOCKS.includes(blockType) || options?.additionalCoreBlocks?.includes(blockType)) {
       // For core blocks, just remove the data-block-type attribute
       node.attributes = node.attributes.filter((attr) => attr.key !== "data-block-type");
+      const coreBlock = currentBlocks.find((block) => block._id === blockIdAttr?.value);
+      if (coreBlock) node.attributes.push(...getBlockActionAttrs(coreBlock));
 
       // Recursively transform children for core blocks
       if (node.children) {
@@ -136,7 +175,7 @@ export const transformNode = (node: HimalayaNode, currentBlocks: ChaiBlock[], op
             // A prop left behind as undefined (e.g. a cleared form field) would
             // serialize to `undefined`, and himalaya's stringify calls
             // value.indexOf on it — dropping the attribute is the same as unset.
-            .filter(([key, value]) => !["_id", "_type", "_parent", "_index"].includes(key) && value !== undefined)
+            .filter(([key, value]) => !STRUCTURAL_KEYS.includes(key) && value !== undefined)
             .map(([key, value]) => {
               // Convert camelCase keys to kebab-case so HTML parser lowercasing is lossless.
               // _prefixed keys: kebab the part after the underscore (e.g. _imageId -> _image-id)
@@ -156,24 +195,11 @@ export const transformNode = (node: HimalayaNode, currentBlocks: ChaiBlock[], op
         });
       }
 
-      // Add can-move and can-delete attributes based on block definition
-      if (blockDefinition) {
-        if (blockDefinition.canMove) {
-          const canMove =
-            typeof blockDefinition.canMove === "function" ? blockDefinition.canMove() : blockDefinition.canMove;
-          node.attributes.push({
-            key: "can-move",
-            value: String(canMove),
-          });
-        }
-        if (blockDefinition.canDelete) {
-          const canDelete =
-            typeof blockDefinition.canDelete === "function" ? blockDefinition.canDelete() : blockDefinition.canDelete;
-          node.attributes.push({
-            key: "can-delete",
-            value: String(canDelete),
-          });
-        }
+      // Resolved per-instance action hints (can-move/can-delete/can-duplicate)
+      if (block) {
+        node.attributes.push(...getBlockActionAttrs(block));
+        const ownerType = currentBlocks.find((owner) => owner._id === block._parent)?._type;
+        node.attributes.push(...getSlotAcceptAttrs(block, ownerType));
       }
 
       // Icon blocks: strip the raw SVG and replace with a Lucide icon name
@@ -198,10 +224,8 @@ export const transformNode = (node: HimalayaNode, currentBlocks: ChaiBlock[], op
       // Check if custom block can accept children using the helper function
       // This properly checks if canAcceptBlock is defined in the block definition
       if (canAddChildBlock(blockType)) {
-        // Custom block can accept children, so recursively transform them
-        if (node.children) {
-          node.children = node.children.map((child) => transformNode(child, currentBlocks, options));
-        }
+        // Only its child blocks: the component's own markup is rebuilt from its props.
+        node.children = findChildBlockNodes(node.children).map((child) => transformNode(child, currentBlocks, options));
       } else {
         // Remove all children for custom blocks that don't accept children
         node.children = [];
@@ -224,6 +248,23 @@ export const transformNode = (node: HimalayaNode, currentBlocks: ChaiBlock[], op
   return node;
 };
 
+/** Canvas HTML -> AI-HTML. Exported for tests. */
+export const canvasHtmlToAiHtml = (html: string, currentBlocks: ChaiBlock[], options?: Options): string => {
+  // Parse HTML into AST
+  const nodes = parse(html) as HimalayaNode[];
+
+  // Clean nodes
+  const cleanedNodes = nodes.map(cleanNode).filter((node): node is HimalayaNode => node !== null);
+
+  // Transform nodes: remove data-block-type for core blocks, convert custom blocks to web components
+  const transformedNodes = cleanedNodes.map((node) => transformNode(node, currentBlocks, options));
+
+  // Convert back to HTML and normalize whitespace (never inside <style>)
+  return preserveStyleText(stringify(transformedNodes), (out) =>
+    out.replace(/#styles:,/g, "#styles:").replace(/\s+/g, " ").trim(),
+  );
+};
+
 export const useBlocksHtmlForAi = () => {
   const [iframeDocument] = useCanvasIframe();
   return useCallback(
@@ -235,25 +276,7 @@ export const useBlocksHtmlForAi = () => {
       ];
       if (!html) return "";
 
-      // Parse HTML into AST
-      const nodes = parse(html) as HimalayaNode[];
-
-      // Clean nodes
-      const cleanedNodes = nodes.map(cleanNode).filter((node): node is HimalayaNode => node !== null);
-
-      // * Getting current blocks`
-      const currentBlocks = getCurrentBlocks();
-
-      // Transform nodes: remove data-block-type for core blocks, convert custom blocks to web components
-      const transformedNodes = cleanedNodes.map((node) => transformNode(node, currentBlocks, options));
-
-      // Convert back to HTML and normalize whitespace
-      let cleanedHtml = stringify(transformedNodes);
-
-      // Convert empty custom web component tags to self-closing format
-      cleanedHtml = cleanedHtml.replace(/#styles:,/g, "#styles:");
-
-      return cleanedHtml.replace(/\s+/g, " ").trim();
+      return canvasHtmlToAiHtml(html, getCurrentBlocks(), options);
     },
     [iframeDocument],
   );

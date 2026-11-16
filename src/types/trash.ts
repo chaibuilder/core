@@ -54,7 +54,7 @@ export interface ChaiTrashableEntity {
   label: string;
   icon?: string;
   moveToTrash: (id: string, context: TrashContext) => Promise<TrashableRecordData>;
-  restore: (record: TrashRecord, context: TrashContext) => Promise<void>;
+  restore: (record: TrashRecord, context: TrashContext) => Promise<string[] | void>;
   deletePermanently: (record: TrashRecord, context: TrashContext) => Promise<boolean>;
   hasRestoreConflict?: (record: TrashRecord, context: TrashContext) => Promise<boolean>;
   resolveRestoreConflict?: (record: TrashRecord, context: TrashContext) => Promise<RestoreConflictResolution>;

@@ -48,7 +48,12 @@ export class SlugChangeHandler {
       for (const node of nodes) {
         // Check current node - use nullish coalescing (??) to handle undefined, and strict equality (===) for comparison
         const nodeIsDynamic = node.dynamic ?? false;
-        if (node.slug === newSlug && node.id !== pageId && nodeIsDynamic === isDynamic) {
+        // Ignore soft-deleted (tombstoned) pages: a deleted page must not reserve
+        // its slug, otherwise deleting a page then recreating/moving another onto
+        // the same slug fails. The tree still carries tombstones so trash flows
+        // (restore, permanent delete) can locate them — only conflict detection
+        // skips them. Still recurse into children in case of partial delete state.
+        if (!node.deletedAt && node.slug === newSlug && node.id !== pageId && nodeIsDynamic === isDynamic) {
           return true;
         }
         // Recursively check children
@@ -154,7 +159,7 @@ export class SlugChangeHandler {
     }
 
     const oldSlug = currentPageNode.slug;
-    const isDynamic = currentPageNode.dynamic || false;
+    const isDynamic = filteredData.dynamic ?? currentPageNode.dynamic ?? false;
 
     // Validate slug availability using tree data (no DB query)
     this.validateSlugAvailabilityInTree(newSlug, pageId, isDynamic, pagesTree);
@@ -203,10 +208,12 @@ export class SlugChangeHandler {
       : this.pageTreeBuilder.calculateSlugFromParent(newParent, oldSlug, pagesTree.primaryTree);
 
     // Validate new slug availability using tree data (no DB query)
-    this.validateSlugAvailabilityInTree(newSlug, pageId, primaryNode.dynamic || false, pagesTree);
+    const isDynamic = filteredData.dynamic ?? primaryNode.dynamic ?? false;
+    this.validateSlugAvailabilityInTree(newSlug, pageId, isDynamic, pagesTree);
 
-    // Update the primary node's slug in the local tree so language variant validations see the updated slug
+    // Language variant validations must see the primary page's requested slug and dynamic state.
     this.updateNodeSlugInTree(pageId, newSlug, pagesTree.primaryTree);
+    primaryNode.dynamic = isDynamic;
 
     // Collect nested children slug updates for primary page
     const childSlugUpdates = this.pageTreeBuilder.collectNestedChildSlugs(primaryNode, oldSlug, newSlug);
@@ -236,16 +243,12 @@ export class SlugChangeHandler {
         langVariant.slug,
         pagesTree.languageTree,
       );
-      this.validateSlugAvailabilityInTree(
-        langVariantNewSlug,
-        langVariant.id,
-        langVariant.dynamic || false,
-        pagesTree,
-        true,
-      );
+      const langVariantIsDynamic = filteredData.dynamic ?? langVariant.dynamic ?? false;
+      this.validateSlugAvailabilityInTree(langVariantNewSlug, langVariant.id, langVariantIsDynamic, pagesTree, true);
 
-      // Update the language variant's slug in the local tree so subsequent language variants see it
+      // Subsequent variants must see this variant's requested slug and dynamic state.
       this.updateNodeSlugInTree(langVariant.id, langVariantNewSlug, pagesTree.languageTree);
+      langVariant.dynamic = langVariantIsDynamic;
 
       // Collect nested children slug updates for language variant
       const langChildSlugUpdates = this.pageTreeBuilder.collectNestedChildSlugs(
@@ -297,6 +300,9 @@ export class SlugChangeHandler {
           "links",
           "partialBlocks",
           "designTokens",
+          // A tracking edit combined with a slug/parent change routes here;
+          // without this the tracking payload is silently dropped.
+          "tracking",
         ]);
         // Remove fields that are explicitly undefined to avoid unintended updates
         Object.keys(additionalFields).forEach((key) => {

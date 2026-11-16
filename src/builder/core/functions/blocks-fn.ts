@@ -2,7 +2,7 @@ import { filter, find, flatten, has } from "lodash-es";
 import { generateUUID } from "~/builder/core/functions/common-functions";
 import { ChaiBlock } from "~/types/common";
 
-export type ChaiBlockStructureEntry = { _id: string; _type: string };
+export type ChaiBlockStructureEntry = { _id: string; _type: string; _slot?: string };
 export type ChaiBlockChildrenMap = Map<string | null, ChaiBlockStructureEntry[]>;
 
 /**
@@ -19,7 +19,7 @@ export const buildBlockChildrenMap = (blocks: ChaiBlock[]): ChaiBlockChildrenMap
       siblings = [];
       childrenMap.set(parent, siblings);
     }
-    siblings.push({ _id: block._id, _type: block._type });
+    siblings.push({ _id: block._id, _type: block._type, ...(block._slot && { _slot: block._slot }) });
   });
   return childrenMap;
 };
@@ -31,7 +31,12 @@ export const blockChildrenMapsEqual = (a: ChaiBlockChildrenMap, b: ChaiBlockChil
     const bChildren = b.get(parent);
     if (!bChildren || bChildren.length !== aChildren.length) return false;
     for (let i = 0; i < aChildren.length; i++) {
-      if (aChildren[i]._id !== bChildren[i]._id || aChildren[i]._type !== bChildren[i]._type) return false;
+      if (
+        aChildren[i]._id !== bChildren[i]._id ||
+        aChildren[i]._type !== bChildren[i]._type ||
+        aChildren[i]._slot !== bChildren[i]._slot
+      )
+        return false;
     }
   }
   return true;

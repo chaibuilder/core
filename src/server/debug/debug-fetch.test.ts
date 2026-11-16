@@ -1,48 +1,37 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const { mockInfo } = vi.hoisted(() => ({
-  mockInfo: vi.fn(),
-}));
-
-vi.mock("consola", () => ({
-  consola: {
-    withTag: () => ({
-      info: mockInfo,
-      success: vi.fn(),
-      warn: vi.fn(),
-      debug: vi.fn(),
-      error: vi.fn(),
-    }),
-  },
-}));
-
-import { setGlobalDebugLevel } from "./debug-level";
+import { http, HttpResponse } from "msw";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { mswServer } from "~/tests/builder/msw";
+import { captureConsola } from "~/tests/utils/capture-consola";
 import { debugFetch } from "./debug-fetch";
+import { setGlobalDebugLevel } from "./debug-level";
+
+const log = captureConsola();
 
 describe("debugFetch", () => {
   beforeEach(() => {
-    mockInfo.mockClear();
+    mswServer.use(http.get("https://example.com/image.jpg", () => new HttpResponse("ok", { status: 200 })));
   });
 
   afterEach(() => {
     setGlobalDebugLevel(0);
-    vi.restoreAllMocks();
+    log.records.length = 0;
   });
 
   it("does not log when debug level is 0", async () => {
-    global.fetch = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
+    const response = await debugFetch("https://example.com/image.jpg");
 
-    await debugFetch("https://example.com/image.jpg");
-
-    expect(mockInfo).not.toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    expect(log.messages("info", "ChaiDebug")).toEqual([]);
   });
 
   it("logs fetch metadata when debug level is 1", async () => {
     setGlobalDebugLevel(1);
-    global.fetch = vi.fn().mockResolvedValue(new Response("ok", { status: 200 }));
 
-    await debugFetch("https://example.com/image.jpg");
+    const response = await debugFetch("https://example.com/image.jpg");
 
-    expect(mockInfo).toHaveBeenCalled();
+    expect(response.status).toBe(200);
+    const messages = log.messages("info", "ChaiDebug");
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toMatch(/fetch \d+ms · GET https:\/\/example\.com\/image\.jpg · 200/);
   });
 });

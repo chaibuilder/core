@@ -10,6 +10,7 @@ import { useBlocksStoreUndoableActions } from "~/builder/hooks/history/use-block
 import { selectedStylingBlocksAtom, TStyleBlock } from "~/builder/hooks/use-selected-styling-blocks";
 import { STYLES_KEY } from "~/constants/STRINGS";
 import { ChaiBlock } from "~/types/common";
+import { dropReplacedLayoutTokens } from "~/utils/layout-tokens";
 
 type Created = {
   blockIds: Array<string>;
@@ -32,7 +33,7 @@ export const addClassesToBlocksAtom = atom(null, (get, _set, { blockIds, newClas
       ids: [block._id],
       props: {
         [styleBlock.prop]: `${STYLES_KEY},${orderClassesByBreakpoint(
-          removeDuplicateClasses(twMerge(classes, newClasses)),
+          removeDuplicateClasses(twMerge(dropReplacedLayoutTokens(classes, newClasses), newClasses)),
         )}`,
       },
     };

@@ -1,14 +1,21 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAtom, useAtomValue, useSetAtom } from "jotai";
-import { cloneDeep, get } from "lodash-es";
+import { cloneDeep, get, isPlainObject } from "lodash-es";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
+import { logChaiVersionBanner } from "~/builder/core/functions/version-banner";
 import { ChaiBuilderEditor } from "~/builder/core/main";
 import { pubsub } from "~/builder/core/pubsub";
 import { useBuilderThemeEffect } from "~/builder/hooks/use-builder-theme";
+import { resolveFeatureLabel } from "~/builder/hooks/use-feature-label";
 import { useSidebarActivePanel } from "~/builder/hooks/use-sidebar-active-panel";
+import { PublishThemeButton } from "~/builder/pages/client/components/publish-theme-button";
+import { PublishDesignTokensButton } from "~/builder/pages/client/components/publish-design-tokens-button";
 import { Topbar } from "~/builder/pages/extensions/topbar";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
+import { isLinkedPage } from "~/builder/pages/hooks/pages/use-upstream-pages";
+import { UpstreamCloneButton } from "~/builder/pages/client/components/upstream-linked-notice";
 import { useExtractPageBlocks } from "~/builder/pages/hooks/pages/use-extract-page-blocks";
 import { usePageAllData } from "~/builder/pages/hooks/pages/use-page-all-data";
 import { useUpdateWebsiteFields } from "~/builder/pages/hooks/project/mutations";
@@ -24,7 +31,7 @@ import { registerChaiClientPlugins } from "~/builder/register-apis/register-chai
 import { Button } from "~/components/ui/button";
 import { Loading } from "~/components/ui/loader";
 import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
-import { ChaiWebsiteBuilderProps } from "~/types/common";
+import { ChaiBlock, ChaiWebsiteBuilderProps } from "~/types/common";
 import { loadWebBlocks } from "~/web-blocks";
 import { BlurContainer, FullscreenLoader } from "../../components/ui/loader";
 import { previewUrlAtom } from "./atom/preview-url";
@@ -37,6 +44,7 @@ import { useGetBlockAysncProps } from "./hooks/use-chai-collections";
 import { useGotoPage } from "./hooks/use-goto-page";
 import { useSiteWideUsage } from "./hooks/use-site-wide-usage";
 import { useWebsiteData } from "./hooks/use-website-data";
+import { buildPageBindingData } from "~/utils/page-binding-data";
 import { aiPanelId } from "./panels/ai-panel/ai-panel";
 
 const DigitalAssetManager = lazy(() => import("~/builder/pages/digital-asset-manager/digital-asset-manager"));
@@ -49,6 +57,8 @@ registerChaiPanels();
 //slots
 registerChaiSlot(CHAI_SLOT_IDS.TOP_BAR, Topbar);
 registerChaiSlot(CHAI_SLOT_IDS.MEDIA_MANAGER, DigitalAssetManager);
+registerChaiSlot(CHAI_SLOT_IDS.THEME_PANEL_FOOTER, PublishThemeButton);
+registerChaiSlot(CHAI_SLOT_IDS.DESIGN_TOKENS_PANEL_FOOTER, PublishDesignTokensButton);
 // Save-to-library moved to libraryClientPlugin (chai:library) — hosts that want
 // the site library register it alongside the server-side libraryPlugin().
 
@@ -56,6 +66,10 @@ const DEFAULT_ROLES_AND_PERMISSIONS = {
   role: "admin",
   permissions: null,
 };
+
+// Stable identity for the fetching state — a fresh [] per render would refire the
+// editor's blocks watcher on every render and stack redundant store resets.
+const EMPTY_BLOCKS: ChaiBlock[] = [];
 
 /**
  *
@@ -78,6 +92,8 @@ const DefaultChaiBuilder = (props: ChaiWebsiteBuilderProps) => {
     if (!websiteData) return;
     // `redirects` is dropped: the redirects panel reads it straight off websiteData.features.
     const { redirects: _redirects, ...features } = websiteData.features ?? {};
+    // Printed here, not at module load: whether it may name ChaiBuilder is a server feature.
+    logChaiVersionBanner(features.chaiBranding === true);
     setServerConfig({
       features,
       ai: websiteData.ai ?? {},
@@ -140,6 +156,25 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
   const websiteLanguages = useMemo(() => get(websiteConfig, "languages", []) || [], [websiteConfig]);
   const websiteDesignTokens = useMemo(() => get(websiteConfig, "designTokens", {}) || {}, [websiteConfig]);
   const isEditing = pageStatus === PAGE_STATUS.EDITING;
+  // A linked page renders another site's page: it opens view-only until it is cloned.
+  const isLinked = serverConfig?.features?.upstreamPages === true && isLinkedPage(currentPage);
+  const { t, i18n } = useTranslation();
+  // From this component's own props: reading the editor's props atom here would re-render the
+  // editor's parent on every write the editor makes to it, which loops.
+  const upstreamLabel = resolveFeatureLabel(props.labels, "upstreamPage", props.locale || "en", i18n.language);
+  const currentPageId = currentPage?.id;
+  const readOnly = useMemo(
+    () =>
+      isLinked && currentPageId
+        ? {
+            reason: t("This page shows {{label}} content, which can't be edited here. Duplicate it to edit your own copy.", {
+              label: upstreamLabel,
+            }),
+            action: <UpstreamCloneButton pageId={currentPageId} />,
+          }
+        : null,
+    [isLinked, currentPageId, t, upstreamLabel],
+  );
   const isCheckingPageLock = pageStatus === PAGE_STATUS.CHECKING;
   const isFetchingPageData = isFetchingPageAllData || isCheckingPageLock;
   const [, setActivePanel] = useSidebarActivePanel();
@@ -181,7 +216,10 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
     editorProps.pageExternalData = {
       ...(builderPageData ?? {}),
       global: globalData ?? {},
-      page: pageProps,
+      page: {
+        ...(isPlainObject(get(builderPageData, "page")) ? get(builderPageData, "page") : {}),
+        ...buildPageBindingData(pageProps),
+      },
     };
     return editorProps;
   }, [roleAndPermissions, builderPageData, globalData, pageProps]);
@@ -217,6 +255,9 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
         chaiCollections={repeaterData ?? []}
         getBlockAsyncProps={getBlockAsyncProps}
         themePresets={props.themePresets ?? []}
+        themeReadOnly={props.themeReadOnly ?? false}
+        themeReadOnlyReason={props.themeReadOnlyReason}
+        readOnly={readOnly}
         pageId={currentPage?.id}
         loading={isFetchingPageData}
         fallbackLang={fallbackLang}
@@ -228,21 +269,24 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
         htmlDir={props.htmlDir || "ltr"}
         tailwindCSS={props.tailwindCSS ?? "4"}
         canvasStyles={props.canvasStyles}
-        autoSave={!tabHidden && isEditing && (props.autoSave ?? true)}
+        internalLinkHosts={props.internalLinkHosts}
+        autoSave={!tabHidden && isEditing && !isLinked && (props.autoSave ?? true)}
         autoSaveActionsCount={props.autoSaveActionsCount ?? 10}
         onError={props.onError || console.error}
         getPartialBlockBlocks={getPartialBlockBlocks}
         getPartialBlocks={getPartialBlocks}
-        blocks={isFetchingPageAllData ? [] : blocks}
+        blocks={isFetchingPageAllData ? EMPTY_BLOCKS : blocks}
         theme={cloneDeep(currentTheme)}
         pageTypes={pageTypes}
         searchPageTypeItems={searchPages}
         labels={props.labels}
+        libraryGroupMaxDepth={props.libraryGroupMaxDepth}
+        panelWidth={props.panelWidth}
         onSave={async ({ blocks: _blocks, needTranslations, partialIds, linkPageIds, designTokens }) => {
           if (!page) return true;
           blocksDataRef.current = _blocks;
           const updatedBlocks = [..._blocks];
-          await onSave({
+          const result = await onSave({
             page: page as string,
             blocks: updatedBlocks,
             needTranslations,
@@ -251,7 +295,8 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
             designTokens,
           });
           blocksDataRef.current = updatedBlocks;
-          return true;
+          // usePagesSavePage reports a failed UPDATE_PAGE as an Error, not a throw.
+          return !(result instanceof Error);
         }}
         onSaveWebsiteData={async ({ type, data }) => {
           if (type === "THEME") {

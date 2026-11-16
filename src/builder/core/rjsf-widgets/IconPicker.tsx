@@ -66,8 +66,8 @@ export const IconPicker = ({ onSelectIcon }: IconPickerProps) => {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="sm">
-          <MagnifyingGlassIcon className="h-4 w-4" />
+        <Button variant="outline" size="sm" className="h-6 w-full gap-1 px-1 text-[10px]">
+          <MagnifyingGlassIcon className="h-3 w-3" />
           Pick Icon
         </Button>
       </PopoverTrigger>

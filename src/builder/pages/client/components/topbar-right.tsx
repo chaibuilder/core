@@ -1,23 +1,29 @@
-import { compact, isEmpty, upperCase } from "lodash-es";
+import { compact, isEmpty, map, upperCase } from "lodash-es";
 import {
   CheckCircle,
   ChevronDown,
   CirclePlay,
   ExternalLink,
   Eye,
+  Languages,
   Palette,
   Save,
   Send,
   TriangleAlert,
 } from "lucide-react";
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ValidationErrorsModal } from "~/builder/core/components/canvas/topbar/validation-errors-modal";
+import { THEME_PANEL_ID } from "~/builder/hooks/use-unsaved-theme";
 import { useIsPageLoaded } from "~/builder/hooks/use-is-page-loaded";
+import { requestChaiPanelClose } from "~/builder/hooks/use-panel-close-guard";
 import { useLanguages } from "~/builder/hooks/use-languages";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
+import { useSavePage, type UntranslatedBlock } from "~/builder/hooks/use-save-page";
+import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useStructureValidation } from "~/builder/hooks/use-structure-validation";
 import { useRightPanel } from "~/builder/hooks/use-theme";
+import { useGlobalStylesTitle } from "~/builder/core/components/sidepanels/panels/global-styles/global-styles-panel";
 import { useValidationSnooze } from "~/builder/hooks/use-validation-snooze";
 import PermissionChecker from "~/builder/pages/client/components/permission-checker";
 
@@ -30,6 +36,7 @@ import {
 } from "~/builder/pages/hooks/pages/use-current-page";
 import { useGetUnpublishedPartialBlocks } from "~/builder/pages/hooks/pages/use-get-unpublished-partial-blocks";
 import { useIsLanguagePageCreated } from "~/builder/pages/hooks/pages/use-is-languagep-page-created";
+import { useLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
 
 import { useUnpublishedWebsiteSettings } from "~/builder/pages/hooks/project/use-unpublished-website-settings";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
@@ -42,7 +49,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "~/components/ui/dropdown-menu";
 import { Loading } from "~/components/ui/loader";
@@ -80,14 +86,24 @@ const PreviewButton = () => {
 const ThemeButton = () => {
   const { t } = useTranslation();
   const [rightPanel, setRightPanel] = useRightPanel();
+  const { hasUnpublishedSettings } = useUnpublishedWebsiteSettings();
+  const title = useGlobalStylesTitle();
   return (
     <>
-      <Tooltip content={t("Theme")} delayDuration={0}>
+      <Tooltip
+        content={hasUnpublishedSettings ? t("{{title}} (unpublished changes)", { title }) : title}
+        delayDuration={0}>
         <Button
           variant={rightPanel === "theme" ? "outline" : "ghost"}
           size="icon-sm"
-          onClick={() => setRightPanel(rightPanel === "theme" ? "block" : "theme")}>
+          className="relative"
+          onClick={() =>
+            rightPanel === "theme"
+              ? requestChaiPanelClose(THEME_PANEL_ID, () => setRightPanel("block"))
+              : setRightPanel("theme")
+          }>
           <Palette className="h-4 w-4" />
+          {hasUnpublishedSettings && <span className="bg-warning absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full" />}
         </Button>
       </Tooltip>
       <div className="h-4 w-px border-l bg-transparent" />
@@ -196,13 +212,16 @@ const PublishButton = () => {
   const { t } = useTranslation();
   const { selectedLang } = useLanguages();
   const { data: activePage } = useCurrentActivePage();
+  const { data: languagePages } = useLanguagePages();
+  const languagePageIds = map(languagePages, "id");
   const getUnpublishedPartialBlocks = useGetUnpublishedPartialBlocks();
   const [, setIsHovered] = useState(false);
   const [unpublishPage, setUnpublishPage] = useState(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
   const { savePageAsync } = useSavePage();
   const [showTranslationWarning, setShowTranslationWarning] = useState(false);
-  const { hasUnpublishedSettings, hasUnpublishedTheme, hasUnpublishedDesignToken } = useUnpublishedWebsiteSettings();
+  const [untranslatedBlocks, setUntranslatedBlocks] = useState<UntranslatedBlock[]>([]);
+  const [, setSelectedBlockIds] = useSelectedBlockIds();
   const [showUnpublishedPartialsWarning, setShowUnpublishedPartialsWarning] = useState(false);
   const [unpublishedPartialBlockIds, setUnpublishedPartialBlockIds] = useState<string[]>([]);
   const [unpublishedPartialBlocksInfo, setUnpublishedPartialBlocksInfo] = useState<any[]>([]);
@@ -221,12 +240,11 @@ const PublishButton = () => {
   const { data: currentPage } = usePrimaryPage();
   const [isPageLoaded] = useIsPageLoaded();
   const { mutate: publishPage, isPending } = usePublishPages();
-  const { needTranslations } = useSavePage();
-  const needTranslation = needTranslations();
+  const { getUntranslatedBlocks, arePartialsLoading } = useSavePage();
   // The blocks store is empty until the page has finished loading, so the pre-publish
   // checks (unpublished partials, missing translations, structure validation) would all
-  // pass vacuously. Keep publishing unavailable until the page is loaded.
-  const isPublishDisabled = isPending || !isPageLoaded || !currentPage?.id;
+  // pass vacuously. Keep publishing unavailable until the page and its partials are loaded.
+  const isPublishDisabled = isPending || !isPageLoaded || !currentPage?.id || arePartialsLoading;
   const { buttonText, buttonClassName, isPublished, hasUnpublishedChanges } = useMemo(() => {
     const isPublished = currentPage && currentPage?.online;
     const hasUnpublishedChanges = !isEmpty(currentPage?.changes);
@@ -246,29 +264,45 @@ const PublishButton = () => {
     };
   }, [currentPage, t]);
 
-  const checkAndPublish = useCallback(
-    (pages: string[]) => {
-      const { ids: unpublishedIds, partialBlocksInfo } = getUnpublishedPartialBlocks();
-      if (unpublishedIds.length > 0) {
-        setUnpublishedPartialBlockIds(unpublishedIds);
-        setUnpublishedPartialBlocksInfo(partialBlocksInfo);
-        setShowUnpublishedPartialsWarning(true);
-      } else {
-        publishPage({ ids: compact(pages) }, { onSuccess: () => throwConfetti("TOP_RIGHT") });
-      }
+  // Pages picked by the publish action the user clicked. The confirmation dialogs on the way
+  // (validation, translations, partials) publish these once the user goes ahead.
+  const publishIdsRef = useRef<string[]>([]);
+
+  const performPublish = useCallback(
+    (partialBlockIds: string[] = []) => {
+      publishPage(
+        { ids: compact([...publishIdsRef.current, ...partialBlockIds]) },
+        { onSuccess: () => throwConfetti("TOP_RIGHT") },
+      );
     },
-    [getUnpublishedPartialBlocks, publishPage],
+    [publishPage],
   );
 
+  const checkAndPublish = useCallback(() => {
+    const { ids: unpublishedIds, partialBlocksInfo } = getUnpublishedPartialBlocks();
+    if (unpublishedIds.length > 0) {
+      setUnpublishedPartialBlockIds(unpublishedIds);
+      setUnpublishedPartialBlocksInfo(partialBlocksInfo);
+      setShowUnpublishedPartialsWarning(true);
+    } else {
+      performPublish();
+    }
+  }, [getUnpublishedPartialBlocks, performPublish]);
+
   const proceedToPublish = useCallback(() => {
-    if (needTranslation) {
+    // Evaluated at publish time: getUntranslatedBlocks() clones and scans every block,
+    // which is too heavy to run on each render
+    const blocks = getUntranslatedBlocks();
+    if (blocks.length > 0) {
+      setUntranslatedBlocks(blocks);
       setShowTranslationWarning(true);
       return;
     }
-    checkAndPublish([activePage?.id, activePage?.primaryPage]);
-  }, [needTranslation, checkAndPublish, activePage]);
+    checkAndPublish();
+  }, [getUntranslatedBlocks, checkAndPublish]);
 
-  const handlePublishCurrentPage = async () => {
+  const handlePublish = (ids: string[]) => {
+    publishIdsRef.current = ids;
     if ((hasValidationErrors || hasValidationWarnings) && !isValidationSnoozed()) {
       setShowValidationModal(true);
       return;
@@ -283,15 +317,10 @@ const PublishButton = () => {
     proceedToPublish();
   };
 
-  const performPublishCurrentPage = (partialBlockIds?: string[]) => {
-    const pages = [activePage?.id, activePage?.primaryPage, ...(Array.isArray(partialBlockIds) ? partialBlockIds : [])];
-    // * Publishing current page and consumed global blocks
-    publishPage({ ids: compact(pages) }, { onSuccess: () => throwConfetti("TOP_RIGHT") });
-  };
-
   const handleContinueWithPartials = () => {
     setShowUnpublishedPartialsWarning(false);
-    performPublishCurrentPage(unpublishedPartialBlockIds);
+    // * Publishing the chosen pages and consumed global blocks
+    performPublish(unpublishedPartialBlockIds);
     setUnpublishedPartialBlockIds([]);
     setUnpublishedPartialBlocksInfo([]);
   };
@@ -308,7 +337,7 @@ const PublishButton = () => {
 
   const handleContinueAnyway = () => {
     setShowTranslationWarning(false);
-    checkAndPublish([activePage?.id, activePage?.primaryPage]);
+    checkAndPublish();
   };
 
   const handleCancelTranslation = async () => {
@@ -316,13 +345,18 @@ const PublishButton = () => {
     await savePageAsync();
   };
 
+  const handleSelectUntranslatedBlock = (blockId: string) => {
+    setShowTranslationWarning(false);
+    setSelectedBlockIds([blockId]);
+  };
+
   return (
     <>
       <div className="flex pl-0.5">
         <Button
           size="sm"
-          onClick={handlePublishCurrentPage}
-          loading={isPending || !isPageLoaded}
+          onClick={() => handlePublish([activePage?.id, activePage?.primaryPage])}
+          loading={isPending || !isPageLoaded || arePartialsLoading}
           disabled={isPublishDisabled}
           className={`rounded-r-none duration-300 ${buttonClassName}`}
           onMouseEnter={() => setIsHovered(true)}
@@ -335,11 +369,8 @@ const PublishButton = () => {
             <Button
               size="sm"
               disabled={isPublishDisabled}
-              className={`border-border text-foreground relative rounded-l-none border-l-[0.5px] px-1.5 ${hasUnpublishedSettings ? "bg-muted/60 hover:bg-muted/90" : buttonClassName}`}>
+              className={`border-border text-foreground relative rounded-l-none border-l-[0.5px] px-1.5 ${buttonClassName}`}>
               <ChevronDown className="h-3 w-3 text-current" />
-              {hasUnpublishedSettings && (
-                <span className="bg-warning absolute -top-0.5 -right-0.5 h-2 w-2 rounded-full" />
-              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-max">
@@ -352,11 +383,20 @@ const PublishButton = () => {
             )}
             {!isPublished && (
               <DropdownMenuItem
-                disabled={isPending}
+                disabled={isPublishDisabled}
                 className="cursor-pointer text-xs"
-                onClick={() => checkAndPublish([currentPage?.id])}>
+                onClick={() => handlePublish([currentPage?.id])}>
                 <Send className="mr-0.5 h-3 w-3" />
                 {t("Publish")} page
+              </DropdownMenuItem>
+            )}
+            {languagePageIds.length > 1 && (
+              <DropdownMenuItem
+                disabled={isPublishDisabled}
+                className="cursor-pointer text-xs"
+                onClick={() => handlePublish(languagePageIds)}>
+                <Languages className="mr-0.5 h-3 w-3" />
+                {t("Publish with translation pages")}
               </DropdownMenuItem>
             )}
 
@@ -364,37 +404,6 @@ const PublishButton = () => {
               <DropdownMenuItem onClick={() => setUnpublishPage(activePage)} className="cursor-pointer text-xs">
                 <TriangleAlert className="mr-0.5 h-3 w-3" />
                 {t("Unpublish")} page {selectedLang ? `(${upperCase(selectedLang)})` : ""}
-              </DropdownMenuItem>
-            )}
-
-            {hasUnpublishedSettings && (
-              <>
-                <DropdownMenuSeparator className="bg-border" />
-                <DropdownMenuLabel>{t("Unpublished website settings")}</DropdownMenuLabel>
-              </>
-            )}
-            {hasUnpublishedTheme && (
-              <DropdownMenuItem
-                disabled={isPending}
-                className="cursor-pointer text-xs"
-                onClick={() => publishPage({ ids: ["THEME"] }, { onSuccess: () => throwConfetti("TOP_RIGHT") })}>
-                <span className="flex h-full w-full items-center gap-2">
-                  <span className="mt-0.5 h-1 w-1 animate-pulse rounded-full bg-orange-500" />
-                  {t("Publish")} theme
-                </span>
-              </DropdownMenuItem>
-            )}
-            {hasUnpublishedDesignToken && (
-              <DropdownMenuItem
-                disabled={isPending}
-                className="cursor-pointer text-xs"
-                onClick={() =>
-                  publishPage({ ids: ["DESIGN_TOKENS"] }, { onSuccess: () => throwConfetti("TOP_RIGHT") })
-                }>
-                <span className="flex h-full w-full items-center gap-2">
-                  <span className="mt-0.5 h-1 w-1 animate-pulse rounded-full bg-orange-500" />
-                  {t("Publish")} design token
-                </span>
               </DropdownMenuItem>
             )}
 
@@ -431,7 +440,9 @@ const PublishButton = () => {
             isOpen={showTranslationWarning}
             onClose={handleCancelTranslation}
             onContinue={handleContinueAnyway}
+            onSelectBlock={handleSelectUntranslatedBlock}
             isPending={isPending}
+            untranslatedBlocks={untranslatedBlocks}
           />
         </Suspense>
       )}
@@ -503,17 +514,24 @@ export default function TopbarRight() {
   const [searchParams] = useSearchParams();
   const lang = searchParams.get("lang");
   const isLanguagePageCreated = useIsLanguagePageCreated(lang as string);
+  // A view-only page has nothing to save, and the theme panel it would open is hidden.
+  const readOnly = useReadOnlyMode() !== null;
 
   if (isLocked || !isLanguagePageCreated) return <div />;
   return (
     <div className="flex items-center justify-end gap-1">
-      <PermissionChecker permission={CHAI_PERMISSIONS["theme:edit"]}>
-        <ThemeButton />
-      </PermissionChecker>
+      <ChaiSlot slotId={CHAI_SLOT_IDS.TOPBAR_RIGHT_START} />
+      {!readOnly && (
+        <PermissionChecker permissions={[CHAI_PERMISSIONS["theme:edit"], CHAI_PERMISSIONS["design_tokens:read"]]}>
+          <ThemeButton />
+        </PermissionChecker>
+      )}
       <PreviewButton />
-      <PermissionChecker permission={CHAI_PERMISSIONS["pages:update"]}>
-        <SaveButton />
-      </PermissionChecker>
+      {!readOnly && (
+        <PermissionChecker permission={CHAI_PERMISSIONS["pages:update"]}>
+          <SaveButton />
+        </PermissionChecker>
+      )}
       <PermissionChecker permission={CHAI_PERMISSIONS["pages:publish"]}>
         <PublishButton />
       </PermissionChecker>

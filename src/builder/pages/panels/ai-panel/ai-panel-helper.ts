@@ -1,4 +1,5 @@
 import { AI_SETUP_ERROR_PREFIX } from "~/constants/AI_SETUP_ERROR";
+import { pickBy } from "lodash-es";
 
 export interface Message {
   role: "user" | "assistant" | "system";
@@ -98,6 +99,38 @@ export function extractJsonFromResponse(input: string): any {
   } catch (_e) {
     throw new Error("Invalid JSON response from AI");
   }
+}
+
+/**
+ * Normalize a parsed translation response into a list of block patches.
+ * Models return a bare object when only one block was sent, or wrap the list
+ * (e.g. `{ "blocks": [...] }`); anything without a string `_id` is dropped.
+ * With `lang`, a patch keeps only `{prop}-{lang}` keys: the model is sent the
+ * fallback-language props as source text and must never write them back.
+ */
+export function normalizeAiBlocksResponse(
+  parsed: unknown,
+  lang?: string,
+): Array<{ _id: string } & Record<string, any>> {
+  let list: unknown[] = [];
+  if (Array.isArray(parsed)) {
+    list = parsed;
+  } else if (parsed && typeof parsed === "object") {
+    if (typeof (parsed as any)._id === "string") {
+      list = [parsed];
+    } else {
+      const nested = Object.values(parsed).find(Array.isArray);
+      list = nested ?? [];
+    }
+  }
+  const blocks = list.filter(
+    (block): block is { _id: string } & Record<string, any> =>
+      !!block && typeof block === "object" && typeof (block as any)._id === "string",
+  );
+  if (!lang) return blocks;
+  return blocks
+    .map((block) => pickBy(block, (_, key) => key === "_id" || key.endsWith(`-${lang}`)) as typeof block)
+    .filter((block) => Object.keys(block).length > 1);
 }
 
 /**

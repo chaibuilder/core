@@ -36,7 +36,10 @@ export const useUpdateBlocksProps = () => {
       // re-render every consumer of this hook on each edit of that block
       const selectedBlock = builderStore.get(selectedBlockAtom);
       const updatedProps = updatePropsForLanguage(props, selectedLang, selectedBlock);
-      updateBlocks(blockIds, updatedProps, prevPropsState);
+      const updatedPrevPropsState = prevPropsState
+        ? updatePropsForLanguage(prevPropsState, selectedLang, selectedBlock)
+        : undefined;
+      updateBlocks(blockIds, updatedProps, updatedPrevPropsState);
     },
     [selectedLang, updateBlocks],
   );

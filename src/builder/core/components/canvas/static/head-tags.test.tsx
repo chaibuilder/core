@@ -5,8 +5,19 @@ import { act, renderHook } from "@testing-library/react";
 import { useAtom } from "jotai";
 import { filter, get, has, map } from "lodash-es";
 import { useEffect, useMemo } from "react";
-import { CoreTestProvider, type MockDocument } from "~/builder/core/__tests__/test-utils";
+import { BuilderStoreProvider, renderInBuilder } from "~/tests/builder/render-in-builder";
+
+type MockDocument = {
+  documentElement: {
+    classList: {
+      add: ReturnType<typeof vi.fn<(className: string) => void>>;
+      remove: ReturnType<typeof vi.fn<(className: string) => void>>;
+    };
+  };
+};
+import { TAILWIND_THEME_STYLE_ID } from "~/builder/core/components/canvas/IframeInitialContent";
 import { getThemeCustomFontFace, getThemeFontsUrls } from "~/builder/core/components/canvas/static/chai-theme-helpers";
+import { HeadTags } from "~/builder/core/components/canvas/static/head-tags";
 import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
 import { selectedStylingBlocksAtom } from "~/builder/hooks/use-selected-styling-blocks";
 import { chaiThemeValuesAtom } from "~/builder/hooks/use-theme";
@@ -102,7 +113,7 @@ describe("HeadTags Custom Hooks", () => {
 
           return { styles, setSelectedStylingBlocks, setSelectedBlockIds };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -129,7 +140,7 @@ describe("HeadTags Custom Hooks", () => {
 
           return { styles, setSelectedStylingBlocks };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -154,7 +165,7 @@ describe("HeadTags Custom Hooks", () => {
 
           return { styles, setSelectedBlockIds };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -178,7 +189,7 @@ describe("HeadTags Custom Hooks", () => {
             }`;
           }, [selectedBlockIds]);
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       expect(result.current).toBeTruthy();
@@ -198,7 +209,7 @@ describe("HeadTags Custom Hooks", () => {
 
           return { styles, setSelectedBlockIds };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -240,7 +251,7 @@ describe("HeadTags Custom Hooks", () => {
 
           return { pickedFonts, setChaiTheme };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -288,7 +299,7 @@ describe("HeadTags Custom Hooks", () => {
 
           return { fonts, customFonts, setChaiTheme };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -330,7 +341,7 @@ describe("HeadTags Custom Hooks", () => {
 
           return { fonts, customFonts, setChaiTheme };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -363,7 +374,7 @@ describe("HeadTags Custom Hooks", () => {
 
           return { pickedFonts, setChaiTheme };
         },
-        { wrapper: CoreTestProvider },
+        { wrapper: BuilderStoreProvider },
       );
 
       act(() => {
@@ -388,6 +399,32 @@ describe("HeadTags Custom Hooks", () => {
 
       expect(result.current.pickedFonts).toHaveLength(1);
       expect(result.current.pickedFonts[0].family).toBe("Font3");
+    });
+  });
+
+  describe("site content width", () => {
+    let placeholder: HTMLStyleElement;
+
+    beforeEach(() => {
+      placeholder = document.createElement("style");
+      placeholder.id = TAILWIND_THEME_STYLE_ID;
+      document.head.appendChild(placeholder);
+    });
+
+    afterEach(() => {
+      placeholder.remove();
+    });
+
+    it("writes --site-content-width for the chosen layout and follows layout changes", () => {
+      const { store } = renderInBuilder(<HeadTags />, { theme: { siteLayout: "narrow", fontFamily: {} } });
+
+      expect(placeholder.textContent).toContain("--site-content-width: 768px");
+
+      act(() => {
+        store.set(chaiThemeValuesAtom, { siteLayout: "fluid", fontFamily: {} } as any);
+      });
+
+      expect(placeholder.textContent).toContain("--site-content-width: none");
     });
   });
 });

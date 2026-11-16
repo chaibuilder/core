@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { AIContext } from "~/types";
+import { withoutPageDesignKeys, withoutSiteDesignKeys } from "~/utils/design-context";
 import { ACTIONS } from "../../constants/ACTIONS";
 import { useCurrentActivePage as useActivePage } from "../pages/use-current-page";
 import { useBuilderFetch } from "../utils/use-fetch";
@@ -23,9 +24,11 @@ export function useAiContext() {
 
       if (result?.success && result.aiData) {
         const { app, page } = result.aiData;
+        // The builder's AI flows do not use the design system yet: keep its keys out of the
+        // context they send and out of the context modal (whose saves leave them in place).
         return {
-          site: app,
-          page: page,
+          site: withoutSiteDesignKeys(app),
+          page: withoutPageDesignKeys(page),
         };
       }
       return null;

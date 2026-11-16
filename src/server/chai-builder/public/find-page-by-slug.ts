@@ -1,4 +1,4 @@
-import { get, isEmpty, keys, reverse, sortBy, take } from "lodash-es";
+import { escapeRegExp, get, isEmpty, keys, reverse, sortBy, take } from "lodash-es";
 import type { PageRoutingMetadata } from "./page-routing-cache";
 
 /**
@@ -91,8 +91,14 @@ export function findMatchingDynamicPages(
     const regex = get(dynamicSegments, pageType, "");
     const customSlug = page.dynamicSlugCustom || "";
 
-    const pattern = page.slug + regex + customSlug;
-    const reg = new RegExp(pattern);
+    // The slug is literal text; only the segment pattern and custom suffix are regex. A pattern
+    // that still fails to compile skips this template instead of failing every URL under it.
+    let reg: RegExp;
+    try {
+      reg = new RegExp(escapeRegExp(page.slug) + regex + customSlug);
+    } catch {
+      continue;
+    }
     const match = slug.match(reg);
 
     if (match && match[0] === slug) {

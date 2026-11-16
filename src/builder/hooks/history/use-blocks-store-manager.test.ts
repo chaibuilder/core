@@ -1,51 +1,74 @@
 /**
  * @vitest-environment happy-dom
  */
-import { act, renderHook } from "@testing-library/react";
+import { act } from "@testing-library/react";
+import { presentBlocksAtom, structureErrorsAtom, structureValidationValidAtom } from "~/builder/atoms/blocks";
+import { userActionsCountAtom } from "~/builder/atoms/builder";
+import { canvasIframeAtom } from "~/builder/atoms/ui";
 import { useBlocksStoreManager } from "~/builder/hooks/history/use-blocks-store-manager";
+import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
 
-vi.mock("~/builder/hooks/use-broadcast-channel", () => ({
-  useBroadcastChannel: vi.fn(() => ({ postMessage: vi.fn() })),
-}));
-
-vi.mock("~/builder/hooks/use-update-block-atom", () => ({
-  useUpdateBlockAtom: vi.fn(() => vi.fn()),
-}));
-
-vi.mock("~/builder/core/components/use-auto-save", () => ({
-  useIncrementActionsCount: vi.fn(() => vi.fn()),
-}));
-
-vi.mock("~/builder/hooks/use-check-structure", () => ({
-  useCheckStructure: vi.fn(),
-}));
-
-import { useCheckStructure } from "~/builder/hooks/use-check-structure";
+/**
+ * A canvas document whose structure breaks the real "no-nested-div-in-p" rule, so a validation run
+ * is observable as a populated `structureErrorsAtom`.
+ */
+const invalidCanvas = () => {
+  const doc = document.implementation.createHTMLDocument("canvas");
+  const p = doc.createElement("p");
+  const box = doc.createElement("div");
+  box.setAttribute("data-block-type", "Box");
+  box.setAttribute("data-block-id", "box-1");
+  p.appendChild(box);
+  doc.body.appendChild(p);
+  return { contentDocument: doc } as unknown as HTMLIFrameElement;
+};
 
 describe("useBlocksStoreManager – updateBlocksProps", () => {
-  it("invokes the runValidation callback returned by useCheckStructure", () => {
-    const mockRunValidation = vi.fn();
-    (useCheckStructure as ReturnType<typeof vi.fn>).mockReturnValue(mockRunValidation);
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
 
-    const { result } = renderHook(() => useBlocksStoreManager());
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const render = () =>
+    renderHookInBuilder(() => useBlocksStoreManager(), {
+      blocks: [{ _id: "block-1", _type: "Box", color: "blue" }],
+      seed: (s) => s.set(canvasIframeAtom, invalidCanvas()),
+    });
+
+  it("runs structure validation after updating props", async () => {
+    const { result, store } = render();
 
     act(() => {
       result.current.updateBlocksProps([{ _id: "block-1", color: "red" }]);
     });
 
-    expect(mockRunValidation).toHaveBeenCalledTimes(1);
+    expect(store.get(presentBlocksAtom)[0]).toMatchObject({ _id: "block-1", color: "red" });
+    expect(store.get(structureErrorsAtom)).toEqual([]);
+    expect(store.get(userActionsCountAtom)).toBe(1);
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(store.get(structureErrorsAtom)).toEqual([expect.objectContaining({ id: "div-in-paragraph-box-1" })]);
+    expect(store.get(structureValidationValidAtom)).toBe(false);
   });
 
-  it("invokes the runValidation callback even when an empty blocks array is provided", () => {
-    const mockRunValidation = vi.fn();
-    (useCheckStructure as ReturnType<typeof vi.fn>).mockReturnValue(mockRunValidation);
-
-    const { result } = renderHook(() => useBlocksStoreManager());
+  it("runs structure validation even when an empty blocks array is provided", async () => {
+    const { result, store } = render();
 
     act(() => {
       result.current.updateBlocksProps([]);
     });
 
-    expect(mockRunValidation).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(500);
+    });
+
+    expect(store.get(structureErrorsAtom)).toEqual([expect.objectContaining({ id: "div-in-paragraph-box-1" })]);
+    expect(store.get(presentBlocksAtom)).toEqual([{ _id: "block-1", _type: "Box", color: "blue" }]);
   });
 });

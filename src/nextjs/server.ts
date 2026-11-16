@@ -14,8 +14,11 @@ export type {
   ChaiCollectionEntry,
   ChaiContextResolver,
   ChaiContextResolverArgs,
+  ChaiDbColumnNames,
   ChaiDbConfigInput,
+  ChaiDbNaming,
   ChaiDbSetup,
+  ChaiDbTableNaming,
   ChaiDebugLevel,
   ChaiFullPage,
   ChaiGlobalDataProvider,
@@ -33,6 +36,7 @@ export type {
   ChaiRepeaterFilter,
   ChaiRepeaterOperator,
   ChaiRepeaterQuery,
+  ChaiRelationColumnKey,
   ChaiRepeaterSort,
   ChaiRequestContext,
   ChaiRequestContextArgs,
@@ -60,6 +64,13 @@ export {
   type ChaiActionHookArgs,
   type ChaiActionHookName,
 } from "~/server/plugin-api";
+// MCP tool authoring and registration. The transport itself lives behind the `<pkg>/mcp`
+// entry point, which statically imports the optional `@modelcontextprotocol/sdk` peer;
+// nothing re-exported here resolves it, so defining tools never requires installing it.
+export * from "~/server/mcp/api";
+// Static superset of what an action can require — how the host's permission
+// guards and docs surfaces read a payload-aware `requiredPermission`.
+export { declaredPermissionKeysOf, permissionResolver } from "~/server/chai-actions/permission-keys";
 export type {
   ChaiRequestMiddleware,
   ChaiRequestMiddlewareArgs,
@@ -102,7 +113,7 @@ export {
   type ChaiActionResult,
   type ChaiActionSuccess,
 } from "~/server/chai-actions/export";
-export type { ChaiActionContext, ChaiUserAccess } from "~/types";
+export type { ChaiActionContext, ChaiActionSurface, ChaiUserAccess } from "~/types";
 export {
   createStreamingErrorResponse,
   formatStreamingError,

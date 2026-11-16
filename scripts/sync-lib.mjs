@@ -25,6 +25,9 @@ export const ALSO_IDENTICAL = [
   "scripts/sync-src.mjs",
   "scripts/sync-check.mjs",
   "scripts/sync-log.mjs",
+  // Path aliases for hosts that vendor either edition as a subtree; edition-agnostic.
+  "scripts/package-entries.mjs",
+  "scripts/host-paths.mjs",
 ];
 
 const JUNK = new Set([".DS_Store", "Thumbs.db", "desktop.ini"]);

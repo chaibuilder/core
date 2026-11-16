@@ -9,12 +9,14 @@ import {
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useChaiPanelCloseGuard } from "~/builder/hooks/use-panel-close-guard";
 import { usePermissions } from "~/builder/hooks/use-permissions";
+import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
 import { NestedPathSelector } from "~/builder/core/components/nested-path-selector";
 import { ImagePicker } from "~/builder/pages/digital-asset-manager";
 import { useUpdatePage } from "~/builder/pages/hooks/pages/mutations";
 import { useCurrentLanguagePage } from "~/builder/pages/hooks/pages/use-current-language-page";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
 import { useLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
+import { usePageAllData } from "~/builder/pages/hooks/pages/use-page-all-data";
 import { useBuilderPageData } from "~/builder/pages/hooks/pages/use-page-draft-blocks";
 import { useSiteGlobalData } from "~/builder/pages/hooks/pages/use-site-global-data";
 import { usePageType } from "~/builder/pages/hooks/project/use-page-types";
@@ -92,17 +94,21 @@ const SeoPanel = () => {
   const { data: primaryPage } = usePrimaryPage();
   const { data: pageData } = useBuilderPageData();
   const { data: globalData } = useSiteGlobalData();
-  const { data: languagePage, isFetching } = useCurrentLanguagePage();
+  const { data: languagePage, isFetching: isFetchingLanguagePage } = useCurrentLanguagePage();
   const { data: languagePages } = useLanguagePages();
+  const readOnly = useReadOnlyMode() !== null;
+  const { data: pageAllData, isFetching: isFetchingPageAllData } = usePageAllData();
+  // A view-only page shows the SEO it renders: a linked page's is its upstream page's.
+  const isFetching = readOnly ? isFetchingPageAllData : isFetchingLanguagePage;
 
   const pageExternalData = useMemo(
     () => ({
       ...(pageData ?? {}),
-      global: globalData ?? {}
+      global: globalData ?? {},
     }),
     [pageData, globalData],
   );
-  const seoSetting = languagePage?.seo;
+  const seoSetting = readOnly ? pageAllData?.draftPage?.seo : languagePage?.seo;
   // Keep the ref for direct cursor positioning
   const cursorPositionRef = useRef<{ id: string; position: number } | null>(null);
   const [tab, setTab] = useState("seo");
@@ -171,7 +177,8 @@ const SeoPanel = () => {
   const loading = isUpdating || isResettingSeo || isResettingJsonLd;
 
   const { hasPermission } = usePermissions();
-  const editSeo = hasPermission(CHAI_PERMISSIONS["pages:edit_seo"]);
+  // A view-only page shows its SEO as it is, without the "no permission" cover.
+  const editSeo = !readOnly && hasPermission(CHAI_PERMISSIONS["pages:edit_seo"]);
   const bindingInputEnabled = useBindingInputEnabled(pageExternalData);
   const [pagesProps] = usePagesProps();
   const resetSeoToDefault = get(pagesProps, "flags.resetSeoToDefault", false);
@@ -202,10 +209,15 @@ const SeoPanel = () => {
       ogImageId: "",
       searchTitle: "",
       searchDescription: "",
-      jsonLD: "",
+      jsonLD: "{}",
       metaOther: "",
       ...seoSetting,
     };
+    // SmartJsonInput rewrites an empty JSON-LD to "{}" on mount; hydrate the same value so an
+    // unedited page does not open dirty.
+    if (typeof newFormValues.jsonLD !== "string" || newFormValues.jsonLD.trim() === "") {
+      newFormValues.jsonLD = "{}";
+    }
     // Set form values and store as initial values for dirty check per language
     hydratedKeyRef.current = hydrationKey;
     setFormValues(newFormValues);
@@ -520,12 +532,7 @@ const SeoPanel = () => {
       find(pages, (p) => p.id === pageId || !p.primaryPage) ??
       find(pages, (p) => p.lang === fallbackLang || p.lang === "");
     const raw = get(defaultPage, "seo.jsonLD");
-    const jsonLd =
-      typeof raw === "object" && raw !== null
-        ? JSON.stringify(raw)
-        : typeof raw === "string"
-          ? raw
-          : "{}";
+    const jsonLd = typeof raw === "object" && raw !== null ? JSON.stringify(raw) : typeof raw === "string" ? raw : "{}";
     if (!jsonLd.trim() || jsonLd.trim() === "{}") {
       toast.error(t("Default page JSON-LD is empty"));
       return;
@@ -537,9 +544,9 @@ const SeoPanel = () => {
 
   return (
     <div
-      className="relative flex h-full max-h-[500px] min-h-[500px] flex-col overflow-hidden text-foreground"
+      className="text-foreground relative flex h-full max-h-[500px] min-h-[500px] flex-col overflow-hidden"
       data-panel-id="seo">
-      {!editSeo && (
+      {!editSeo && !readOnly && (
         <div className="absolute inset-0 z-10 flex items-center justify-center backdrop-blur-sm">
           <Alert variant="default" className="w-[80%] max-w-md text-xs">
             <AlertDescription>
@@ -549,10 +556,10 @@ const SeoPanel = () => {
         </div>
       )}
       <div className="flex-shrink-0 px-2 pb-4">
-        <div className="flex w-full items-center justify-between rounded-md bg-muted/10 px-3 py-2 text-left text-sm">
+        <div className="bg-muted/10 flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm">
           <span className="inline-flex items-center gap-x-2">
             <div className="text-sm leading-none">{languagePage?.name}</div>
-            <span className="text-xs font-light leading-none text-muted-foreground">{languagePage?.slug}</span>
+            <span className="text-muted-foreground text-xs leading-none font-light">{languagePage?.slug}</span>
           </span>
           <LanguageSwitcher showAdd={false} />
         </div>
@@ -575,7 +582,7 @@ const SeoPanel = () => {
       </div>
       <div className="flex-1 overflow-hidden px-2 pb-2">
         <form className="h-full">
-          <div className={tab === "seo" ? "h-full overflow-y-auto pb-4 pr-2" : "sr-only"}>
+          <div className={tab === "seo" ? "h-full overflow-y-auto pr-2 pb-4" : "sr-only"}>
             <div className="space-y-4">
               <SeoSearchPreview
                 title={formValues.title}
@@ -591,7 +598,11 @@ const SeoPanel = () => {
                     {t("SEO Title")}
                   </Label>
                   <div className="flex items-center justify-end gap-1">
-                    <ChaiSlot slotId={CHAI_SLOT_IDS.SEO_FIELD_ACTIONS} multiple context={{ field: "title", onApply: onApplySeoField("title") }} />
+                    <ChaiSlot
+                      slotId={CHAI_SLOT_IDS.SEO_FIELD_ACTIONS}
+                      multiple
+                      context={{ field: "title", onApply: onApplySeoField("title") }}
+                    />
                     {editSeo && (
                       <NestedPathSelector
                         dataType="value"
@@ -657,7 +668,7 @@ const SeoPanel = () => {
                     />
                     <Label htmlFor="noIndex">{t("No Index")}</Label>
                   </div>
-                  <p className="mt-1 text-[11px] font-light leading-4 text-muted-foreground/80">
+                  <p className="text-muted-foreground/80 mt-1 text-[11px] leading-4 font-light">
                     {t("Check this if you don't want search engines to index this page.")}
                   </p>
                 </div>
@@ -676,20 +687,20 @@ const SeoPanel = () => {
                     />
                     <Label htmlFor="noFollow">{t("No Follow")}</Label>
                   </div>
-                  <p className="mt-1 text-[11px] font-light text-muted-foreground/80">
+                  <p className="text-muted-foreground/80 mt-1 text-[11px] font-light">
                     {t("Check this if you don't want search engines to follow links on this page.")}
                   </p>
                 </div>
               </div>
             </div>
           </div>
-          <div className={tab === "opengraph" ? "h-full overflow-y-auto pb-4 pr-2" : "sr-only"}>
+          <div className={tab === "opengraph" ? "h-full overflow-y-auto pr-2 pb-4" : "sr-only"}>
             <div className="space-y-4">
               <div>
                 <p className="pt-3 text-xs font-light">{t("Open Graph")}</p>
                 {/* generateMetaData resolves og:title/og:description as `ogTitle || title`
                     and `ogDescription || description`, so blank fields are not empty tags. */}
-                <p className="pb-3 pt-1 text-[11px] font-light leading-4 text-muted-foreground/80">
+                <p className="text-muted-foreground/80 pt-1 pb-3 text-[11px] leading-4 font-light">
                   {t(
                     "Leave these empty to use the SEO Title and SEO Description from the SEO tab. Fill them in only to override.",
                   )}
@@ -701,7 +712,11 @@ const SeoPanel = () => {
                         {t("OG Title")}
                       </Label>
                       <div className="flex items-center gap-1">
-                        <ChaiSlot slotId={CHAI_SLOT_IDS.SEO_FIELD_ACTIONS} multiple context={{ field: "ogTitle", onApply: onApplySeoField("ogTitle") }} />
+                        <ChaiSlot
+                          slotId={CHAI_SLOT_IDS.SEO_FIELD_ACTIONS}
+                          multiple
+                          context={{ field: "ogTitle", onApply: onApplySeoField("ogTitle") }}
+                        />
                         {editSeo && (
                           <NestedPathSelector
                             dataType="value"
@@ -720,7 +735,11 @@ const SeoPanel = () => {
                         {t("OG Description")}
                       </Label>
                       <div className="flex items-center gap-1">
-                        <ChaiSlot slotId={CHAI_SLOT_IDS.SEO_FIELD_ACTIONS} multiple context={{ field: "ogDescription", onApply: onApplySeoField("ogDescription") }} />
+                        <ChaiSlot
+                          slotId={CHAI_SLOT_IDS.SEO_FIELD_ACTIONS}
+                          multiple
+                          context={{ field: "ogDescription", onApply: onApplySeoField("ogDescription") }}
+                        />
                         {editSeo && (
                           <NestedPathSelector
                             dataType="value"
@@ -786,7 +805,7 @@ const SeoPanel = () => {
               </div>
             </div>
           </div>
-          <div className={tab === "jsonld" ? "h-full overflow-y-auto pb-4 pr-2" : "sr-only"}>
+          <div className={tab === "jsonld" ? "h-full overflow-y-auto pr-2 pb-4" : "sr-only"}>
             <div className="space-y-4">
               <div className="space-y-0.5">
                 <SmartJsonInput
@@ -809,7 +828,11 @@ const SeoPanel = () => {
                   topRightComponent={
                     hasJsonLdForSelectedLang && (
                       <div className="flex items-center gap-1">
-                        <ChaiSlot slotId={CHAI_SLOT_IDS.SEO_FIELD_ACTIONS} multiple context={{ field: "jsonLD", onApply: onApplySeoField("jsonLD") }} />
+                        <ChaiSlot
+                          slotId={CHAI_SLOT_IDS.SEO_FIELD_ACTIONS}
+                          multiple
+                          context={{ field: "jsonLD", onApply: onApplySeoField("jsonLD") }}
+                        />
                       </div>
                     )
                   }

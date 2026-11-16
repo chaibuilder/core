@@ -23,6 +23,13 @@ describe("extensionOf", () => {
   it("ignores query strings and fragments", () => {
     expect(extensionOf("photo.png?v=2")).toBe("png");
     expect(extensionOf("photo.png#top")).toBe("png");
+    expect(extensionOf("photo.png#v=2.5")).toBe("png");
+  });
+
+  it("keeps the extension when # or ? appears before the dot in a local name", () => {
+    expect(extensionOf("Capture #3.png")).toBe("png");
+    expect(extensionOf("IMG#123.jpg")).toBe("jpg");
+    expect(extensionOf("notes?draft.txt")).toBe("txt");
   });
 
   it("takes the last extension of a multi-dot name", () => {

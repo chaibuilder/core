@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getConfigPageType, toChaiPageType } from "~/server/defaults";
+import { getConfigPageType, toChaiPageType } from "~/server/defaults/config-registry";
 import { ChaiBaseAction } from "../base-action";
 
 export type SearchPageTypeItemsActionData = {

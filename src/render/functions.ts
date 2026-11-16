@@ -1,6 +1,6 @@
 import { cloneDeep, flattenDeep, get, isEmpty, last } from "lodash-es";
 import { getSplitChaiClasses } from "~/builder/hooks/get-split-classes";
-import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
+import { getPartialWrapperTag, MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
 import { ChaiBlock } from "~/types/common";
 
 /**
@@ -41,14 +41,18 @@ export function getMergedPartialBlocks(
       continue;
     }
 
+    // A placement with a wrapper tag stays as that element, parenting the roots.
+    const hasWrapper = getPartialWrapperTag(block) !== null;
+
     // Re-parent roots only. Never broadcast reference `_show: true` onto children.
     partialBlocks = partialBlocks.map((b) => {
-      if (isEmpty(b._parent)) b._parent = block._parent;
+      if (isEmpty(b._parent)) b._parent = hasWrapper ? block._id : block._parent;
       return b;
     });
 
     const newVisited = new Set(visited);
     newVisited.add(partialBlockId);
+    if (hasWrapper) result.push(block);
     result.push(...getMergedPartialBlocks(partialBlocks, partials, newVisited, depth + 1));
   }
 

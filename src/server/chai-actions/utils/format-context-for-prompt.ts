@@ -1,10 +1,13 @@
 import { AIContext } from "~/types";
+import { stripDesignContextKeys } from "~/utils/design-context";
 
 /**
  * Format context data for AI prompt
  * Converts context object (site/page) into formatted string
  */
-export function formatContextForPrompt(context?: AIContext): string {
+export function formatContextForPrompt(rawContext?: AIContext): string {
+  // The design-system keys are objects and not part of these prompts (see ~/utils/design-context).
+  const context = stripDesignContextKeys(rawContext);
   let contextInfo = "";
 
   if (context) {
@@ -327,6 +330,18 @@ if (import.meta.vitest) {
 
         expect(result).toContain("url: https://example.com/path?query=value");
         expect(result).toContain("api: https://api.example.com/v1");
+      });
+    });
+
+    describe("Design-system keys", () => {
+      it("formats a context carrying a design system exactly like one without it", () => {
+        const plain: AIContext = { site: { siteContext: "Bakery", tone: "Warm" }, page: { pageContext: "Menu" } };
+        const withDesign: AIContext = {
+          site: { ...plain.site, designSystem: { northStar: "Flour and fire", enabled: true } },
+          page: { ...plain.page, designBrief: { mode: "persuade", thesis: "Bread first" } },
+        };
+        expect(formatContextForPrompt(withDesign)).toBe(formatContextForPrompt(plain));
+        expect(formatContextForPrompt(withDesign)).not.toContain("[object Object]");
       });
     });
 

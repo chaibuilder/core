@@ -1,9 +1,11 @@
+import { describe, expect, it } from "vitest";
+import { withRequestContext } from "~/tests/setup/request-context";
 import type { ChaiFullPage } from "~/types/pages";
-import { generateMetaData } from "./generate-meta-data";
+import { generateMetaData as generateMetaDataInRequest } from "./generate-meta-data";
 
-vi.mock("~/server/chai-builder/internal/init", () => ({
-  getSiteUrl: () => "https://example.com",
-}));
+/** Runs in a real request whose site URL is https://example.com (what the route handler seeds). */
+const generateMetaData = (args: Parameters<typeof generateMetaDataInRequest>[0]) =>
+  withRequestContext(() => generateMetaDataInRequest(args), { siteUrl: "https://example.com" });
 
 const docsPage = (seo: Record<string, unknown>): ChaiFullPage =>
   ({

@@ -1,10 +1,10 @@
 import { createHash } from "crypto";
-import { eq } from "drizzle-orm";
-import { first } from "lodash-es";
+import { pick } from "lodash-es";
 import { z } from "zod";
+import { getAppRow } from "~/server/chai-actions/apps/app-store";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
-import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { apiError } from "~/server/chai-actions/lib";
+import { getConfigSiteSettingsTransform } from "~/server/defaults/config-registry";
 
 export type GetWebsiteSettingsActionData = {
   draft: boolean;
@@ -20,6 +20,18 @@ type GetWebsiteSettingsActionResponse = {
   consentConfig?: Record<string, any>;
   configData?: Record<string, any>;
 };
+
+/** The row fields the editor receives; anything else on the row stays server-side. */
+const SETTINGS_FIELDS = [
+  "theme",
+  "fallbackLang",
+  "languages",
+  "settings",
+  "designTokens",
+  "changes",
+  "consentConfig",
+  "configData",
+];
 
 export class GetWebsiteSettingsAction extends ChaiBaseAction<
   GetWebsiteSettingsActionData,
@@ -39,45 +51,32 @@ export class GetWebsiteSettingsAction extends ChaiBaseAction<
     const { appId } = this.context;
     const { draft } = data;
 
-    // Use the appropriate table based on draft flag
-    const targetTable = draft ? schema.apps : schema.appsOnline;
-
-    const { data: config, error } = await safeQuery(() =>
-      db
-        .select({
-          theme: targetTable.theme,
-          fallbackLang: targetTable.fallbackLang,
-          languages: targetTable.languages,
-          settings: targetTable.settings,
-          designTokens: targetTable.designTokens,
-          changes: targetTable.changes,
-          consentConfig: targetTable.consentConfig,
-          configData: targetTable.configData,
-        })
-        .from(targetTable)
-        .where(eq(targetTable.id, appId))
-        .limit(1),
-    );
+    // Use the appropriate table based on draft flag. The whole row, like the public read, so the
+    // app's transform can derive settings from columns the core does not know.
+    const { data: appRow, error } = await getAppRow(appId, { draft });
 
     if (error) {
       throw apiError("ERROR_PROJECT_CONFIG", error);
     }
 
-    if (!config || config.length === 0) {
+    if (!appRow) {
       throw apiError("PROJECT_NOT_FOUND", new Error("Project not found"));
     }
 
-    const settings = first(config);
+    // Same hook the public read runs, so the editor shows the theme the site renders.
+    const transform = getConfigSiteSettingsTransform();
+    const transformed = transform ? await transform(appRow, { appId, draftMode: draft }) : appRow;
+    const row: Record<string, any> = pick(transformed, SETTINGS_FIELDS);
 
-    const appChanges = ((settings as any)?.changes ?? []) as string[];
+    const appChanges = (row?.changes ?? []) as string[];
 
     return {
       ...this.getDefaultSettings(),
-      ...(settings as any),
+      ...row,
       // Handle null/undefined values by providing defaults
-      fallbackLang: settings?.fallbackLang || this.getDefaultSettings().fallbackLang,
-      languages: (settings?.languages as string[]) || this.getDefaultSettings().languages,
-      theme: settings?.theme || this.getDefaultSettings().theme,
+      fallbackLang: row?.fallbackLang || this.getDefaultSettings().fallbackLang,
+      languages: (row?.languages as string[]) || this.getDefaultSettings().languages,
+      theme: row?.theme || this.getDefaultSettings().theme,
       // Generate deterministic app key like the original implementation
       appKey: this.generateDeterministicUuid(appId),
       appChanges,
@@ -86,8 +85,7 @@ export class GetWebsiteSettingsAction extends ChaiBaseAction<
 
   /**
    * This editor read action's own fallback theme — one of three divergent default-theme
-   * constants in this repo, each with its own callers and slightly different values;
-   * predate feat-brand-delivery and were not unified by it (surgical-changes rule). The
+   * constants in this repo, each with its own callers and slightly different values. The
    * other two: `DEFAULT_APP_THEME` (drizzle/seed/defaults.ts, new-site/snapshot fallback)
    * and `defaultThemeOptions`/`defaultThemeValues`
    * (chai/src/builder/hooks/default-theme-options.ts, the editor's own picker seed).

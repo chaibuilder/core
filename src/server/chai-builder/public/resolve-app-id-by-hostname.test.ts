@@ -1,49 +1,36 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const findFirst = vi.fn();
-
-vi.mock("~/server/chai-actions/db", () => ({
-  db: {
-    query: {
-      appDomains: {
-        findFirst,
-      },
-    },
-  },
-  safeQuery: async <T>(fn: () => Promise<T>) => ({ data: await fn(), error: null }),
-  schema: {
-    appDomains: {
-      domain: "domain",
-      subdomain: "subdomain",
-      app: "app",
-    },
-  },
-}));
-
-vi.mock("./cache-utils", () => ({
-  withRequestCache: <T extends (...args: never[]) => Promise<string>>(fn: T) => fn,
-  withPersistentCache: <T extends (...args: never[]) => Promise<string>>(fn: T) => fn,
-}));
+import { describe, expect, it } from "vitest";
+import { installMemoryPersistentCache } from "~/tests/setup/persistent-cache";
+import { TEST_APP_ID } from "~/tests/setup/test-app";
+import { withTestDB } from "~/tests/setup/transaction-manager";
+import { resolveAppIdByHostname } from "./resolve-app-id-by-hostname";
 
 describe("resolveAppIdByHostname", () => {
-  beforeEach(() => {
-    findFirst.mockReset();
+  it("returns app id for a matching hostname", async () => {
+    await withTestDB(async ({ seed }) => {
+      await seed("appDomains", { app: TEST_APP_ID, domain: "example.com", subdomain: "unrelated-sub" });
+      const cache = installMemoryPersistentCache();
+
+      await expect(resolveAppIdByHostname("www.example.com")).resolves.toBe(TEST_APP_ID);
+      expect(cache.wraps).toEqual([{ keyParts: ["hostname", "example.com"], tags: ["hostname-example.com"] }]);
+    });
   });
 
-  it("returns app id for a matching hostname", async () => {
-    findFirst.mockResolvedValue({ app: "app-123" });
-    const { resolveAppIdByHostname } = await import("./resolve-app-id-by-hostname");
+  it("matches on subdomain and supports the draft (request-cache) path", async () => {
+    await withTestDB(async ({ seed }) => {
+      await seed("appDomains", { app: TEST_APP_ID, subdomain: "my-site.chaibuilder.xyz" });
 
-    await expect(resolveAppIdByHostname("www.example.com")).resolves.toBe("app-123");
-    expect(findFirst).toHaveBeenCalled();
+      await expect(resolveAppIdByHostname("my-site.chaibuilder.xyz", { draft: true })).resolves.toBe(TEST_APP_ID);
+    });
   });
 
   it("throws when no site matches the hostname", async () => {
-    findFirst.mockResolvedValue(undefined);
-    const { resolveAppIdByHostname } = await import("./resolve-app-id-by-hostname");
+    await withTestDB(async ({ seed }) => {
+      await seed("appDomains", { app: TEST_APP_ID, domain: "example.com" });
+      installMemoryPersistentCache();
 
-    await expect(resolveAppIdByHostname("unknown.example.com")).rejects.toThrow(
-      "No site found for hostname: unknown.example.com",
-    );
+      await expect(resolveAppIdByHostname("unknown.example.com")).rejects.toThrow(
+        "No site found for hostname: unknown.example.com",
+      );
+    });
   });
 });

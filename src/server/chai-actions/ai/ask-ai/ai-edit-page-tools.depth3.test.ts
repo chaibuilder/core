@@ -1,84 +1,56 @@
 /**
- * get_partial_blocks filtering with MAX_PARTIAL_DEPTH mocked to 3 — proves
- * the AI-side enforcement derives from the constant, mirroring the builder.
+ * get_partial_blocks filtering at MAX_PARTIAL_DEPTH = 3 (the real constant) — proves the AI-side
+ * enforcement derives from the constant, mirroring the builder.
  */
-import { beforeEach, describe, expect, it, vi } from "vitest";
-
-const { mockWhere } = vi.hoisted(() => ({
-  mockWhere: vi.fn(),
-}));
-
-vi.mock("~/constants/PARTIAL_BLOCKS", () => ({
-  MAX_PARTIAL_DEPTH: 3,
-}));
-
-vi.mock("~/server/chai-actions/db", () => ({
-  db: {
-    select: () => ({ from: () => ({ where: mockWhere }) }),
-  },
-  safeQuery: async (fn: () => Promise<unknown>) => {
-    try {
-      return { data: await fn(), error: null };
-    } catch (error) {
-      return { data: null, error };
-    }
-  },
-  schema: {
-    appPages: {
-      id: "id",
-      name: "name",
-      metadata: "metadata",
-      pageType: "pageType",
-      partialBlocks: "partialBlocks",
-      app: "app",
-      slug: "slug",
-      lang: "lang",
-      deletedAt: "deletedAt",
-    },
-  },
-}));
-
-vi.mock("~/server/chai-builder/state", () => ({
-  getInitializedStateWithUser: () => ({ appId: "app-1" }),
-}));
-
+import { describe, expect, it } from "vitest";
+import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
+import { withTestDB } from "~/tests/setup/transaction-manager";
 import { buildAiEditPageTools } from "./ai-edit-page-tools";
 
 describe("get_partial_blocks with MAX_PARTIAL_DEPTH = 3", () => {
   // Chain: mega -> layout -> header (partialBlocks columns hold closures)
   const PARTIAL_PAGES = [
-    { id: "header", name: "Header", metadata: {}, pageType: "global", partialBlocks: "" },
-    { id: "layout", name: "Layout", metadata: {}, pageType: "global", partialBlocks: "header" },
-    { id: "mega", name: "Mega", metadata: {}, pageType: "global", partialBlocks: "layout|header" },
+    { id: "header", name: "Header", partialBlocks: "" },
+    { id: "layout", name: "Layout", partialBlocks: "header" },
+    { id: "mega", name: "Mega", partialBlocks: "layout|header" },
   ];
 
-  const getPartialBlocks = (pageId?: string) =>
-    (buildAiEditPageTools({ pageHtml: "", pageId }) as any).get_partial_blocks;
+  /** Partials are slug-less, language-less pages of the test app. */
+  const seedPartials = (rows: { id: string; name: string; partialBlocks: string }[]) =>
+    withTestDB(({ seedMany }) =>
+      seedMany(
+        "appPages",
+        rows.map((row) => ({ ...row, slug: "", lang: "", pageType: "global", metadata: {} })),
+      ),
+    );
 
-  beforeEach(() => {
-    mockWhere.mockReset();
-    mockWhere.mockResolvedValue(PARTIAL_PAGES);
+  const getPartialBlocks = (pageId?: string): Promise<any> =>
+    withTestDB(({ inRequest }) =>
+      inRequest(() => (buildAiEditPageTools({ pageHtml: "", pageId }) as any).get_partial_blocks.execute({})),
+    );
+
+  it("runs against the real depth limit", () => {
+    expect(MAX_PARTIAL_DEPTH).toBe(3);
   });
 
   it("lists a depth-3 partial when editing a regular page", async () => {
-    const result = await getPartialBlocks("page-1").execute({});
+    await seedPartials(PARTIAL_PAGES);
+    const result = await getPartialBlocks("page-1");
     expect(Object.keys(result.partials).sort()).toEqual(["header", "layout", "mega"]);
   });
 
   it("allows depth-2 partials inside a top-level partial, excludes deeper and cyclic ones", async () => {
     // footer-like fresh partial with no consumers: budget is 3 - 1 = 2
-    mockWhere.mockResolvedValue([
-      ...PARTIAL_PAGES,
-      { id: "fresh", name: "Fresh", metadata: {}, pageType: "global", partialBlocks: "" },
-    ]);
-    const result = await getPartialBlocks("fresh").execute({});
+    await seedPartials([...PARTIAL_PAGES, { id: "fresh", name: "Fresh", partialBlocks: "" }]);
+    const result = await getPartialBlocks("fresh");
     // layout (depth 2) fits; mega (depth 3) does not; self excluded
     expect(Object.keys(result.partials).sort()).toEqual(["header", "layout"]);
   });
 
   it("shrinks the budget for a partial already nested one level deep", async () => {
     // layout is used by mega -> usage depth 1, chain above = 2, budget = 1
-    const result = await getPartialBlocks("layout").execute({});
+    await seedPartials(PARTIAL_PAGES);
+    const result = await getPartialBlocks("layout");
     expect(Object.keys(result.partials)).toEqual(["header"]);
     // mega excluded both as too deep and as a cycle (it contains layout)
     expect(result.partials.mega).toBeUndefined();
@@ -86,7 +58,8 @@ describe("get_partial_blocks with MAX_PARTIAL_DEPTH = 3", () => {
 
   it("returns nothing for a partial nested two levels deep", async () => {
     // header: usage depth 2 (mega -> layout -> header), chain above = 3, budget 0
-    const result = await getPartialBlocks("header").execute({});
+    await seedPartials(PARTIAL_PAGES);
+    const result = await getPartialBlocks("header");
     expect(result.partials).toEqual({});
     expect(result.note).toContain("maximum nesting depth");
   });

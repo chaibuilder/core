@@ -1,6 +1,7 @@
 import { useAtom } from "jotai";
 import { useCallback, useMemo } from "react";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
 import { CanAddPartialResult } from "~/types/partial-blocks";
 import { partialBlocksAtom } from "./atoms";
@@ -29,6 +30,7 @@ export const usePartialDependencies = () => {
 export const useCheckPartialCanAdd = () => {
   const currentPageId = useBuilderProp("pageId", "");
   const { dependencies, isPartialPage, getUsageDepth } = usePartialGraph();
+  const { singular, plural } = usePartialTypeLabel();
 
   return useCallback(
     (targetPartialId: string): CanAddPartialResult => {
@@ -36,14 +38,14 @@ export const useCheckPartialCanAdd = () => {
 
       // Self-reference check
       if (currentPageId === targetPartialId) {
-        return { canAdd: false, reason: "A partial cannot be added inside itself" };
+        return { canAdd: false, reason: `This ${singular} cannot be added inside itself` };
       }
 
       // Circular dependency check
       if (wouldCreateCycle(currentPageId, targetPartialId, dependencies)) {
         return {
           canAdd: false,
-          reason: "Adding this partial would create a circular reference",
+          reason: `Adding this ${singular} would create a circular reference`,
         };
       }
 
@@ -58,13 +60,13 @@ export const useCheckPartialCanAdd = () => {
         if (editingPartial && usageDepth > 0) {
           return {
             canAdd: false,
-            reason: `This partial is used inside another partial. Adding this partial here would exceed the maximum nesting depth (${MAX_PARTIAL_DEPTH} levels)`,
+            reason: `This ${singular} is used inside another ${singular}. Adding this ${singular} here would exceed the maximum nesting depth (${MAX_PARTIAL_DEPTH} levels)`,
           };
         }
         if (editingPartial && targetDepth > 1) {
           return {
             canAdd: false,
-            reason: `This partial contains other partials and would exceed the maximum nesting depth (${MAX_PARTIAL_DEPTH} levels)`,
+            reason: `This ${singular} contains other ${plural} and would exceed the maximum nesting depth (${MAX_PARTIAL_DEPTH} levels)`,
           };
         }
         return {
@@ -75,7 +77,7 @@ export const useCheckPartialCanAdd = () => {
 
       return { canAdd: true };
     },
-    [currentPageId, dependencies, isPartialPage, getUsageDepth],
+    [currentPageId, dependencies, isPartialPage, getUsageDepth, singular, plural],
   );
 };
 

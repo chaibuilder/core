@@ -1,80 +1,105 @@
 /**
  * @vitest-environment happy-dom
  */
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook, waitFor } from "@testing-library/react";
-import { Provider as JotaiProvider, createStore } from "jotai";
-import React from "react";
-import { useLanguages } from "~/builder/hooks/use-languages";
+import { act, waitFor } from "@testing-library/react";
+import { builderStore } from "~/builder/atoms/store";
+import { selectedLanguageAtom } from "~/builder/hooks/use-languages";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
-import { usePageType } from "~/builder/pages/hooks/project/use-page-types";
-import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
-import { usePrimaryPage } from "../use-current-page";
+import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { mockChaiAction, type MockedChaiAction } from "~/tests/builder/msw";
+import { createTestQueryClient, renderHookInBuilder } from "~/tests/builder/render-in-builder";
+import { useWebsitePrimaryPages } from "../use-project-pages";
 import { useDynamicPageSelector } from "../use-dynamic-page-selector";
-import * as utils from "../use-dynamic-page-selector.utils";
 
-vi.mock("~/builder/hooks/use-languages");
-vi.mock("../use-current-page");
-vi.mock("~/builder/pages/hooks/utils/use-fetch");
-vi.mock("~/builder/pages/hooks/project/use-builder-prop");
-vi.mock("~/builder/pages/hooks/project/use-page-types");
+type Item = { id: string; slug: string; name: string; lang: string };
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-    },
-  },
+const DEFAULT_ITEMS: Item[] = [
+  { id: "1", slug: "iphone-15", name: "iPhone 15", lang: "en" },
+  { id: "2", slug: "macbook", name: "MacBook", lang: "en" },
+];
+
+const dynamicPageRecord = (id: string, pageType: string) => ({
+  id,
+  name: id,
+  slug: `/${id}`,
+  pageType,
+  dynamic: true,
 });
 
-describe("useDynamicPageSelector", () => {
-  let mockFetchAPI: ReturnType<typeof vi.fn>;
-  let mockReadUrlSlug: ReturnType<typeof vi.spyOn>;
-  let mockUpdateUrlSlug: ReturnType<typeof vi.spyOn>;
-  let store: ReturnType<typeof createStore>;
+/** Current `?slug=` in the real URL. */
+const urlSlug = () => new URLSearchParams(window.location.search).get("slug");
 
-  const wrapper = ({ children }: { children: React.ReactNode }) => {
-    return React.createElement(
-      QueryClientProvider,
-      { client: queryClient },
-      React.createElement(JotaiProvider, { store }, children),
-    );
+/**
+ * Every `slug` value the hook wrote to the URL, in order (null = removed). Observed through the
+ * platform's history API, which `updateUrlSlug` writes through.
+ */
+const recordUrlSlugWrites = () => {
+  const spy = vi.spyOn(window.history, "replaceState");
+  return () => spy.mock.calls.map(([, , url]) => new URL(String(url), window.location.href).searchParams.get("slug"));
+};
+
+/**
+ * Renders the real hook against the real pages/page-types/dynamic-pages queries on the builder
+ * store. The page types and the site pages are loaded first (as the builder has them by the time
+ * a dynamic page is open); `items` answers GET_DYNAMIC_PAGES and may be swapped mid-test.
+ */
+const setup = async ({
+  pageId = "product-page",
+  pageType = "product",
+  slug,
+  selectedLang = "",
+  hasGetDynamicPages = true,
+  items = DEFAULT_ITEMS as Item[] | ((data: any) => Item[]),
+  pages = [dynamicPageRecord("product-page", "product")],
+  pageTypes = [{ key: pageType, name: pageType, hasSlug: true, hasGetDynamicPages }],
+}: {
+  pageId?: string;
+  pageType?: string;
+  slug?: string;
+  selectedLang?: string;
+  hasGetDynamicPages?: boolean;
+  items?: Item[] | ((data: any) => Item[]);
+  pages?: ReturnType<typeof dynamicPageRecord>[];
+  pageTypes?: Record<string, unknown>[];
+} = {}) => {
+  const params = new URLSearchParams({ page: pageId });
+  if (slug) params.set("slug", slug);
+  window.history.replaceState({}, "", `/?${params.toString()}`);
+
+  mockChaiAction(ACTIONS.GET_WEBSITE_PAGES, pages);
+  mockChaiAction(ACTIONS.GET_PAGE_TYPES, pageTypes);
+  const server: { items: Item[] | ((data: any) => Item[]); dynamicPages: MockedChaiAction } = {
+    items,
+    dynamicPages: mockChaiAction(ACTIONS.GET_DYNAMIC_PAGES, (data): Item[] =>
+      typeof server.items === "function" ? server.items(data) : server.items,
+    ),
   };
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    queryClient.clear();
-    store = createStore();
+  const queryClient = createTestQueryClient();
+  const builderProps = { fallbackLang: "en", languages: ["en", "fr", "es"] };
+  const warm = renderHookInBuilder(() => ({ types: usePageTypes(), pages: useWebsitePrimaryPages() }), {
+    queryClient,
+    builderProps,
+  });
+  await waitFor(() => {
+    expect(warm.result.current.types.isPlaceholderData).toBe(false);
+    expect(warm.result.current.pages.isPlaceholderData).toBe(false);
+  });
+  warm.unmount();
 
-    mockReadUrlSlug = vi.spyOn(utils, "readUrlSlug").mockReturnValue(null);
-    mockUpdateUrlSlug = vi.spyOn(utils, "updateUrlSlug").mockImplementation(() => {});
+  const slugWrites = recordUrlSlugWrites();
+  const rendered = renderHookInBuilder(() => useDynamicPageSelector(), { queryClient, builderProps, selectedLang });
+  return { ...rendered, server, slugWrites };
+};
 
-    (useLanguages as any).mockReturnValue({
-      selectedLang: "en",
-      fallbackLang: "en",
-    });
-
-    (usePrimaryPage as any).mockReturnValue({
-      data: {
-        pageType: "product",
-        dynamic: true,
-      },
-    });
-
-    (useApiUrl as any).mockReturnValue("https://api.test");
-
-    (usePageType as any).mockReturnValue({ key: "product", hasGetDynamicPages: true });
-
-    mockFetchAPI = vi.fn().mockResolvedValue([
-      { id: "1", slug: "iphone-15", name: "iPhone 15", lang: "en" },
-      { id: "2", slug: "macbook", name: "MacBook", lang: "en" },
-    ]);
-    (useFetch as any).mockReturnValue(mockFetchAPI);
+describe("useDynamicPageSelector", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.history.replaceState({}, "", "/");
   });
 
   it("should select first page on initial load when no URL slug is present", async () => {
-    const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+    const { result } = await setup();
 
     await waitFor(() => {
       expect(result.current.dynamicPage).not.toBeNull();
@@ -85,37 +110,46 @@ describe("useDynamicPageSelector", () => {
       slug: "iphone-15",
       name: "iPhone 15",
       lang: "en",
+      pageId: "product-page",
     });
     expect(result.current.isLangMissing).toBe(false);
   });
 
   it("should fetch specific page on initial load when URL slug is present", async () => {
-    mockReadUrlSlug.mockReturnValue("macbook");
     // All calls return macbook (search list + active slug lookup both return it)
-    mockFetchAPI.mockResolvedValue([{ id: "2", slug: "macbook", name: "MacBook", lang: "en" }]);
-
-    const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+    const { result, server } = await setup({
+      slug: "macbook",
+      items: [{ id: "2", slug: "macbook", name: "MacBook", lang: "en" }],
+    });
 
     await waitFor(() => {
       expect(result.current.dynamicPage?.slug).toBe("macbook");
     });
 
-    expect(mockFetchAPI).toHaveBeenCalledWith(
-      "https://api.test",
+    expect(server.dynamicPages.calls).toContainEqual(
       expect.objectContaining({
-        data: expect.objectContaining({
-          identifier: "macbook",
-          lang: "en",
-        }),
+        identifier: "macbook",
+        lang: "en",
+        pageSlug: "/product-page",
       }),
     );
   });
 
-  it("should set isLangMissing when URL slug is present but not found", async () => {
-    mockReadUrlSlug.mockReturnValue("not-found");
-    mockFetchAPI.mockResolvedValue([]); // not found
+  it("should scope the item list to the open page's slug", async () => {
+    // Two pages of one page type can list different collections (new vs used VDP).
+    const { result, server } = await setup();
 
-    const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+    await waitFor(() => {
+      expect(result.current.dynamicPage).not.toBeNull();
+    });
+
+    expect(server.dynamicPages.calls).toContainEqual(
+      expect.objectContaining({ pageType: "product", pageSlug: "/product-page" }),
+    );
+  });
+
+  it("should set isLangMissing when URL slug is present but not found", async () => {
+    const { result } = await setup({ slug: "not-found", items: [] });
 
     await waitFor(() => {
       expect(result.current.isLangMissing).toBe(true);
@@ -126,16 +160,11 @@ describe("useDynamicPageSelector", () => {
 
   it("should handle language switch with page selected", async () => {
     // Simulate: URL has slug=iphone-15, lang is now fr (lang already switched)
-    mockReadUrlSlug.mockReturnValue("iphone-15");
-
-    (useLanguages as any).mockReturnValue({
+    const { result, server } = await setup({
+      slug: "iphone-15",
       selectedLang: "fr",
-      fallbackLang: "en",
+      items: [{ id: "3", slug: "iphone-15", name: "iPhone 15 FR", lang: "fr" }],
     });
-
-    mockFetchAPI.mockResolvedValue([{ id: "3", slug: "iphone-15", name: "iPhone 15 FR", lang: "fr" }]);
-
-    const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.dynamicPage?.lang).toBe("fr");
@@ -143,29 +172,51 @@ describe("useDynamicPageSelector", () => {
 
     expect(result.current.isLangMissing).toBe(false);
 
-    expect(mockFetchAPI).toHaveBeenCalledWith(
-      "https://api.test",
+    expect(server.dynamicPages.calls).toContainEqual(
       expect.objectContaining({
-        data: expect.objectContaining({
-          identifier: "iphone-15",
-          lang: "fr",
-        }),
+        identifier: "iphone-15",
+        lang: "fr",
       }),
     );
   });
 
-  it("should show isLangMissing when switching to language without translation", async () => {
-    // Simulate: URL has slug=iphone-15, lang is now es (no translation available)
-    mockReadUrlSlug.mockReturnValue("iphone-15");
-
-    (useLanguages as any).mockReturnValue({
-      selectedLang: "es",
-      fallbackLang: "en",
+  it("should keep the chosen item when switching back to the default language", async () => {
+    const items: Item[] = [
+      ...DEFAULT_ITEMS,
+      { id: "3", slug: "iphone-15", name: "iPhone 15 FR", lang: "fr" },
+      { id: "4", slug: "macbook", name: "MacBook FR", lang: "fr" },
+    ];
+    const { result } = await setup({
+      items: (data) => items.filter((i) => i.lang === data.lang && (!data.identifier || i.slug === data.identifier)),
     });
 
-    mockFetchAPI.mockResolvedValue([]); // No spanish translation
+    // Opening the page auto-picks the first item in the default language.
+    await waitFor(() => {
+      expect(result.current.dynamicPage?.slug).toBe("iphone-15");
+    });
 
-    const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+    act(() => {
+      result.current.updateDynamicPage(DEFAULT_ITEMS[1]);
+    });
+    act(() => {
+      builderStore.set(selectedLanguageAtom, "fr");
+    });
+    await waitFor(() => {
+      expect(result.current.dynamicPage).toMatchObject({ slug: "macbook", lang: "fr" });
+    });
+
+    act(() => {
+      builderStore.set(selectedLanguageAtom, "");
+    });
+    await waitFor(() => {
+      expect(result.current.dynamicPage).toMatchObject({ slug: "macbook", lang: "en" });
+    });
+    expect(urlSlug()).toBe("macbook");
+  });
+
+  it("should show isLangMissing when switching to language without translation", async () => {
+    // Simulate: URL has slug=iphone-15, lang is now es (no translation available)
+    const { result } = await setup({ slug: "iphone-15", selectedLang: "es", items: [] });
 
     await waitFor(() => {
       expect(result.current.isLangMissing).toBe(true);
@@ -175,7 +226,7 @@ describe("useDynamicPageSelector", () => {
   });
 
   it("should update dynamic page and URL when calling updateDynamicPage", async () => {
-    const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+    const { result } = await setup();
 
     await waitFor(() => {
       expect(result.current.dynamicPage).not.toBeNull();
@@ -187,38 +238,41 @@ describe("useDynamicPageSelector", () => {
 
     expect(result.current.dynamicPage?.slug).toBe("new-page");
     expect(result.current.isLangMissing).toBe(false);
-    expect(mockUpdateUrlSlug).toHaveBeenCalledWith("new-page");
+    expect(urlSlug()).toBe("new-page");
   });
 
   it("should drop the selection when moving to another dynamic page", async () => {
-    (usePrimaryPage as any).mockReturnValue({
-      data: { id: "blog-page", pageType: "blog", dynamic: true },
+    const { result, slugWrites } = await setup({
+      pageId: "blog-page",
+      pages: [dynamicPageRecord("blog-page", "blog"), dynamicPageRecord("docs-page", "docs")],
+      pageTypes: [
+        { key: "blog", name: "Blog", hasSlug: true, hasGetDynamicPages: true },
+        { key: "docs", name: "Docs", hasSlug: true, hasGetDynamicPages: true },
+      ],
+      items: (data) =>
+        data.pageType === "docs" ? [{ id: "10", slug: "/install", name: "Install", lang: "en" }] : DEFAULT_ITEMS,
     });
-
-    const { result, rerender } = renderHook(() => useDynamicPageSelector(), { wrapper });
 
     await waitFor(() => {
       expect(result.current.dynamicPage?.slug).toBe("iphone-15");
     });
 
     // Navigate to a different dynamic page — its items are unrelated
-    mockFetchAPI.mockResolvedValue([{ id: "10", slug: "/install", name: "Install", lang: "en" }]);
-    (usePrimaryPage as any).mockReturnValue({
-      data: { id: "docs-page", pageType: "docs", dynamic: true },
+    act(() => {
+      window.history.pushState({}, "", "/?page=docs-page");
+      window.dispatchEvent(new PopStateEvent("popstate"));
     });
-    rerender();
 
     await waitFor(() => {
       expect(result.current.dynamicPage?.slug).toBe("/install");
     });
-    expect(mockUpdateUrlSlug).toHaveBeenCalledWith(null);
+    expect(slugWrites()).toContain(null);
   });
 
   describe("empty collection fallback", () => {
     it("selects a placeholder page when the collection is empty and no URL slug is set", async () => {
-      mockFetchAPI.mockResolvedValue([]); // page type lists items, but there are none
-
-      const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      // page type lists items, but there are none
+      const { result, slugWrites } = await setup({ items: [] });
 
       await waitFor(() => {
         expect(result.current.dynamicPage?.identifier).toBe("placeholder-slug");
@@ -233,12 +287,13 @@ describe("useDynamicPageSelector", () => {
       });
       expect(result.current.isLangMissing).toBe(false);
       // Synthetic selection must never be written to the URL.
-      expect(mockUpdateUrlSlug).not.toHaveBeenCalledWith("placeholder-slug");
+      expect(slugWrites()).not.toContain("placeholder-slug");
+      expect(urlSlug()).toBeNull();
     });
 
     it("does not use a placeholder when the collection has items", async () => {
-      // default mock returns two items -> first item wins, no placeholder
-      const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      // default reply returns two items -> first item wins, no placeholder
+      const { result } = await setup();
 
       await waitFor(() => {
         expect(result.current.dynamicPage).not.toBeNull();
@@ -249,16 +304,15 @@ describe("useDynamicPageSelector", () => {
     });
 
     it("hands over to the first real item once the collection gains an entry", async () => {
-      mockFetchAPI.mockResolvedValue([]); // start empty -> placeholder is selected
-
-      const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      // start empty -> placeholder is selected
+      const { result, server, queryClient } = await setup({ items: [] });
 
       await waitFor(() => {
         expect(result.current.dynamicPage?.placeholder).toBe(true);
       });
 
       // The user creates the first item; the list query refetches with a real entry.
-      mockFetchAPI.mockResolvedValue([{ id: "1", slug: "first-item", name: "First Item", lang: "en" }]);
+      server.items = [{ id: "1", slug: "first-item", name: "First Item", lang: "en" }];
       await act(async () => {
         await queryClient.invalidateQueries({ queryKey: [ACTIONS.GET_DYNAMIC_PAGES] });
       });
@@ -273,9 +327,7 @@ describe("useDynamicPageSelector", () => {
     it("selects a placeholder for a non-listing dynamic page when no URL slug is set", async () => {
       // A page type that can't list its items (e.g. promotion_vdp) still needs a
       // selection so the overlay clears; its builder dataProvider supplies preview data.
-      (usePageType as any).mockReturnValue({ key: "product", hasGetDynamicPages: false });
-
-      const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      const { result, server, slugWrites } = await setup({ hasGetDynamicPages: false });
 
       await waitFor(() => {
         expect(result.current.dynamicPage?.placeholder).toBe(true);
@@ -288,15 +340,13 @@ describe("useDynamicPageSelector", () => {
         lang: "en",
       });
       // No listing endpoint is queried for a page type that can't list items.
-      expect(mockFetchAPI).not.toHaveBeenCalled();
-      expect(mockUpdateUrlSlug).not.toHaveBeenCalledWith("placeholder-slug");
+      expect(server.dynamicPages.calls).toHaveLength(0);
+      expect(slugWrites()).not.toContain("placeholder-slug");
     });
 
     it("does not use a placeholder when a typed URL slug fails to resolve", async () => {
-      mockReadUrlSlug.mockReturnValue("ghost");
-      mockFetchAPI.mockResolvedValue([]); // empty collection AND the lookup fails
-
-      const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      // empty collection AND the lookup fails
+      const { result } = await setup({ slug: "ghost", items: [] });
 
       await waitFor(() => {
         expect(result.current.failedLookupIdentifier).toBe("ghost");
@@ -309,7 +359,7 @@ describe("useDynamicPageSelector", () => {
 
   describe("manual identifiers", () => {
     it("should select a typed identifier via selectManualPage", async () => {
-      const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      const { result } = await setup();
 
       await waitFor(() => {
         expect(result.current.dynamicPage).not.toBeNull();
@@ -329,11 +379,11 @@ describe("useDynamicPageSelector", () => {
       });
       expect(result.current.isLangMissing).toBe(false);
       expect(result.current.searchQuery).toBe("");
-      expect(mockUpdateUrlSlug).toHaveBeenCalledWith("typed-slug");
+      expect(urlSlug()).toBe("typed-slug");
     });
 
     it("should ignore a blank identifier", async () => {
-      const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      const { result, slugWrites } = await setup();
 
       await waitFor(() => {
         expect(result.current.dynamicPage).not.toBeNull();
@@ -345,15 +395,12 @@ describe("useDynamicPageSelector", () => {
       });
 
       expect(result.current.dynamicPage).toBe(before);
-      expect(mockUpdateUrlSlug).not.toHaveBeenCalledWith("   ");
+      expect(slugWrites()).not.toContain("   ");
+      expect(urlSlug()).toBe("iphone-15");
     });
 
     it("should resolve a URL identifier directly when the page type cannot list pages", async () => {
-      (usePageType as any).mockReturnValue({ key: "product", hasGetDynamicPages: false });
-      mockReadUrlSlug.mockReturnValue("only-known-by-url");
-      mockFetchAPI.mockResolvedValue([]);
-
-      const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      const { result, server } = await setup({ hasGetDynamicPages: false, slug: "only-known-by-url", items: [] });
 
       await waitFor(() => {
         expect(result.current.dynamicPage?.identifier).toBe("only-known-by-url");
@@ -362,11 +409,11 @@ describe("useDynamicPageSelector", () => {
       expect(result.current.dynamicPage?.manual).toBe(true);
       expect(result.current.isLangMissing).toBe(false);
       // No lookup is attempted — the endpoint would always answer `[]`.
-      expect(mockFetchAPI).not.toHaveBeenCalled();
+      expect(server.dynamicPages.calls).toHaveLength(0);
     });
 
     it("should carry a manual selection across a language switch without a lookup", async () => {
-      const { result, rerender } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      const { result, server } = await setup();
 
       await waitFor(() => {
         expect(result.current.dynamicPage).not.toBeNull();
@@ -376,9 +423,10 @@ describe("useDynamicPageSelector", () => {
         result.current.selectManualPage("typed-slug");
       });
 
-      mockFetchAPI.mockClear();
-      (useLanguages as any).mockReturnValue({ selectedLang: "fr", fallbackLang: "en" });
-      rerender();
+      const callsBeforeSwitch = server.dynamicPages.calls.length;
+      act(() => {
+        builderStore.set(selectedLanguageAtom, "fr");
+      });
 
       await waitFor(() => {
         expect(result.current.dynamicPage?.lang).toBe("fr");
@@ -387,17 +435,13 @@ describe("useDynamicPageSelector", () => {
       expect(result.current.dynamicPage?.manual).toBe(true);
       expect(result.current.dynamicPage?.identifier).toBe("typed-slug");
       expect(result.current.isLangMissing).toBe(false);
-      expect(mockFetchAPI).not.toHaveBeenCalledWith(
-        "https://api.test",
-        expect.objectContaining({ data: expect.objectContaining({ identifier: "typed-slug" }) }),
+      expect(server.dynamicPages.calls.slice(callsBeforeSwitch)).not.toContainEqual(
+        expect.objectContaining({ identifier: "typed-slug" }),
       );
     });
 
     it("should expose a failed lookup so it can be opened anyway", async () => {
-      mockReadUrlSlug.mockReturnValue("ghost");
-      mockFetchAPI.mockResolvedValue([]);
-
-      const { result } = renderHook(() => useDynamicPageSelector(), { wrapper });
+      const { result } = await setup({ slug: "ghost", items: [] });
 
       await waitFor(() => {
         expect(result.current.isLangMissing).toBe(true);

@@ -8,6 +8,9 @@ export type PageRoutingMetadata = {
   dynamic: boolean | null;
   dynamicSlugCustom: string | null;
   parent: string | null;
+  /** The page this one renders while `useUpstream` is on. Absent on cache entries predating the columns. */
+  upstream?: string | null;
+  useUpstream?: boolean | null;
 };
 
 export type RoutingSlugUpdate = {
@@ -83,6 +86,19 @@ export function alternatePagesCacheKey(appId: string, draftMode: boolean, primar
 
 export function breadcrumbCacheKey(appId: string, draftMode: boolean, pageId: string): string[] {
   return [`breadcrumb-${appId}-${draftOrOnline(draftMode)}-${pageId}`];
+}
+
+/** Carried by every cache of a linked page; the host revalidates it when the upstream page changes. */
+export function upstreamPageTag(upstreamId: string): string {
+  return `upstream-page-${upstreamId}`;
+}
+
+/**
+ * Carried by every cache of a linked page in site `appId`: its content holds that site's partials and
+ * links matched to that site's pages, so publishing, unpublishing or deleting them revalidates it.
+ */
+export function upstreamSiteTag(appId: string): string {
+  return `upstream-site-${appId}`;
 }
 
 export function routingTagsForSlug(slug: string): string[] {

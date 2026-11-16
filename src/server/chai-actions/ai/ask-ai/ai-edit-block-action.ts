@@ -7,6 +7,7 @@ import { getResolvedPageType } from "~/server/defaults/config-registry";
 import { throwAiChatError } from "~/server/chai-actions/ai/throw-ai-chat-error";
 import { AIChatError, AIChatErrorCode } from "~/server/chai-actions/classes/chai-ai-chat-handler";
 import { getAskAiSystemPrompt } from "~/server/chai-actions/classes/system-prompt";
+import { stripDesignContextKeys } from "~/utils/design-context";
 import { ChaiAIActionData, ChaiBaseAIAction, CoreMessage } from "../../base-ai-action";
 import { buildDataBindingPathsText, buildDataBindingPipesText } from "./ai-edit-page-prompt-context";
 
@@ -157,13 +158,15 @@ export class AIEditBlockAction extends ChaiBaseAIAction<AIEditBlockActionData, A
 
     systemPrompt = systemPrompt.replace("{{PAGE_TYPE_CONTEXT}}", pageTypeContext);
 
-    if (data.context) {
+    // The design-system keys are not part of this prompt yet (see ~/utils/design-context).
+    const context = stripDesignContextKeys(data.context);
+    if (context) {
       systemPrompt += "\n\n## Additional Information";
-      if (data.context?.site) {
-        systemPrompt += `\n\n## Website Information\n${JSON.stringify(data.context.site)}`;
+      if (context?.site) {
+        systemPrompt += `\n\n## Website Information\n${JSON.stringify(context.site)}`;
       }
-      if (data.context?.page) {
-        systemPrompt += `\n\n## Page Information\n${JSON.stringify(data.context.page)}`;
+      if (context?.page) {
+        systemPrompt += `\n\n## Page Information\n${JSON.stringify(context.page)}`;
       }
     }
 

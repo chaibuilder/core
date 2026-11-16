@@ -4,7 +4,7 @@ import { AIEditPageAction } from "~/server/chai-actions/ai/ask-ai/ai-edit-page-a
 import { GetAiContextAction } from "~/server/chai-actions/ai/get-ai-context";
 import { SaveAiContextAction } from "~/server/chai-actions/ai/save-ai-context";
 import { GetBlockAsyncPropsAction } from "~/server/chai-actions/blocks/get-block-async-props";
-import type { ChaiAction } from "~/types";
+import type { ChaiAction, ChaiRequiredPermission } from "~/types";
 import { GetCollectionsAction } from "~/server/chai-actions/collections/get-collections";
 import { GetRepeaterDataAction } from "~/server/chai-actions/repeater-data/get-repeater-data";
 import { AcquirePageLockAction } from "~/server/chai-actions/pages/acquire-page-lock";
@@ -28,6 +28,12 @@ import { SearchPagesAction } from "~/server/chai-actions/pages/search-pages";
 import { TakeOfflineAction } from "~/server/chai-actions/pages/take-offline";
 import { UpdatePageAction } from "~/server/chai-actions/pages/update-page";
 import { UpdatePageMetadataAction } from "~/server/chai-actions/pages/update-page-metadata";
+import {
+  CloneUpstreamPageAction,
+  ResetToUpstreamAction,
+} from "~/server/chai-actions/pages/upstream-pages";
+import { declaredPermissionKeysOf } from "~/server/chai-actions/permission-keys";
+import { updatePagePermission } from "~/server/chai-actions/pages/seo-permission";
 import { GetTemplatesByTypeAction } from "~/server/chai-actions/templates/get-templates-by-type";
 import { MarkAsTemplateAction } from "~/server/chai-actions/templates/mark-as-template";
 import { UnmarkAsTemplateAction } from "~/server/chai-actions/templates/unmark-as-template";
@@ -36,11 +42,22 @@ import { GetSiteWideDataAction } from "~/server/chai-actions/website/get-site-wi
 import { GetWebsiteDataAction } from "~/server/chai-actions/website/get-website-data";
 import { GetWebsiteSettingsAction } from "~/server/chai-actions/website/get-website-settings";
 import { PublishChangesAction } from "~/server/chai-actions/website/publish-changes";
+import { UpdateDesignTokensAction } from "~/server/chai-actions/website/update-design-tokens";
+import { UpdateThemeAction } from "~/server/chai-actions/website/update-theme";
 import { UpdateWebsiteFieldsAction } from "~/server/chai-actions/website/update-website-fields";
+import {
+  publishChangesPermission,
+  updateWebsiteFieldsPermission,
+} from "~/server/chai-actions/website/website-permissions";
 
-/** Assigns `requiredPermission` on an action instance and returns it. */
-function wp<T extends ChaiAction<any, any>>(action: T, permission: string): T {
+/**
+ * Assigns `requiredPermission` on an action instance and returns it. Also records
+ * `declaredPermissionKeys` for guards that audit permissions without dispatching
+ * (a resolver must be tagged with `permissionResolver()`, or this throws).
+ */
+function wp<T extends ChaiAction<any, any>>(action: T, permission: ChaiRequiredPermission<any>): T {
   action.requiredPermission = permission;
+  action.declaredPermissionKeys = declaredPermissionKeysOf(permission);
   return action;
 }
 
@@ -58,10 +75,17 @@ export const BUILTIN_CHAI_ACTIONS: Record<string, ChaiAction<any, any>> = {
   CREATE_PAGE: wp(new CreatePageAction(), P["pages:create"]),
   DELETE_PAGE: wp(new DeletePageAction(), P["pages:delete"]),
   DUPLICATE_PAGE: wp(new DuplicatePageAction(), P["pages:create"]),
-  UPDATE_PAGE: wp(new UpdatePageAction(), P["pages:update"]),
+  // `pages:update`, plus `pages:edit_seo` when the payload touches SEO.
+  UPDATE_PAGE: wp(new UpdatePageAction(), updatePagePermission),
+  // Plain `pages:update`: `metadata` is the description/tags blob, not an SEO surface.
   UPDATE_PAGE_METADATA: wp(new UpdatePageMetadataAction(), P["pages:update"]),
-  PUBLISH_CHANGES: wp(new PublishChangesAction(), P["pages:publish"]),
+  // `pages:publish` for pages, `theme:publish` for THEME / DESIGN_TOKENS.
+  PUBLISH_CHANGES: wp(new PublishChangesAction(), publishChangesPermission),
   TAKE_OFFLINE: wp(new TakeOfflineAction(), P["pages:unpublish"]),
+  // Upstream pages (features.upstreamPages): linked pages that render a host-supplied page.
+  // The host registers LIST_UPSTREAM_PAGES, which lists the pages it offers.
+  CLONE_UPSTREAM_PAGE: wp(new CloneUpstreamPageAction(), P["pages:update"]),
+  RESET_TO_UPSTREAM: wp(new ResetToUpstreamAction(), P["pages:update"]),
   ACQUIRE_PAGE_LOCK: wp(new AcquirePageLockAction(), P["pages:update"]),
   RELEASE_PAGE_LOCK: wp(new ReleasePageLockAction(), P["pages:update"]),
   GET_WEBSITE_PAGES: wp(new GetWebsitePagesAction(), P["pages:read"]),
@@ -84,7 +108,11 @@ export const BUILTIN_CHAI_ACTIONS: Record<string, ChaiAction<any, any>> = {
   GET_SITE_WIDE_USAGE: wp(new GetSiteWideDataAction(), P["app:read"]),
   GET_COLLECTIONS: wp(new GetCollectionsAction(), P["app:read"]),
   GET_REPEATER_DATA: wp(new GetRepeaterDataAction(), P["app:read"]),
-  UPDATE_WEBSITE_FIELDS: wp(new UpdateWebsiteFieldsAction(), P["app:update"]),
+  // The builder's theme / design-token save: `theme:edit` / `design_tokens:edit` by payload.
+  UPDATE_WEBSITE_FIELDS: wp(new UpdateWebsiteFieldsAction(), updateWebsiteFieldsPermission),
+  // Narrow theme/token edits, gated on the keys the builder's theme panel is gated on.
+  UPDATE_THEME: wp(new UpdateThemeAction(), P["theme:edit"]),
+  UPDATE_DESIGN_TOKENS: wp(new UpdateDesignTokensAction(), P["design_tokens:edit"]),
 
   // Templates (page templates share the `library:*` permission group; the site
   // library's own actions are plugin-owned)
@@ -97,6 +125,15 @@ export const BUILTIN_CHAI_ACTIONS: Record<string, ChaiAction<any, any>> = {
   // Block utilities — no specific permission required (authenticated-only)
   GET_BLOCK_ASYNC_PROPS: new GetBlockAsyncPropsAction(),
 };
+
+// An action registered without `wp` needs no permission at all; give it the same
+// explicit empty declaration `wp` would, so a static audit reads "ungated" rather
+// than "unwrapped, requirement unknown".
+for (const action of Object.values(BUILTIN_CHAI_ACTIONS)) {
+  if (!action.declaredPermissionKeys) {
+    action.declaredPermissionKeys = declaredPermissionKeysOf(action.requiredPermission);
+  }
+}
 
 /** @deprecated Use `BUILTIN_CHAI_ACTIONS` instead */
 export const BUILTIN_BUILDER_ACTIONS = BUILTIN_CHAI_ACTIONS;

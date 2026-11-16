@@ -26,7 +26,7 @@ export const useAddBlock = (): AddBlocks => {
   const { addBlocks } = useBlocksStoreUndoableActions();
 
   const getParentAndPositionWithContext = useCallback(
-    (childType: string, providedParentId?: string | null, providedPosition?: number) => {
+    (childType: string, providedParentId?: string | null, providedPosition?: number, maxDepth?: number) => {
       // PERF: read on-demand via the store — no render-time subscription. This
       // hook mounts under EVERY canvas block (useBlockDrop -> useAddBlock), so
       // subscribing to the blocks array here re-rendered every block on every
@@ -35,13 +35,13 @@ export const useAddBlock = (): AddBlocks => {
       // also uses the freshest state at the moment the block is added.
       const allBlocks = builderStore.get(presentBlocksAtom) as ChaiBlock[];
       const selectedBlockIds = builderStore.get(selectedBlockIdsAtom) as string[];
-      return getParentAndPosition(childType, allBlocks, selectedBlockIds, providedParentId, providedPosition);
+      return getParentAndPosition(childType, allBlocks, selectedBlockIds, providedParentId, providedPosition, maxDepth);
     },
     [],
   );
 
   const addPredefinedBlock = useCallback(
-    (blocks: ChaiBlock[], parentId?: string, position?: number) => {
+    (blocks: ChaiBlock[], parentId?: string, position?: number, options?: { maxDepth?: number }) => {
       for (let i = 0; i < blocks.length; i++) {
         const { _id } = blocks[i];
 
@@ -53,7 +53,12 @@ export const useAddBlock = (): AddBlocks => {
       }
       const block = first(blocks)!;
 
-      const { parentBlockId, insertPosition } = getParentAndPositionWithContext(block._type, parentId, position);
+      const { parentBlockId, insertPosition } = getParentAndPositionWithContext(
+        block._type,
+        parentId,
+        position,
+        options?.maxDepth,
+      );
 
       blocks[0]._parent = parentBlockId;
       forEach(blocks, (b) => {

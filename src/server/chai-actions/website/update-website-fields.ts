@@ -1,8 +1,8 @@
-import { eq } from "drizzle-orm";
 import { pick } from "lodash-es";
 import { z } from "zod";
-import { db, safeQuery, schema } from "~/server/chai-actions/db";
+import { getAppFields, updateAppFields } from "~/server/chai-actions/apps/app-store";
 import { apiError } from "~/server/chai-actions/lib";
+import { addThemeSaveRevision } from "~/server/chai-actions/revisions/theme-revisions";
 import { ChaiBaseAction } from "../base-action";
 
 export type UpdateWebsiteFieldsActionData = {
@@ -37,13 +37,14 @@ export class UpdateWebsiteFieldsAction extends ChaiBaseAction<
     // Pick only the allowed columns from settings (matching old implementation)
     const columns = pick(data.settings, ["theme", "designTokens"]);
     // Fetch existing changes array from the database
-    const { data: existingApp, error: fetchError } = await safeQuery(() =>
-      db.select({ changes: schema.apps.changes }).from(schema.apps).where(eq(schema.apps.id, appId)),
-    );
+    const { data: existingApp, error: fetchError } = await getAppFields(appId, ["changes"]);
     if (fetchError) {
       throw apiError("ERROR_UPDATE_WEBSITE_FIELDS", fetchError);
     }
-    const existingChanges = (existingApp[0].changes ?? []) as string[];
+    if (!existingApp) {
+      throw apiError("ERROR_UPDATE_WEBSITE_FIELDS", new Error(`App ${appId} not found`));
+    }
+    const existingChanges = (existingApp.changes ?? []) as string[];
     // Map column names to their corresponding changes array keys
     const keyMap: Record<string, string> = {
       theme: "THEME",
@@ -60,10 +61,14 @@ export class UpdateWebsiteFieldsAction extends ChaiBaseAction<
     };
 
     // Execute the update query
-    const { error } = await safeQuery(() => db.update(schema.apps).set(updateData).where(eq(schema.apps.id, appId)));
+    const { error } = await updateAppFields(appId, updateData);
 
     if (error) {
       throw apiError("ERROR_UPDATE_WEBSITE_FIELDS", error);
+    }
+
+    if ("theme" in columns || "designTokens" in columns) {
+      await addThemeSaveRevision(appId, this.context.userId, columns);
     }
 
     return { success: true };

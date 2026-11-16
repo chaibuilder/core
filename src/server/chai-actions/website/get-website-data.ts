@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getConfigAI, getConfigMediaManager, getConfigFeatures } from "~/server/defaults/config-registry";
 import { serializeAIConfigForClient, type SerializedAIConfig } from "~/server/defaults/serialize-ai-config";
 import type { ChaiMediaManagerConfig, ChaiServerFeatures } from "~/types/server-config";
-import { getChaiAction } from "../actions-registery";
+import { getChaiActionInstance } from "../actions-registery";
 import { ChaiBaseAction } from "../base-action";
 import { GetCollectionsAction } from "../collections/get-collections";
 import { GetRepeaterDataAction } from "../repeater-data/get-repeater-data";
@@ -38,7 +38,7 @@ export class GetWebsiteDataAction extends ChaiBaseAction<GetWebsiteDataActionDat
     const pageTypesAction = new GetPageTypesAction();
     // The site library is plugin-owned — resolve its action from the registry;
     // without that plugin the builder gets an empty libraries list.
-    const librariesAction = getChaiAction("GET_LIBRARIES");
+    const librariesAction = getChaiActionInstance("GET_LIBRARIES");
     const collectionsAction = new GetCollectionsAction();
     const repeaterDataAction = new GetRepeaterDataAction();
 

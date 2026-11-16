@@ -7,6 +7,7 @@ import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { usePartialTabLabel } from "~/builder/hooks/use-create-partial-label";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { addNewLangAtom } from "~/builder/pages/atom/add-new-lang";
+import { PAGE_CATEGORY_FILTER_KEY } from "~/builder/pages/atom/page-manager";
 import { useWebsiteLanguagePages, useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { useFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
@@ -53,7 +54,7 @@ const PagesManagerNew = ({ close }: PageManagerNewProps) => {
     return pageType;
   });
   const [category, _setCategory] = useState(() => {
-    return sessionStorage.getItem("pageCategoryFilter") || "pages";
+    return sessionStorage.getItem(PAGE_CATEGORY_FILTER_KEY) || "pages";
   });
   const [selectedTags, _setSelectedTags] = useState<string[]>(() => {
     try {
@@ -97,7 +98,7 @@ const PagesManagerNew = ({ close }: PageManagerNewProps) => {
   const setCategory = useCallback(
     (value: string) => {
       _setCategory(value);
-      sessionStorage.setItem("pageCategoryFilter", value);
+      sessionStorage.setItem(PAGE_CATEGORY_FILTER_KEY, value);
       _setSelectedPageType("all");
       if (value === "partials") {
         setSelectedLanguage(fallbackLang);
@@ -134,7 +135,9 @@ const PagesManagerNew = ({ close }: PageManagerNewProps) => {
       filteredData = filter(data, (page) => hasSlug(page.pageType) !== false);
     }
     if (showUntranslatedPages) return filter(filteredData, (page) => !languagePages?.[page.id]);
-    const organized = organizePages(filteredData, search, selectedPageType, hasSlug, selectedTags);
+    // The tag filter is only shown on the partials tab, so it only applies there.
+    const activeTags = !search && category === "partials" ? selectedTags : [];
+    const organized = organizePages(filteredData, search, selectedPageType, hasSlug, activeTags);
     return filter(organized, (page) => {
       if (search) return true;
       if (category === "pages") return hasSlug(page.pageType);

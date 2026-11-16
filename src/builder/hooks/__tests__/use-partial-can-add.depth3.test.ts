@@ -1,117 +1,117 @@
 /**
  * @vitest-environment happy-dom
  *
- * Same rules as use-partial-can-add.test.ts, but with MAX_PARTIAL_DEPTH
- * mocked to 3 — proves the enforcement is derived from the constant and a
- * depth change needs no rule rewrites.
+ * Boundary cases at the real MAX_PARTIAL_DEPTH (3). This file used to mock the
+ * constant to 3 while the default was 2; the product default is now 3, so the
+ * rules are exercised against the real constant (guarded below so a future
+ * change to the limit fails loudly here instead of silently shifting meaning).
  */
-import { renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { waitFor } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
 import { useCheckPartialCanAdd } from "~/builder/hooks/partial-blocks/use-partial-can-add";
-import { usePartialGraph } from "~/builder/hooks/partial-blocks/use-partial-graph";
-import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
-import { getPartialUsageDepth } from "~/utils/partial-nesting";
+import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
+import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
+import { mockChaiAction } from "~/tests/builder/msw";
+import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
 
-vi.mock("~/constants/PARTIAL_BLOCKS", () => ({
-  MAX_PARTIAL_DEPTH: 3,
-}));
-
-vi.mock("~/builder/hooks/use-builder-prop", () => ({
-  useBuilderProp: vi.fn(),
-}));
-
-vi.mock("~/builder/hooks/partial-blocks/use-partial-graph", () => ({
-  usePartialGraph: vi.fn(),
-}));
-
-const mockUseBuilderProp = useBuilderProp as any;
-const mockUsePartialGraph = usePartialGraph as any;
-
-const setup = ({
-  pageId,
-  dependencies = {},
-  partialPages = [],
-}: {
+type GraphSetup = {
   pageId: string;
   dependencies?: Record<string, string[]>;
   partialPages?: string[];
-}) => {
-  mockUseBuilderProp.mockImplementation((key: string, fallback: unknown) => (key === "pageId" ? pageId : fallback));
-  const partialSet = new Set(partialPages);
-  mockUsePartialGraph.mockReturnValue({
-    dependencies,
-    isPartialPage: (id: string) => partialSet.has(id),
-    getUsageDepth: (id: string) => getPartialUsageDepth(id, dependencies),
-  });
 };
 
-const check = (targetId: string) => {
-  const { result } = renderHook(() => useCheckPartialCanAdd());
-  return result.current(targetId);
+/** Partials are pages with an empty slug; `partialBlocks` ("A|B") lists the partials each contains. */
+const check = async ({ pageId, dependencies = {}, partialPages = [] }: GraphSetup, targetId: string) => {
+  mockChaiAction(
+    ACTIONS.GET_WEBSITE_PAGES,
+    partialPages.map((id) => ({ id, slug: "", partialBlocks: (dependencies[id] ?? []).join("|") })),
+  );
+  const { result } = renderHookInBuilder(() => ({ check: useCheckPartialCanAdd(), pages: useWebsitePrimaryPages() }), {
+    builderProps: { pageId },
+  });
+  await waitFor(() => expect(result.current.pages.isFetched).toBe(true));
+  return result.current.check(targetId);
 };
 
 describe("useCheckPartialCanAdd with MAX_PARTIAL_DEPTH = 3", () => {
-  beforeEach(() => {
-    vi.clearAllMocks();
+  it("runs against a limit of 3", () => {
+    expect(MAX_PARTIAL_DEPTH).toBe(3);
   });
 
-  it("allows a 3-deep chain on a regular page (page -> A -> B -> C)", () => {
-    setup({ pageId: "page-1", partialPages: ["A", "B", "C"], dependencies: { A: ["B"], B: ["C"], C: [] } });
-    expect(check("A").canAdd).toBe(true);
+  it("allows a 3-deep chain on a regular page (page -> A -> B -> C)", async () => {
+    const result = await check(
+      { pageId: "page-1", partialPages: ["A", "B", "C"], dependencies: { A: ["B"], B: ["C"], C: [] } },
+      "A",
+    );
+    expect(result.canAdd).toBe(true);
   });
 
-  it("blocks a 4-deep chain on a regular page", () => {
-    setup({
-      pageId: "page-1",
-      partialPages: ["A", "B", "C", "D"],
-      dependencies: { A: ["B"], B: ["C"], C: ["D"], D: [] },
-    });
-    expect(check("A").canAdd).toBe(false);
-  });
-
-  it("allows a partial containing a partial inside a top-level partial", () => {
-    // Editing A (used nowhere): adding B (which contains C) => A -> B -> C = 3
-    setup({ pageId: "A", partialPages: ["A", "B", "C"], dependencies: { A: [], B: ["C"], C: [] } });
-    expect(check("B").canAdd).toBe(true);
-  });
-
-  it("blocks a 3-deep partial inside a partial", () => {
-    setup({
-      pageId: "A",
-      partialPages: ["A", "B", "C", "D"],
-      dependencies: { A: [], B: ["C"], C: ["D"], D: [] },
-    });
-    expect(check("B").canAdd).toBe(false);
-  });
-
-  it("allows a leaf partial inside a partial that is nested one level deep", () => {
-    // Outer -> A already; adding leaf B => Outer -> A -> B = 3
-    setup({
-      pageId: "A",
-      partialPages: ["A", "B", "Outer"],
-      dependencies: { Outer: ["A"], A: [], B: [] },
-    });
-    expect(check("B").canAdd).toBe(true);
-  });
-
-  it("blocks a non-leaf partial inside a partial that is nested one level deep", () => {
-    setup({
-      pageId: "A",
-      partialPages: ["A", "B", "C", "Outer"],
-      dependencies: { Outer: ["A"], A: [], B: ["C"], C: [] },
-    });
-    expect(check("B").canAdd).toBe(false);
-  });
-
-  it("blocks everything inside a partial nested two levels deep", () => {
-    // Top -> Outer -> A: A sits at level 3 already
-    setup({
-      pageId: "A",
-      partialPages: ["A", "B", "Outer", "Top"],
-      dependencies: { Top: ["Outer"], Outer: ["A"], A: [], B: [] },
-    });
-    const result = check("B");
+  it("blocks a 4-deep chain on a regular page", async () => {
+    const result = await check(
+      {
+        pageId: "page-1",
+        partialPages: ["A", "B", "C", "D"],
+        dependencies: { A: ["B"], B: ["C"], C: ["D"], D: [] },
+      },
+      "A",
+    );
     expect(result.canAdd).toBe(false);
-    expect(result.reason).toContain("used inside another partial");
+  });
+
+  it("allows a partial containing a partial inside a top-level partial", async () => {
+    // Editing A (used nowhere): adding B (which contains C) => A -> B -> C = 3
+    const result = await check(
+      { pageId: "A", partialPages: ["A", "B", "C"], dependencies: { A: [], B: ["C"], C: [] } },
+      "B",
+    );
+    expect(result.canAdd).toBe(true);
+  });
+
+  it("blocks a 3-deep partial inside a partial", async () => {
+    const result = await check(
+      {
+        pageId: "A",
+        partialPages: ["A", "B", "C", "D"],
+        dependencies: { A: [], B: ["C"], C: ["D"], D: [] },
+      },
+      "B",
+    );
+    expect(result.canAdd).toBe(false);
+  });
+
+  it("allows a leaf partial inside a partial that is nested one level deep", async () => {
+    // Outer -> A already; adding leaf B => Outer -> A -> B = 3
+    const result = await check(
+      { pageId: "A", partialPages: ["A", "B", "Outer"], dependencies: { Outer: ["A"], A: [], B: [] } },
+      "B",
+    );
+    expect(result.canAdd).toBe(true);
+  });
+
+  it("blocks a non-leaf partial inside a partial that is nested one level deep", async () => {
+    const result = await check(
+      {
+        pageId: "A",
+        partialPages: ["A", "B", "C", "Outer"],
+        dependencies: { Outer: ["A"], A: [], B: ["C"], C: [] },
+      },
+      "B",
+    );
+    expect(result.canAdd).toBe(false);
+  });
+
+  it("blocks everything inside a partial nested two levels deep", async () => {
+    // Top -> Outer -> A: A sits at level 3 already
+    const result = await check(
+      {
+        pageId: "A",
+        partialPages: ["A", "B", "Outer", "Top"],
+        dependencies: { Top: ["Outer"], Outer: ["A"], A: [], B: [] },
+      },
+      "B",
+    );
+    expect(result.canAdd).toBe(false);
+    expect(result.reason).toContain("used inside another Global Block");
   });
 });

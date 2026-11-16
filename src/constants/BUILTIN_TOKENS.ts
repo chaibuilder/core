@@ -269,4 +269,41 @@ export const CHAI_BUILT_IN_DESIGN_TOKENS: ChaiDesignTokens = {
     description: "Progress bar indicator style",
     value: "h-full bg-primary transition-all duration-300",
   },
+
+  // Layout Tokens
+  "dt#content-gutter-x": {
+    name: "Content-Gutter-X",
+    description: "Side padding for content inside a section",
+    value: "px-4 sm:px-8",
+  },
+  "dt#content-gutter-y": {
+    name: "Content-Gutter-Y",
+    description: "Vertical padding for content inside a section",
+    value: "py-8 sm:py-12 md:py-16 lg:py-20",
+  },
+  "dt#layout-fluid": {
+    name: "Layout-Fluid",
+    description: "Full width with side gutter",
+    value: "mx-auto w-full max-w-none dt#content-gutter-x",
+  },
+  "dt#layout-container": {
+    name: "Layout-Container",
+    description: "Centred, max 1280px",
+    value: "mx-auto w-full max-w-[1280px] dt#content-gutter-x",
+  },
+  "dt#layout-narrow": {
+    name: "Layout-Narrow",
+    description: "Centred reading column, max 768px",
+    value: "mx-auto w-full max-w-[768px] dt#content-gutter-x",
+  },
+  "dt#layout-bleed": {
+    name: "Layout-Bleed",
+    description: "Full width, no side gutter",
+    value: "mx-auto w-full max-w-none px-0",
+  },
+  "dt#site-content-width": {
+    name: "Site-Content-Width",
+    description: "Centred content width that follows the site layout",
+    value: "mx-auto w-full max-w-[var(--site-content-width,1280px)]",
+  },
 };

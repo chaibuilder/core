@@ -1,9 +1,19 @@
 import { find, get, isEmpty } from "lodash-es";
-import { ChevronRight, File, Hash, Lock, MoreHorizontal, Pencil, Plus, StarsIcon } from "lucide-react";
+import { Bot, ChevronRight, Copy, File, Hash, Link2, Lock, MoreHorizontal, Pencil, Plus, StarsIcon } from "lucide-react";
 import { useMemo } from "react";
 import { PageActionsDropdown } from "~/builder/pages/client/components/page-action-dropdown";
-import { usePageToUser, useUserId } from "~/builder/pages/client/realtime";
+import {
+  type ChaiAiPageEditLease,
+  formatClockTime,
+  formatSince,
+  isChaiAiPageEditActive,
+  useAiPageEdits,
+  usePageToUser,
+  useUserId,
+} from "~/builder/pages/client/realtime";
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
+import { useFeatureLabel } from "~/builder/hooks/use-feature-label";
+import { isLinkedPage, useUpstreamPagesEnabled } from "~/builder/pages/hooks/pages/use-upstream-pages";
 import { useFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
 import { useChaiUserInfo } from "~/builder/pages/hooks/utils/use-chai-user-info";
 import { usePageExpandManager } from "~/builder/pages/hooks/utils/use-page-expand-manager";
@@ -66,6 +76,32 @@ const PageStatus = ({ isOnline }: { isOnline: boolean }) => {
 };
 
 /**
+ * "AI edit by Jane since 2:32 PM, last activity 1 min ago" — the pages list's tooltip on
+ * a page (or partial, or dynamic template) an AI session holds.
+ */
+export const describeAiPageEdit = (lease: ChaiAiPageEditLease, who: string, now: number = Date.now()): string =>
+  `AI edit by ${who} since ${formatClockTime(lease.startedAt)}, last activity ${formatSince(lease.lastActivityAt, now)}`;
+
+/**
+ * AiEditBadge — the AI lock, distinct from a person's red lock. Opening the page shows
+ * the "AI is editing" dialog until the session ends.
+ */
+const AiEditBadge = ({ lease }: { lease: ChaiAiPageEditLease }) => {
+  const { data } = useChaiUserInfo(lease.userId);
+  const who = data?.name || data?.email || "a team member";
+  return (
+    <span className="duration absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-x-1 text-xs text-violet-600 dark:text-violet-400">
+      <Tooltip content={describeAiPageEdit(lease, who)}>
+        <span className="flex items-center gap-x-1 font-bold" data-testid="page-ai-edit-lock">
+          <Bot className="h-3 w-3" />
+          AI
+        </span>
+      </Tooltip>
+    </span>
+  );
+};
+
+/**
  *
  * PageItem
  * @param page - The ChaiPage node to render
@@ -102,11 +138,23 @@ const PageItem = ({
   const pageType = useMemo(() => find(pageTypes, { key: page.pageType }), [pageTypes, page.pageType]);
   // Folders have no content — clicking them expands/collapses instead of opening the editor
   const isFolder = page.pageType === "_folder";
+  // A linked page renders its upstream page; it opens in the editor view-only
+  const upstreamEnabled = useUpstreamPagesEnabled();
+  const isLinked = upstreamEnabled && isLinkedPage(page);
+  // A cloned page has its own copy of the upstream page's content and can be reset to it
+  const isCloned = upstreamEnabled && Boolean(page.upstream) && !page.useUpstream;
+  const upstreamLabel = useFeatureLabel("upstreamPage");
 
   // * Check
   let langPage: any = get(languagePages, page?.id);
   langPage = get(langPage, "lang") === selectedLanguage ? langPage : null;
   const hasLangPage = selectedLanguage === fallbackLang || Boolean(langPage);
+
+  // An agent working through a language URL leases that row as well as the primary.
+  const { aiPageEdits } = useAiPageEdits();
+  const aiEdit = [aiPageEdits[page?.id], langPage ? aiPageEdits[langPage.id] : undefined].find((lease) =>
+    isChaiAiPageEditActive(lease),
+  );
 
   // * Getting page name and page slug
   const pageName = langPage?.name || page?.name || "No name";
@@ -128,8 +176,8 @@ const PageItem = ({
     if (!hasLangPage)
       return `${baseClass} bg-muted/30 opacity-50 group-hover:border-border border-transparent group-hover:bg-accent`;
 
-    return `${baseClass} ${activeClass} ${pageOwner ? "opacity-60" : ""}`;
-  }, [hasLangPage, isSelected, pageOwner]);
+    return `${baseClass} ${activeClass} ${pageOwner || aiEdit ? "opacity-60" : ""}`;
+  }, [hasLangPage, isSelected, pageOwner, aiEdit]);
 
   const hasUnpublishedChanges = useMemo(() => {
     if (page.isPartialGroup || page.pageType === "_folder") return false;
@@ -146,7 +194,9 @@ const PageItem = ({
       <PageLinkContextMenu pageId={page.id}>
         <div
           onClick={() =>
-            page.isPartialGroup || isFolder ? toggleExpanded() : hasLangPage && onClickAction("select", page?.id)
+            page.isPartialGroup || isFolder
+              ? toggleExpanded()
+              : hasLangPage && onClickAction("select", page?.id)
           }
           className={containerClass}>
           {(pageType?.hasSlug !== false || page.isPartialGroup) && <ExpandCollapse page={page} />}
@@ -169,6 +219,23 @@ const PageItem = ({
               </span>
             </Tooltip>
           )}
+          {(isLinked || isCloned) && (
+            <Tooltip
+              content={
+                isLinked
+                  ? `Shows ${upstreamLabel} content. Duplicate it to edit.`
+                  : `Your own copy of ${upstreamLabel} content. Reset to show it again.`
+              }
+              side="top">
+              <span
+                className={`inline-flex shrink-0 items-center gap-0.5 rounded-sm border px-1 py-px text-[10px] font-medium leading-none ${
+                  isLinked ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"
+                }`}>
+                {isLinked ? <Link2 size={10} className="stroke-[2.5]" /> : <Copy size={10} className="stroke-[2.5]" />}
+                {isLinked ? upstreamLabel : "Duplicated"}
+              </span>
+            </Tooltip>
+          )}
           {hasUnpublishedChanges && (
             <Tooltip content="Has unpublished changes" side="top">
               <span className="text-warning">
@@ -186,7 +253,9 @@ const PageItem = ({
           )}
           */}
 
-          {!page.isPartialGroup && hasLangPage && !pageOwner ? (
+          {!page.isPartialGroup && aiEdit ? (
+            <AiEditBadge lease={aiEdit} />
+          ) : !page.isPartialGroup && hasLangPage && !pageOwner ? (
             <div className="duration absolute right-0.5 top-[3px]">
               <PageActionsDropdown
                 isLanguagePage={Boolean(langPage)}
@@ -211,7 +280,8 @@ const PageItem = ({
         </div>
       </PageLinkContextMenu>
       <>
-        {!hasLangPage && !page.isPartialGroup && !pageOwner && (
+        {/* A linked page has no language pages until it is duplicated. */}
+        {!hasLangPage && !page.isPartialGroup && !pageOwner && !aiEdit && !isLinked && (
           <button
             onClick={(e) => {
               e.stopPropagation();

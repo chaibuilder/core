@@ -4,8 +4,9 @@ import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { useFrame } from "~/builder/core/frame";
 import { useBlockHighlight } from "~/builder/hooks/use-block-highlight";
 import { usePubSubListener } from "~/builder/hooks/use-pub-sub";
-import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
+import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useSelectedStylingBlocks } from "~/builder/hooks/use-selected-styling-blocks";
+import { getPartialWrapperTag } from "~/constants/PARTIAL_BLOCKS";
 import { getElementByDataBlockId } from "./chai-canvas";
 
 const areSameIds = (a: string[], b: string[]) => a.length === b.length && a.every((id, index) => id === b[index]);
@@ -13,6 +14,9 @@ const areSameIds = (a: string[], b: string[]) => a.length === b.length && a.ever
 export const CanvasEventsWatcher = () => {
   const [ids, setIds] = useSelectedBlockIds();
   const [styleIds, setSelectedStylingBlocks] = useSelectedStylingBlocks();
+  // A partial gaining a wrapper gets a styled element it lacked; re-check only when that tag changes.
+  const selectedBlock = useSelectedBlock();
+  const wrapperTag = selectedBlock ? getPartialWrapperTag(selectedBlock) : null;
   const { document } = useFrame();
   const { clearHighlight } = useBlockHighlight();
 
@@ -37,7 +41,7 @@ export const CanvasEventsWatcher = () => {
     });
 
     return () => cancelAnimationFrame(frame);
-  }, [document, ids, setSelectedStylingBlocks, styleIds]);
+  }, [document, ids, wrapperTag, setSelectedStylingBlocks, styleIds]);
   // Add cleanup effect
   useEffect(() => {
     return () => clearHighlight();

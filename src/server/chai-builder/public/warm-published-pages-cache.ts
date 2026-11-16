@@ -7,12 +7,13 @@ import { runInContext } from "~/server/chai-builder/state";
 import type { ChaiDesignTokens } from "~/types";
 import { applyDesignTokens } from "~/utils";
 import { getFullPage } from "./get-full-page";
-import { getPageStyles } from "./get-page-styles";
+import { getPageStylesCached } from "./get-page-styles";
 import { getSiteSettings } from "./get-site-settings";
 
 const WARMUP_CONCURRENCY = 3;
 const PAGE_ID_TAG = /^page-([a-zA-Z0-9_-]+)$/;
-const NON_PAGE_ID_SUFFIXES = new Set(["styles"]);
+// "slugs": the host's page-list tag `page-slugs`, not a page id.
+const NON_PAGE_ID_SUFFIXES = new Set(["styles", "slugs"]);
 const warmupLogger = consola.withTag("ChaiPublishWarmup");
 
 export type WarmPublishedPagesResult = {
@@ -92,7 +93,7 @@ async function warmPageStylesForPageId(pageId: string): Promise<boolean> {
   };
   const pageBlocks = applyDesignTokens(page.blocks ?? [], designTokens);
 
-  await getPageStyles(pageId, pageBlocks);
+  await getPageStylesCached(pageId, pageBlocks);
   return true;
 }
 

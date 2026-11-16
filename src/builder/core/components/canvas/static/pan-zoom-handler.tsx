@@ -1,7 +1,9 @@
 import { useAtomValue } from "jotai";
 import { useEffect } from "react";
 import { builderStore } from "~/builder/atoms/store";
+import { SCREEN_HEIGHT_VAR } from "~/builder/core/components/canvas/IframeInitialContent";
 import { getElementByDataBlockId } from "~/builder/core/components/canvas/static/chai-canvas";
+import { revealInNestedScrollers } from "~/builder/core/components/canvas/static/reveal-in-nested-scrollers";
 import { useFrame } from "~/builder/core/frame";
 import { canvasZoomAtom } from "~/builder/hooks/use-canvas-zoom";
 import { useInlineEditing } from "~/builder/hooks/use-inline-editing";
@@ -36,6 +38,8 @@ export const PanZoomHandler = ({ pannable }: { pannable: boolean }) => {
   const { document: iframeDoc } = useFrame();
   const { editingBlockId } = useInlineEditing();
   const viewportHeight = useAtomValue(canvasWrapperSizeAtom).height;
+  // Outside pannable mode useCanvasScale keeps this equal to the fit scale x 100.
+  const zoom = useAtomValue(canvasZoomAtom);
   const selectedBlock = useSelectedBlock();
   const selectedBlockId = selectedBlock?.type === "Multiple" ? null : (selectedBlock?._id ?? null);
 
@@ -48,6 +52,7 @@ export const PanZoomHandler = ({ pannable }: { pannable: boolean }) => {
     if (!pannable || !iframeDoc || !selectedBlockId) return;
     const el = getElementByDataBlockId(iframeDoc, selectedBlockId);
     if (!el) return;
+    revealInNestedScrollers(el);
     panCanvasToRevealLocalRect(el.getBoundingClientRect());
   }, [pannable, iframeDoc, selectedBlockId]);
 
@@ -157,7 +162,15 @@ export const PanZoomHandler = ({ pannable }: { pannable: boolean }) => {
     };
   }, [pannable, iframeDoc, editingBlockId]);
 
-  if (!pannable) return null;
+  if (!pannable) {
+    // Fit-to-width mode scales the iframe down and stretches its height by
+    // 1/scale, so a raw 100vh always fills the whole visible canvas and a
+    // desktop h-screen section looks near-square. Shrink the screen height by
+    // the same scale so it keeps the proportions of a real screen that wide.
+    // No scale (e.g. mobile) means zoom is 100 and plain vh applies.
+    if (zoom >= 100) return null;
+    return <style>{`:root { ${SCREEN_HEIGHT_VAR}: calc(100vh * ${zoom / 100}); }`}</style>;
+  }
 
   // "Screen" height for vh-like utilities while the iframe is content-sized:
   // what one viewport-full looked like before entering pannable mode.
@@ -166,10 +179,7 @@ export const PanZoomHandler = ({ pannable }: { pannable: boolean }) => {
     <style>{`
       html { height: auto !important; overflow: hidden !important; }
       body { height: auto !important; }
-      [class*="min-h-screen"], [class*="min-h-dvh"] { min-height: ${screenHeight}px !important; }
-      [class*="max-h-screen"], [class*="max-h-dvh"] { max-height: ${screenHeight}px !important; }
-      [class*="h-screen"]:not([class*="min-h-screen"]):not([class*="max-h-screen"]),
-      [class*="h-dvh"]:not([class*="min-h-dvh"]):not([class*="max-h-dvh"]) { height: ${screenHeight}px !important; }
+      :root { ${SCREEN_HEIGHT_VAR}: ${screenHeight}px; }
     `}</style>
   );
 };

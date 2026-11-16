@@ -11,6 +11,9 @@ import { CollectionFilterSortField } from "~/builder/core/rjsf-widgets/collectio
 import { IconPickerField } from "~/builder/core/rjsf-widgets/Icon";
 import { ImagePickerField } from "~/builder/core/rjsf-widgets/image";
 import { VideoPickerField } from "~/builder/core/rjsf-widgets/video";
+import DescriptionFieldTemplate from "~/builder/core/rjsf-widgets/description-field-template";
+import FieldHelpTemplate from "~/builder/core/rjsf-widgets/field-help-template";
+import GroupedObjectFieldTemplate from "~/builder/core/rjsf-widgets/grouped-object-field-template";
 import JSONFormFieldTemplate from "~/builder/core/rjsf-widgets/json-form-field-template";
 import { LinkField } from "~/builder/core/rjsf-widgets/link";
 import { MultiImagesField } from "~/builder/core/rjsf-widgets/multi-images-field";
@@ -22,6 +25,7 @@ import { RowColField } from "~/builder/core/rjsf-widgets/row-col";
 import { RTEField } from "~/builder/core/rjsf-widgets/rte-widget/rte-widget";
 import { SliderField } from "~/builder/core/rjsf-widgets/slider";
 import { SourcesField } from "~/builder/core/rjsf-widgets/sources";
+import { VariantSelectWidget } from "~/builder/core/rjsf-widgets/variant-select";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useChaiBlockSettingComponents } from "~/builder/register-apis";
 
@@ -45,6 +49,7 @@ const useJsonFormElements = () => {
       colCount: RowColField,
       collectionSelect: CollectionFilterSortField,
       repeaterBinding: RepeaterBindingWidget,
+      variant: VariantSelectWidget,
       ...customWidgets,
     }),
     [customWidgets],
@@ -56,6 +61,7 @@ const useJsonFormElements = () => {
       slider: SliderField,
       sources: SourcesField,
       images: MultiImagesField,
+      galleryImages: MultiImagesField,
       repeaterFilters: RepeaterFiltersField,
       repeaterSort: RepeaterSortField,
       hiddenField: HiddenField,
@@ -67,6 +73,9 @@ const useJsonFormElements = () => {
   const templates = useMemo(
     () => ({
       FieldTemplate: JSONFormFieldTemplate,
+      DescriptionFieldTemplate,
+      FieldHelpTemplate,
+      ObjectFieldTemplate: GroupedObjectFieldTemplate,
       ButtonTemplates: {
         AddButton: CustomAddButton,
       },
@@ -80,6 +89,8 @@ const useJsonFormElements = () => {
 
 type JSONFormType = {
   blockId?: string;
+  /** Keys the settings-group collapse state (see `groupProps`). */
+  blockType?: string;
   formData: any;
   schema: RJSFSchema;
   uiSchema: UiSchema;
@@ -94,7 +105,7 @@ const CustomAddButton = (props: any) => (
   </button>
 );
 
-const JSONFormContent = ({ formRef, blockId, formData, selectedLang, uiSchemaCopy, schemaCopy, onChange }: any) => {
+const JSONFormContent = ({ formRef, blockId, blockType, formData, selectedLang, uiSchemaCopy, schemaCopy, onChange }: any) => {
   const { widgets, fields, templates } = useJsonFormElements();
 
   const onFormDataChange = useCallback(
@@ -109,6 +120,8 @@ const JSONFormContent = ({ formRef, blockId, formData, selectedLang, uiSchemaCop
     [blockId, onChange],
   );
 
+  const formContext = useMemo(() => ({ blockType }), [blockType]);
+
   return (
     <RjForm
       ref={formRef}
@@ -116,6 +129,7 @@ const JSONFormContent = ({ formRef, blockId, formData, selectedLang, uiSchemaCop
       widgets={widgets}
       fields={fields}
       templates={templates}
+      formContext={formContext}
       idSeparator="."
       autoComplete="off"
       omitExtraData={false}
@@ -130,7 +144,7 @@ const JSONFormContent = ({ formRef, blockId, formData, selectedLang, uiSchemaCop
   );
 };
 
-export const JSONForm = memo(({ blockId, schema, uiSchema, formData, onChange }: JSONFormType) => {
+export const JSONForm = memo(({ blockId, blockType, schema, uiSchema, formData, onChange }: JSONFormType) => {
   const { selectedLang } = useLanguages();
   const formDataRef = useRef(formData);
   const formRef = useRef(null);
@@ -184,6 +198,7 @@ export const JSONForm = memo(({ blockId, schema, uiSchema, formData, onChange }:
     () => (
       <JSONFormContent
         blockId={blockId}
+        blockType={blockType}
         formRef={formRef}
         formData={_formData}
         selectedLang={selectedLang}
@@ -195,7 +210,7 @@ export const JSONForm = memo(({ blockId, schema, uiSchema, formData, onChange }:
         }}
       />
     ),
-    [blockId, _formData, selectedLang, uiSchemaCopy, schemaCopy, throttledChange],
+    [blockId, blockType, _formData, selectedLang, uiSchemaCopy, schemaCopy, throttledChange],
   );
 
   return memoizedJSONFormContent;

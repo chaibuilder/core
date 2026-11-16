@@ -52,6 +52,9 @@ const resolveFallbackOgImage = (page: ChaiFullPage, pageData: Record<string, unk
       const promotion = get(pageData, "promotion");
       const promoImage = get(promotion, "vehicle.image") ?? get(promotion, "image");
       if (typeof promoImage === "string" && promoImage) return promoImage;
+    } else {
+      const globalOgImage = (pageData?.global as any)?.seo?.image;
+      if (globalOgImage) return globalOgImage as string;
     }
   } catch {
     // fall back to the logo on any parse error

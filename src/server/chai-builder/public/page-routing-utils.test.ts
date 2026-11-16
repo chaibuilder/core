@@ -49,6 +49,27 @@ describe("findMatchingDynamicPages", () => {
   it("returns an empty array when nothing matches", () => {
     expect(findMatchingDynamicPages("/blog/post", sharedBaseTemplates, dynamicSegments)).toEqual([]);
   });
+
+  it("matches regex characters in the template slug literally", () => {
+    const pages = [staticPage({ id: "dot", slug: "/promo/v.p", dynamic: true, pageType: "vdp_page" })];
+    expect(findMatchingDynamicPages("/promo/v.p/a-b-c", pages, dynamicSegments).map((m) => m.id)).toEqual(["dot"]);
+    expect(findMatchingDynamicPages("/promo/vxp/a-b-c", pages, dynamicSegments)).toEqual([]);
+  });
+
+  it("skips a template whose pattern does not compile instead of throwing", () => {
+    const pages = [
+      staticPage({ id: "bad", slug: "/auto-usage", dynamic: true, pageType: "vdp_page", dynamicSlugCustom: "(" }),
+      ...sharedBaseTemplates,
+    ];
+    expect(findMatchingDynamicPages("/auto-usage/camion", pages, dynamicSegments).map((m) => m.id)).toEqual([
+      "seo-listing",
+    ]);
+  });
+
+  it("does not throw on a template slug containing an unbalanced paren", () => {
+    const pages = [staticPage({ id: "paren", slug: "/promo(", dynamic: true, pageType: "vdp_page" })];
+    expect(findMatchingDynamicPages("/promo(/a-b-c", pages, dynamicSegments).map((m) => m.id)).toEqual(["paren"]);
+  });
 });
 
 describe("findPageBySlug", () => {

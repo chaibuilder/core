@@ -1,35 +1,14 @@
-import { sql } from "drizzle-orm";
-import { editionTestCleanup } from "~/edition/test-harness";
-import { resetDbForTests } from "~/server/chai-actions/db";
-import { deleteGlobalApp, getGlobalAppId, insertGlobalApp } from "./global-test-app";
-import { runTestMigrations } from "./migrations";
-import { closeTestDb, getTestDb, schema } from "./test-db";
+import { generateSQLiteDrizzleJson, generateSQLiteMigration } from "drizzle-kit/api";
+import type { TestProject } from "vitest/node";
+import * as schema from "~/edition/test-schema";
 
-export const TEST_USER_ID = "test-user-global";
-
-export default async function globalSetup() {
-  console.log("Setting up integration tests...");
-  await runTestMigrations();
-  const testDb = getTestDb();
-  const app = await insertGlobalApp(testDb);
-
-  console.log(`Integration test setup complete. Global app ID: ${app.id}`);
-
-  return async () => {
-    console.log("Cleaning up integration tests...");
-    const db = getTestDb();
-    const globalAppId = getGlobalAppId();
-
-    db.run(sql`PRAGMA foreign_keys = OFF`);
-    await db.delete(schema.appPagesOnline);
-    await db.delete(schema.appPages);
-    await db.delete(schema.appAssets);
-    await editionTestCleanup(db);
-    db.run(sql`PRAGMA foreign_keys = ON`);
-
-    await deleteGlobalApp(db, globalAppId);
-    resetDbForTests();
-    await closeTestDb();
-    console.log("Integration test cleanup complete");
-  };
+/**
+ * Generates the CREATE statements for the full edition schema once per run, from the drizzle
+ * table objects in the source tree (no migration files). Every worker applies them to its own
+ * in-memory database in server-env.ts; generating here keeps drizzle-kit out of the workers.
+ */
+export default async function setup(project: TestProject) {
+  const empty = await generateSQLiteDrizzleJson({});
+  const current = await generateSQLiteDrizzleJson(schema as Record<string, unknown>);
+  project.provide("chaiTestSchemaDdl", await generateSQLiteMigration(empty, current));
 }
