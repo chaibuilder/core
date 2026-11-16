@@ -32,7 +32,7 @@ export async function generateMetadata(props) {
 ```ts
 // app/(builder)/api/chai/route.ts
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { handleChaiActionRequest, type ChaiBuilderRouteProps } from "chaicore/nextjs/server";
+import { handleChaiActionRequest, type ChaiBuilderRouteProps } from "@chaibuilder/core/nextjs/server";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest, props: ChaiBuilderRouteProps) {
@@ -43,18 +43,19 @@ export async function POST(request: NextRequest, props: ChaiBuilderRouteProps) {
 
 **Key instance methods:**
 
-| Method | Description |
-|---|---|
-| `cb.getPagePayload(slug)` | Full page payload for rendering |
-| `cb.getPage(slug)` | Raw page record |
-| `cb.getPages()` | All pages |
-| `cb.generateMetaData(slug)` | Next.js `Metadata` object |
+| Method                      | Description                                                     |
+| --------------------------- | --------------------------------------------------------------- |
+| `cb.getPagePayload(slug)`   | Full page payload for rendering                                 |
+| `cb.getPage(slug)`          | Raw page record                                                 |
+| `cb.getPages()`             | All pages                                                       |
+| `cb.generateMetaData(slug)` | Next.js `Metadata` object                                       |
 | `cb.handleHttpAction(body)` | Dispatch a builder action from a parsed `{ action, data }` body |
-| `cb.getSiteSettings()` | Site-wide settings |
-| `cb.getPageData(slug)` | Resolved page data from data providers |
-| `cb.getSiteGlobalData()` | Result of `globalDataProvider` |
+| `cb.getSiteSettings()`      | Site-wide settings                                              |
+| `cb.getPageData(slug)`      | Resolved page data from data providers                          |
+| `cb.getSiteGlobalData()`    | Result of `globalDataProvider`                                  |
 
 **Rules:**
+
 - Pass `routeProps` (the component `props`) on the **first** `getChaiBuilder` call in a request — subsequent calls within the same render can omit it and reuse the shared context
 - `getChaiBuilder` is server-only — never call from client components
 - The instance is request-scoped — do not cache or share across requests

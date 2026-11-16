@@ -26,7 +26,7 @@ const BannerConfig: ChaiBlockConfig = {
 **`closestBlockProp` — read a prop from the nearest ancestor block:**
 
 ```ts
-import { closestBlockProp } from "chaicore/registry";
+import { closestBlockProp } from "@chaibuilder/core/registry";
 
 // In block config props — reads "lang" from the nearest "Repeater" ancestor
 const props = registerChaiBlockProps({
@@ -38,6 +38,7 @@ const props = registerChaiBlockProps({
 ```
 
 **Rules:**
+
 - `i18nProps` — only list props whose values differ per language (strings, rich text)
 - `aiProps` — only list props the AI should write to (strings, not styles or IDs)
 - `inlineEditProps` — props that show an inline text editor when the block is double-clicked on canvas

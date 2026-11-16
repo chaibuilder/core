@@ -1,6 +1,6 @@
 # Keeping `src/` in sync between chaibuilder/core and chaibuilder/pro
 
-`chaicore` (this repo or its sibling) and `chaipro` share one `src/` tree. Pro is core plus
+`@chaibuilder/core` (this repo or its sibling) and `chaipro` share one `src/` tree. Pro is core plus
 plugin directories; nothing else is allowed to differ. That single rule is what makes a sync a
 directory copy followed by a normal code review.
 
@@ -9,7 +9,7 @@ directory copy followed by a normal code review.
 Every file under `src/` is byte-identical in both repos **except** the paths listed in
 [`src-sync.exclude`](./src-sync.exclude):
 
-- `src/edition/` — each repo's own copy. The only place that may name the edition (`chaicore`
+- `src/edition/` — each repo's own copy. The only place that may name the edition (`@chaibuilder/core`
   vs `chaipro`), list its always-on plugins, and configure the test harness. Shared files reach
   it only through `~/edition/*`, and both copies satisfy the same contract (`src/types/edition.ts`).
 - `src/payload/` and `src/plugins/<pro-plugin>/` — pro-only code. Shared files must never import

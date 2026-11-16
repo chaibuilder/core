@@ -11,15 +11,16 @@ Use `registerChaiAddBlockTab` to inject a custom tab (with its content panel) in
 **Correct:**
 
 ```tsx
-import { registerChaiAddBlockTab } from "chaicore";
+import { registerChaiAddBlockTab } from "@chaibuilder/core";
 
 registerChaiAddBlockTab("my-templates", {
-  tab: () => <span>Templates</span>,       // tab button / label
-  tabContent: MyTemplatesPanel,            // panel rendered when tab is active
+  tab: () => <span>Templates</span>, // tab button / label
+  tabContent: MyTemplatesPanel, // panel rendered when tab is active
 });
 ```
 
 **Rules:**
+
 - `tab` — the clickable tab trigger component
 - `tabContent` — the panel content shown when the tab is selected
 - Duplicate `id` logs a warning and overrides the previous registration

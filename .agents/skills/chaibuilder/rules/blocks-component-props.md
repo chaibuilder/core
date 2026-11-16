@@ -11,11 +11,11 @@ Every block component receives `ChaiBlockComponentProps<T>` — your own props m
 **Type signature:**
 
 ```tsx
-import type { ChaiBlockComponentProps, ChaiStyles } from "chaicore/types";
+import type { ChaiBlockComponentProps, ChaiStyles } from "@chaibuilder/core/types";
 
 type MyBlockProps = {
   title: string;
-  styles: ChaiStyles;   // always ChaiStyles for the styles prop
+  styles: ChaiStyles; // always ChaiStyles for the styles prop
 };
 
 const MyBlock = (props: ChaiBlockComponentProps<MyBlockProps>) => {
@@ -25,14 +25,14 @@ const MyBlock = (props: ChaiBlockComponentProps<MyBlockProps>) => {
     styles,
 
     // Runtime injected — always available
-    blockProps,    // Record<string, string> — spread onto the root DOM element
-    inBuilder,     // boolean — true when rendered inside the editor
-    lang,          // string — current language code
-    draft,         // boolean — true in preview/draft mode
-    children,      // ReactNode — child blocks (if wrapper: true)
-    pageProps,     // ChaiPageProps — slug, searchParams
-    pageData,      // any — resolved page data
-    $loading,      // boolean — true while dataProvider is fetching
+    blockProps, // Record<string, string> — spread onto the root DOM element
+    inBuilder, // boolean — true when rendered inside the editor
+    lang, // string — current language code
+    draft, // boolean — true in preview/draft mode
+    children, // ReactNode — child blocks (if wrapper: true)
+    pageProps, // ChaiPageProps — slug, searchParams
+    pageData, // any — resolved page data
+    $loading, // boolean — true while dataProvider is fetching
   } = props;
 
   return (
@@ -47,7 +47,9 @@ const MyBlock = (props: ChaiBlockComponentProps<MyBlockProps>) => {
 
 ```tsx
 const Component = ({ blockProps, styles, label }: ChaiBlockComponentProps<{ label: string; styles: ChaiStyles }>) => (
-  <button {...blockProps} {...styles}>{label}</button>
+  <button {...blockProps} {...styles}>
+    {label}
+  </button>
 );
 ```
 
@@ -55,12 +57,11 @@ const Component = ({ blockProps, styles, label }: ChaiBlockComponentProps<{ labe
 
 ```tsx
 // ❌ passes internal ChaiBuilder props (_id, _type, inBuilder, etc.) to the DOM
-const Component = (props: ChaiBlockComponentProps<MyProps>) => (
-  <div {...props}>{props.title}</div>
-);
+const Component = (props: ChaiBlockComponentProps<MyProps>) => <div {...props}>{props.title}</div>;
 ```
 
 **Rules:**
+
 - Always spread `blockProps` on the **root DOM element** — it carries `data-block-id` and other builder attrs
 - Always spread `styles` on the **root DOM element** — it carries Tailwind class strings
 - Use `inBuilder` to conditionally render editor-only chrome (tooltips, placeholders)

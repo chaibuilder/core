@@ -13,7 +13,7 @@ tags: render, getMergedPartialBlocks, linkComponent, imageComponent, buttonCompo
 Partial blocks (`PartialBlock` / `GlobalBlock`) are placeholders that reference a shared block tree. Before rendering in a custom pipeline, merge them inline.
 
 ```ts
-import { getMergedPartialBlocks } from "chaicore/render";
+import { getMergedPartialBlocks } from "@chaibuilder/core/render";
 
 // partials: Record<partialBlockId, ChaiBlock[]> — fetched from cb.getPartialBlocks()
 const mergedBlocks = getMergedPartialBlocks(page.blocks, partials);
@@ -30,10 +30,10 @@ Nested partials resolve up to `MAX_PARTIAL_DEPTH` levels (2 by default: page →
 Override the built-in block renderers for `Link`, `Image`, and `Button` blocks with Next.js-optimised versions (or your own).
 
 ```tsx
-import { RenderChaiBlocks } from "chaicore/render";
+import { RenderChaiBlocks } from "@chaibuilder/core/render";
 import NextImage from "next/image";
 import NextLink from "next/link";
-import type { ChaiBlockComponentProps } from "chaicore/types";
+import type { ChaiBlockComponentProps } from "@chaibuilder/core/types";
 
 // Custom image using next/image
 const MyImage = ({ styles, image, alt, width, height, blockProps }: ChaiBlockComponentProps<ImageProps>) => (
@@ -55,10 +55,11 @@ const MyLink = ({ styles, link, content, blockProps }: ChaiBlockComponentProps<L
   pageProps={pageProps}
   imageComponent={MyImage}
   linkComponent={MyLink}
-/>
+/>;
 ```
 
 **Rules:**
+
 - Custom components must accept `ChaiBlockComponentProps<T>` — spread `blockProps` and `styles` on the root element
 - `imageComponent`, `linkComponent`, `buttonComponent` can also be `Promise<ComponentType>` (for dynamic imports)
 - If not provided, ChaiBuilder uses its own built-in RSC versions

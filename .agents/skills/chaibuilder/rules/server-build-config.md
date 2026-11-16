@@ -13,7 +13,7 @@ Use `buildChaiBuilderConfig` to create the frozen server config object. Pass it 
 ```ts
 // chaibuilder.config.ts (server-only, imported in route handlers / pages)
 import "server-only";
-import { buildChaiBuilderConfig } from "chaicore/server";
+import { buildChaiBuilderConfig } from "@chaibuilder/core/server";
 
 export const chaiConfig = buildChaiBuilderConfig({
   db,                         // required — result of createSQLiteDB(), createPostgresDB(), etc.
@@ -57,7 +57,7 @@ export const chaiConfig = buildChaiBuilderConfig(
       await runMigrations();
     },
     extend: {
-      myCustomValue: "hello",   // accessible via config.myCustomValue
+      myCustomValue: "hello", // accessible via config.myCustomValue
     },
   },
 );
@@ -65,22 +65,23 @@ export const chaiConfig = buildChaiBuilderConfig(
 
 **`ChaiBuilderServerConfigInput` shape:**
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `db` | `ChaiDbConfigInput` | ✅ | Database connection |
-| `globalDataProvider` | `ChaiGlobalDataProvider` | — | Data merged into every page render |
-| `pageTypes` | `ChaiPageTypeEntry[]` | — | Custom page type configs |
-| `chaiCollections` | `ChaiRepeaterDataEntry[]` | — | Collection data sources (typed filters/sort/limit — see server-repeater-data.md) |
-| `repeaterData` | `ChaiRepeaterDataEntry[]` | — | Deprecated — use `chaiCollections` (merged into it at resolve time) |
-| `collections` | `ChaiCollectionEntry[]` | — | Deprecated — use `chaiCollections` |
-| `blockDataProviders` | `Record<string, ChaiBlockDataProvider>` | — | Per-block server data providers |
-| `actions` | `Record<string, ChaiAction>` | — | Custom server actions |
-| `ai` | `Partial<ResolvedChaiAIGlobalConfig>` | — | AI model config |
-| `extraPermissions` | `string[]` | — | Additional permission keys |
-| `roles` | `ChaiRolesConfig` | — | `undefined` = built-in defaults |
-| `debugLevel` | `0 \| 1 \| 2` | — | Server-side debug verbosity (1 = DB/HTTP/cache/AI summary; 2 = + timing/SQL/AI verbose) |
+| Field                | Type                                    | Required | Description                                                                             |
+| -------------------- | --------------------------------------- | -------- | --------------------------------------------------------------------------------------- |
+| `db`                 | `ChaiDbConfigInput`                     | ✅       | Database connection                                                                     |
+| `globalDataProvider` | `ChaiGlobalDataProvider`                | —        | Data merged into every page render                                                      |
+| `pageTypes`          | `ChaiPageTypeEntry[]`                   | —        | Custom page type configs                                                                |
+| `chaiCollections`    | `ChaiRepeaterDataEntry[]`               | —        | Collection data sources (typed filters/sort/limit — see server-repeater-data.md)        |
+| `repeaterData`       | `ChaiRepeaterDataEntry[]`               | —        | Deprecated — use `chaiCollections` (merged into it at resolve time)                     |
+| `collections`        | `ChaiCollectionEntry[]`                 | —        | Deprecated — use `chaiCollections`                                                      |
+| `blockDataProviders` | `Record<string, ChaiBlockDataProvider>` | —        | Per-block server data providers                                                         |
+| `actions`            | `Record<string, ChaiAction>`            | —        | Custom server actions                                                                   |
+| `ai`                 | `Partial<ResolvedChaiAIGlobalConfig>`   | —        | AI model config                                                                         |
+| `extraPermissions`   | `string[]`                              | —        | Additional permission keys                                                              |
+| `roles`              | `ChaiRolesConfig`                       | —        | `undefined` = built-in defaults                                                         |
+| `debugLevel`         | `0 \| 1 \| 2`                           | —        | Server-side debug verbosity (1 = DB/HTTP/cache/AI summary; 2 = + timing/SQL/AI verbose) |
 
 **Rules:**
+
 - `buildChaiBuilderConfig` is server-only — never import in client components
 - The returned config is `Object.freeze`d — do not mutate it
 - Call once per process (typically in `chaibuilder.config.ts`) — pass the same object everywhere

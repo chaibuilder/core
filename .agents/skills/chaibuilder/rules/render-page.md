@@ -13,8 +13,8 @@ Use `RenderChaiBlocks` to render a page's blocks and `ChaiPageCSS` to inject the
 ```tsx
 // app/(public)/[[...slug]]/page.tsx
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { ChaiPageCSS, ChaiPageJSONLD, RenderChaiBlocks } from "chaicore/render";
-import { PreviewBanner } from "chaicore/render";
+import { ChaiPageCSS, ChaiPageJSONLD, RenderChaiBlocks } from "@chaibuilder/core/render";
+import { PreviewBanner } from "@chaibuilder/core/render";
 
 type Props = { params: Promise<{ slug?: string[] }> };
 
@@ -31,12 +31,7 @@ export default async function Page(props: Props) {
 
   return (
     <>
-      <RenderChaiBlocks
-        page={page}
-        pageData={pageData}
-        settings={settings}
-        pageProps={{ slug }}
-      />
+      <RenderChaiBlocks page={page} pageData={pageData} settings={settings} pageProps={{ slug }} />
       <PreviewBanner show={page.draft ?? false} />
     </>
   );
@@ -55,7 +50,7 @@ export async function generateMetadata(props: Props) {
 ```tsx
 // app/(public)/layout.tsx
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { ChaiPageCSS } from "chaicore/render";
+import { ChaiPageCSS } from "@chaibuilder/core/render";
 
 export default async function Layout({ children, params }) {
   const cb = await getChaiBuilder();
@@ -75,18 +70,19 @@ export default async function Layout({ children, params }) {
 
 **`RenderChaiBlocks` props:**
 
-| Prop | Type | Required | Description |
-|---|---|---|---|
-| `page` | `ChaiFullPage` | ✅ | Page record from `getPagePayload` |
-| `pageData` | `Record<string, any>` | ✅ | Resolved data from data providers |
-| `settings` | `Record<string, any>` | ✅ | Site settings from `getPagePayload` |
-| `pageProps` | `ChaiPageProps` | ✅ | `{ slug, searchParams }` |
-| `linkComponent` | `ComponentType` | — | Custom Next.js `<Link>` override |
-| `imageComponent` | `ComponentType` | — | Custom Next.js `<Image>` override |
-| `buttonComponent` | `ComponentType` | — | Custom button override |
-| `designTokens` | `ChaiDesignTokens` | — | Override design tokens |
+| Prop              | Type                  | Required | Description                         |
+| ----------------- | --------------------- | -------- | ----------------------------------- |
+| `page`            | `ChaiFullPage`        | ✅       | Page record from `getPagePayload`   |
+| `pageData`        | `Record<string, any>` | ✅       | Resolved data from data providers   |
+| `settings`        | `Record<string, any>` | ✅       | Site settings from `getPagePayload` |
+| `pageProps`       | `ChaiPageProps`       | ✅       | `{ slug, searchParams }`            |
+| `linkComponent`   | `ComponentType`       | —        | Custom Next.js `<Link>` override    |
+| `imageComponent`  | `ComponentType`       | —        | Custom Next.js `<Image>` override   |
+| `buttonComponent` | `ComponentType`       | —        | Custom button override              |
+| `designTokens`    | `ChaiDesignTokens`    | —        | Override design tokens              |
 
 **Rules:**
+
 - `RenderChaiBlocks` is an async RSC — do not render it in a `"use client"` component
 - `ChaiPageCSS` must be in `<head>` — renders `<style>` tags for Tailwind + theme CSS variables + fonts
 - Always get `page`, `pageData`, `settings` from `cb.getPagePayload(slug)` — do not construct them manually

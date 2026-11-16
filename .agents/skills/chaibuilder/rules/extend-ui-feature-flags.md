@@ -11,7 +11,7 @@ Register toggleable flags that users can enable/disable inside the builder. Stat
 **Registering flags:**
 
 ```ts
-import { registerChaiFeatureFlag, registerChaiFeatureFlags } from "chaicore";
+import { registerChaiFeatureFlag, registerChaiFeatureFlags } from "@chaibuilder/core";
 
 // Single flag
 registerChaiFeatureFlag("advanced-mode", {
@@ -21,7 +21,7 @@ registerChaiFeatureFlag("advanced-mode", {
 
 // Multiple at once
 registerChaiFeatureFlags({
-  "beta-ai":     { description: "AI-powered suggestions" },
+  "beta-ai": { description: "AI-powered suggestions" },
   "dark-canvas": { description: "Dark background on canvas" },
 });
 ```
@@ -29,7 +29,7 @@ registerChaiFeatureFlags({
 **Reading flags in components:**
 
 ```tsx
-import { useChaiFeatureFlag, IfChaiFeatureFlag } from "chaicore";
+import { useChaiFeatureFlag, IfChaiFeatureFlag } from "@chaibuilder/core";
 
 function MyComponent() {
   const isAdvanced = useChaiFeatureFlag("advanced-mode");
@@ -39,10 +39,11 @@ function MyComponent() {
 // Declarative shorthand
 <IfChaiFeatureFlag flagKey="advanced-mode">
   <AdvancedPanel />
-</IfChaiFeatureFlag>
+</IfChaiFeatureFlag>;
 ```
 
 **Rules:**
+
 - Flag state is persisted in `localStorage` via jotai `atomWithStorage`
 - Duplicate key logs a warning and overrides the previous registration
 - Default `value` is `false` if not specified

@@ -12,10 +12,10 @@ All register APIs are client-only and must run before `ChaiWebsiteBuilder` mount
 
 ```ts
 // app/(builder)/chai-setup.ts
-import { registerChaiSidebarPanel } from "chaicore";
-import { registerChaiSlot, CHAI_SLOT_IDS } from "chaicore";
-import { registerChaiHook, CHAI_HOOKS } from "chaicore";
-import { registerChaiFeatureFlag } from "chaicore";
+import { registerChaiSidebarPanel } from "@chaibuilder/core";
+import { registerChaiSlot, CHAI_SLOT_IDS } from "@chaibuilder/core";
+import { registerChaiHook, CHAI_HOOKS } from "@chaibuilder/core";
+import { registerChaiFeatureFlag } from "@chaibuilder/core";
 
 registerChaiSidebarPanel("my-panel", { ... });
 registerChaiSlot(CHAI_SLOT_IDS.TOPBAR_RIGHT, MyButton);
@@ -26,8 +26,8 @@ registerChaiFeatureFlag("advanced-mode", { description: "Advanced features" });
 ```tsx
 // app/(builder)/editor/page.tsx
 "use client";
-import "../chai-setup";                    // ← runs all registrations before mount
-import { ChaiWebsiteBuilder } from "chaicore";
+import "../chai-setup"; // ← runs all registrations before mount
+import { ChaiWebsiteBuilder } from "@chaibuilder/core";
 
 export default function EditorPage() {
   return <ChaiWebsiteBuilder {...props} />;
@@ -43,11 +43,12 @@ export default function EditorPage() {
   return <ChaiWebsiteBuilder />;
 }
 
-// ❌ throws — chaicore is not available on the server
-import { registerChaiSlot } from "chaicore"; // in a Server Component
+// ❌ throws — @chaibuilder/core is not available on the server
+import { registerChaiSlot } from "@chaibuilder/core"; // in a Server Component
 ```
 
 **Rules:**
-- `chaicore` throws if imported in a server context — always in `"use client"` files or their non-async imports
+
+- `@chaibuilder/core` throws if imported in a server context — always in `"use client"` files or their non-async imports
 - One `chai-setup.ts` file per project; import it exactly once at the editor entry point
 - Register calls are idempotent per session but warn on duplicate IDs — don't call them inside loops or reactive code

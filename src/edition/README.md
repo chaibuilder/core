@@ -1,6 +1,6 @@
 # `src/edition/` — the one directory that differs between editions
 
-ChaiBuilder ships as two editions built from one `src/` tree: `chaicore` (open source) and
+ChaiBuilder ships as two editions built from one `src/` tree: `@chaibuilder/core` (open source) and
 `chaipro` (core plus plugins). Every file under `src/` is byte-identical in both **except** this
 directory and the pro-only plugin directories listed in the repo-root `src-sync.exclude`. This
 directory is never synced; each repo owns its copy. See `SYNC.md` at the repo root.

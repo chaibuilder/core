@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: npm
-      url: https://www.npmjs.com/package/chaicore
+      url: https://www.npmjs.com/package/@chaibuilder/core
     permissions:
       contents: read
       # Required for npm provenance — the attestation is signed with this OIDC token.

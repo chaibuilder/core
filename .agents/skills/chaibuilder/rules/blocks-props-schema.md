@@ -11,7 +11,7 @@ Use `registerChaiBlockProps(schema)` to define the editable props for a block. I
 **Correct:**
 
 ```ts
-import { registerChaiBlockProps, stylesProp, builderProp } from "chaicore/registry";
+import { registerChaiBlockProps, stylesProp, builderProp } from "@chaibuilder/core/registry";
 
 const props = registerChaiBlockProps({
   properties: {
@@ -66,17 +66,18 @@ const props = registerChaiBlockProps({
 **`stylesProp(defaultClasses)`** — creates a styles property with correct defaults:
 
 ```ts
-styles: stylesProp("flex items-center gap-2")
+styles: stylesProp("flex items-center gap-2");
 // Equivalent to: { type: "string", styles: true, default: "dt#,flex items-center gap-2", ui: { "ui:widget": "hidden" } }
 ```
 
 **`builderProp(options)`** — marks a prop as builder-only; not rendered in the page output:
 
 ```ts
-editorLabel: builderProp({ type: "string", title: "Editor label", default: "" })
+editorLabel: builderProp({ type: "string", title: "Editor label", default: "" });
 ```
 
 **Rules:**
+
 - Always pass the schema directly to `registerChaiBlockProps()` — never construct `{ schema, uiSchema }` manually
 - Every block that uses Tailwind styling must include `styles: stylesProp(...)` — without it, styles cannot be edited in the builder
 - The `ui` key on any property is automatically extracted to `uiSchema` by `registerChaiBlockProps`

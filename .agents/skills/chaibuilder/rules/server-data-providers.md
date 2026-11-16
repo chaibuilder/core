@@ -37,10 +37,10 @@ buildChaiBuilderConfig({
 ### `pageTypes` — per-page-type data providers
 
 ```ts
-import type { ChaiPageTypeEntry } from "chaicore/server";
+import type { ChaiPageTypeEntry } from "@chaibuilder/core/server";
 
 const blogPostPageType: ChaiPageTypeEntry = {
-  type: "blog-post",             // matches page._pageType in the DB
+  type: "blog-post", // matches page._pageType in the DB
   label: "Blog Post",
   dataProvider: async ({ lang, draft, inBuilder, pageProps }) => {
     const slug = pageProps.slug;
@@ -79,6 +79,7 @@ buildChaiBuilderConfig({
 ---
 
 **Rules:**
+
 - `globalDataProvider` → every page; `pageTypes[].dataProvider` → matching page type only; `blockDataProviders` → per block instance
 - All three are async and run server-side only
 - Keep providers lean — they are not cached by default

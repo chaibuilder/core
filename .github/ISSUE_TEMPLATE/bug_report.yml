@@ -1,5 +1,5 @@
 name: Bug report
-description: Something in chaicore behaves incorrectly
+description: Something in @chaibuilder/core behaves incorrectly
 labels: ["bug", "needs-triage"]
 body:
   - type: markdown
@@ -20,7 +20,7 @@ body:
       options:
         - label: I searched [existing issues](https://github.com/chaibuilder/core/issues?q=is%3Aissue) and this is not a duplicate
           required: true
-        - label: I reproduced this on the latest version of `chaicore`
+        - label: I reproduced this on the latest version of `@chaibuilder/core`
           required: true
 
   - type: textarea
@@ -47,7 +47,7 @@ body:
         Link to a minimal repository, a StackBlitz, or a gist. Strip it down to the smallest
         thing that still shows the bug. Issues without a reproduction are usually closed as
         not actionable.
-      placeholder: https://github.com/your-name/chaicore-bug-1234
+      placeholder: https://github.com/your-name/chaibuilder-core-bug-1234
     validations:
       required: true
 
@@ -65,9 +65,9 @@ body:
       required: true
 
   - type: input
-    id: chaicore-version
+    id: chaibuilder-core-version
     attributes:
-      label: chaicore version
+      label: "@chaibuilder/core version"
       placeholder: 0.1.0
     validations:
       required: true

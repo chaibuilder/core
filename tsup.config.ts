@@ -97,8 +97,8 @@ const activeEntries = isDtsPass
 const externals = [
   // Self-referential subpaths — resolved at runtime from the consumer's installed
   // package, must never be inlined into the bundle
-  "chaicore/db/schema-sqlite",
-  "chaicore/db/relations-sqlite",
+  "@chaibuilder/core/db/schema-sqlite",
+  "@chaibuilder/core/db/relations-sqlite",
   "react",
   "react-dom",
   "react/jsx-runtime",

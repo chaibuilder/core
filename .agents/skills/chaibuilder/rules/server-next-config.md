@@ -12,7 +12,7 @@ Wrap your `next.config.ts` with `withChaiBuilder` to auto-generate the import ma
 
 ```ts
 // next.config.ts
-import { withChaiBuilder } from "chaicore/next";
+import { withChaiBuilder } from "@chaibuilder/core/next";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
@@ -26,10 +26,10 @@ export default withChaiBuilder(nextConfig);
 
 ```ts
 export default withChaiBuilder(nextConfig, {
-  collections: "src/collections/**/*.{ts,tsx}",           // default
-  actions: "src/app/(builder)/**/actions/**/*.{ts,tsx}",  // default
-  importMapPath: "src/chaibuilder-import-map.ts",         // default
-  watch: true,                                             // default — file watching in dev
+  collections: "src/collections/**/*.{ts,tsx}", // default
+  actions: "src/app/(builder)/**/actions/**/*.{ts,tsx}", // default
+  importMapPath: "src/chaibuilder-import-map.ts", // default
+  watch: true, // default — file watching in dev
 });
 ```
 
@@ -48,6 +48,7 @@ export const chaibuilderImportMap = {
 ```
 
 **Rules:**
+
 - Run `withChaiBuilder` once — it wraps the existing `webpack` config safely
 - The import map is regenerated on every `next dev` start and on file add/remove
 - Collection files: `src/collections/**/*.{ts,tsx}`

@@ -1,6 +1,6 @@
 ---
 name: chaibuilder
-description: ChaiBuilder Core extension patterns for Next.js. Use when extending the builder UI (custom sidebar panels, slots, lifecycle hooks, feature flags, block tabs, libraries), creating custom blocks, configuring the server, or implementing page rendering. Covers all top-level chaicore APIs.
+description: ChaiBuilder Core extension patterns for Next.js. Use when extending the builder UI (custom sidebar panels, slots, lifecycle hooks, feature flags, block tabs, libraries), creating custom blocks, configuring the server, or implementing page rendering. Covers all top-level @chaibuilder/core APIs.
 ---
 
 # ChaiBuilder Core — Extension Patterns
@@ -20,7 +20,7 @@ See `AGENTS.md` for full examples per section.
 
 ## Quick Reference: Page Rendering
 
-All render imports from `chaicore/render`.
+All render imports from `@chaibuilder/core/render`.
 
 | API                                        | Where            | Description                       |
 | ------------------------------------------ | ---------------- | --------------------------------- |
@@ -37,7 +37,7 @@ All render imports from `chaicore/render`.
 ```tsx
 // app/(public)/[[...slug]]/page.tsx
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { RenderChaiBlocks, ChaiPageCSS, PreviewBanner } from "chaicore/render";
+import { RenderChaiBlocks, ChaiPageCSS, PreviewBanner } from "@chaibuilder/core/render";
 
 export default async function Page(props) {
   const slug = "/" + ((await props.params).slug?.join("/") ?? "");
@@ -57,30 +57,30 @@ export default async function Page(props) {
 
 ## Quick Reference: Server Setup
 
-All server imports from `chaicore/server` or `chaicore/next`. Never import in client components.
+All server imports from `@chaibuilder/core/server` or `@chaibuilder/core/next`. Never import in client components.
 
-| Step                    | File                        | API                                                                                     |
-| ----------------------- | --------------------------- | --------------------------------------------------------------------------------------- |
-| 1. Wrap Next.js config  | `next.config.ts`            | `withChaiBuilder(nextConfig)`                                                           |
-| 2. Build server config  | `chaibuilder.config.ts`     | `buildChaiBuilderConfig({ db, ... })`                                                   |
-| 3. Create server handle | `chaibuilder.server.ts`     | `createChaiBuilder(config, { context })` |
-| 4. Use in pages/layouts | `app/**/page.tsx`           | `getChaiBuilder(props)`                                                                 |
-| 5. Route handler        | `app/.../api/chai/route.ts` | `handleChaiActionRequest(req, cb.handleHttpAction)`                                     |
+| Step                    | File                        | API                                                 |
+| ----------------------- | --------------------------- | --------------------------------------------------- |
+| 1. Wrap Next.js config  | `next.config.ts`            | `withChaiBuilder(nextConfig)`                       |
+| 2. Build server config  | `chaibuilder.config.ts`     | `buildChaiBuilderConfig({ db, ... })`               |
+| 3. Create server handle | `chaibuilder.server.ts`     | `createChaiBuilder(config, { context })`            |
+| 4. Use in pages/layouts | `app/**/page.tsx`           | `getChaiBuilder(props)`                             |
+| 5. Route handler        | `app/.../api/chai/route.ts` | `handleChaiActionRequest(req, cb.handleHttpAction)` |
 
 **Minimal setup:**
 
 ```ts
 // next.config.ts
-import { withChaiBuilder } from "chaicore/next";
+import { withChaiBuilder } from "@chaibuilder/core/next";
 export default withChaiBuilder({});
 
 // chaibuilder.config.ts — plain data, no framework imports
-import { buildChaiBuilderConfig } from "chaicore/server";
+import { buildChaiBuilderConfig } from "@chaibuilder/core/server";
 export const chaiConfig = buildChaiBuilderConfig({ db });
 
 // chaibuilder.server.ts — owns auth/tenancy/draft; exports the handle entry points import
 import { chaiConfig } from "@/chaibuilder.config";
-import { createChaiBuilder } from "chaicore/server";
+import { createChaiBuilder } from "@chaibuilder/core/server";
 export const { getChaiBuilder } = createChaiBuilder(chaiConfig, {
   context: async ({ request }) => ({
     userId: await getUserIdFromCookies(request),
@@ -92,7 +92,7 @@ export const { getChaiBuilder } = createChaiBuilder(chaiConfig, {
 
 // app/(builder)/api/chai/route.ts
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { handleChaiActionRequest } from "chaicore/nextjs/server";
+import { handleChaiActionRequest } from "@chaibuilder/core/nextjs/server";
 export async function POST(req, props) {
   const cb = await getChaiBuilder(props, req);
   return handleChaiActionRequest(req, cb.handleHttpAction);
@@ -103,7 +103,7 @@ export async function POST(req, props) {
 
 ## Quick Reference: Custom Blocks
 
-All block imports from `chaicore/registry`. Register at module level.
+All block imports from `@chaibuilder/core/registry`. Register at module level.
 
 | API                                        | Purpose                                                 |
 | ------------------------------------------ | ------------------------------------------------------- |
@@ -117,8 +117,8 @@ All block imports from `chaicore/registry`. Register at module level.
 **Minimal block example:**
 
 ```tsx
-import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "chaicore/registry";
-import type { ChaiBlockComponentProps, ChaiStyles } from "chaicore/types";
+import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "@chaibuilder/core/registry";
+import type { ChaiBlockComponentProps, ChaiStyles } from "@chaibuilder/core/types";
 
 const MyBlock = ({ blockProps, styles, label }: ChaiBlockComponentProps<{ label: string; styles: ChaiStyles }>) => (
   <div {...blockProps} {...styles}>
@@ -147,28 +147,28 @@ registerChaiBlock(MyBlock, {
 
 All register calls are **client-only** — call at module level before `ChaiWebsiteBuilder` mounts.
 
-| API                                       | Import             | Purpose                               |
-| ----------------------------------------- | ------------------ | ------------------------------------- |
-| `registerChaiSidebarPanel(id, opts)`      | `chaicore` | Add panel to builder sidebar          |
-| `registerChaiSlot(slotId, Component)`     | `chaicore` | Inject component at a UI location     |
-| `CHAI_SLOT_IDS`                           | `chaicore` | Enum of all valid slot IDs            |
-| `registerChaiHook(hookName, fn)`          | `chaicore` | Lifecycle hook (pipeline)             |
-| `CHAI_HOOKS`                              | `chaicore` | Enum of all valid hook names          |
-| `registerChaiFeatureFlag(key, opts)`      | `chaicore` | Register toggleable flag              |
-| `registerChaiFeatureFlags(map)`           | `chaicore` | Register multiple flags at once       |
-| `registerChaiAddBlockTab(id, opts)`       | `chaicore` | Add tab to "Add Block" panel          |
-| `registerChaiLibrary(id, config)`         | `chaicore` | Register custom block library         |
-| `registerChaiBlockSettingWidget(id, C)`   | `chaicore` | Custom RJSF widget for block settings |
-| `registerChaiBlockSettingField(id, C)`    | `chaicore` | Custom RJSF field                     |
-| `registerChaiBlockSettingTemplate(id, C)` | `chaicore` | Custom RJSF template                  |
-| `registerChaiSaveToLibrary(Component)`    | `chaicore` | Replace "Save to Library" dialog      |
-| `registerChaiPreImportHTMLHook(fn)`       | `chaicore` | Transform HTML before block import    |
+| API                                       | Import              | Purpose                               |
+| ----------------------------------------- | ------------------- | ------------------------------------- |
+| `registerChaiSidebarPanel(id, opts)`      | `@chaibuilder/core` | Add panel to builder sidebar          |
+| `registerChaiSlot(slotId, Component)`     | `@chaibuilder/core` | Inject component at a UI location     |
+| `CHAI_SLOT_IDS`                           | `@chaibuilder/core` | Enum of all valid slot IDs            |
+| `registerChaiHook(hookName, fn)`          | `@chaibuilder/core` | Lifecycle hook (pipeline)             |
+| `CHAI_HOOKS`                              | `@chaibuilder/core` | Enum of all valid hook names          |
+| `registerChaiFeatureFlag(key, opts)`      | `@chaibuilder/core` | Register toggleable flag              |
+| `registerChaiFeatureFlags(map)`           | `@chaibuilder/core` | Register multiple flags at once       |
+| `registerChaiAddBlockTab(id, opts)`       | `@chaibuilder/core` | Add tab to "Add Block" panel          |
+| `registerChaiLibrary(id, config)`         | `@chaibuilder/core` | Register custom block library         |
+| `registerChaiBlockSettingWidget(id, C)`   | `@chaibuilder/core` | Custom RJSF widget for block settings |
+| `registerChaiBlockSettingField(id, C)`    | `@chaibuilder/core` | Custom RJSF field                     |
+| `registerChaiBlockSettingTemplate(id, C)` | `@chaibuilder/core` | Custom RJSF template                  |
+| `registerChaiSaveToLibrary(Component)`    | `@chaibuilder/core` | Replace "Save to Library" dialog      |
+| `registerChaiPreImportHTMLHook(fn)`       | `@chaibuilder/core` | Transform HTML before block import    |
 
 ### Extend UI Setup Pattern
 
 ```ts
 // chai-setup.ts  ← module-level, imported once before builder mounts
-import { registerChaiSlot, CHAI_SLOT_IDS, registerChaiHook, CHAI_HOOKS } from "chaicore";
+import { registerChaiSlot, CHAI_SLOT_IDS, registerChaiHook, CHAI_HOOKS } from "@chaibuilder/core";
 
 registerChaiSlot(CHAI_SLOT_IDS.TOPBAR_RIGHT, MyButton);
 registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, myHook);
@@ -178,7 +178,7 @@ registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, myHook);
 // editor/page.tsx
 "use client";
 import "../chai-setup";
-import { ChaiWebsiteBuilder } from "chaicore";
+import { ChaiWebsiteBuilder } from "@chaibuilder/core";
 export default function EditorPage() {
   return <ChaiWebsiteBuilder {...props} />;
 }

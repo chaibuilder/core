@@ -1,9 +1,9 @@
-# Using `chaicore` as a git subtree
+# Using `@chaibuilder/core` as a git subtree
 
 Most projects should just install the npm package:
 
 ```sh
-pnpm add chaicore
+pnpm add @chaibuilder/core
 ```
 
 Vendor the repo as a **git subtree** instead when you need to read, patch, or extend
@@ -11,7 +11,7 @@ ChaiBuilder's source in place — a custom block pipeline, a plugin that reaches
 public surface, or a fix you want to run before it ships upstream. You get the source in
 your tree, editable, with a supported path to pull upstream changes in.
 
-**Sync is one-way.** You pull `chaicore` in; nothing pushes back. Changes you want in the
+**Sync is one-way.** You pull `@chaibuilder/core` in; nothing pushes back. Changes you want in the
 package go through a normal fork-and-PR on
 [chaibuilder/core](https://github.com/chaibuilder/core), which is also what keeps the
 review and CI story simple: upstream history is only ever written upstream.
@@ -27,9 +27,9 @@ Substitute it literally.
 ## 1. Add the subtree
 
 ```sh
-git remote add chaicore git@github.com:chaibuilder/core.git
-git fetch chaicore main
-git subtree add --prefix=src/chai chaicore main
+git remote add chaibuilder-core git@github.com:chaibuilder/core.git
+git fetch chaibuilder-core main
+git subtree add --prefix=src/chai chaibuilder-core main
 ```
 
 **No `--squash`.** The pull script requires real commits in your graph — that is what
@@ -60,10 +60,10 @@ subtree setup breaks.
 
 `<PREFIX>` must build standalone — it is a package, and it is published as one. Code under
 the prefix that reaches into your app (`@/…`, `~~/…`, `#/…`) compiles fine in your repo
-and breaks the moment `chaicore` is built on its own. It also guarantees a conflict on
+and breaks the moment `@chaibuilder/core` is built on its own. It also guarantees a conflict on
 your next pull, since upstream will never have that import.
 
-`chaicore`'s own `eslint.config.mjs` enforces this. If your host lint run does not pick up
+`@chaibuilder/core`'s own `eslint.config.mjs` enforces this. If your host lint run does not pick up
 the prefix's config, add the equivalent to yours:
 
 ```js
@@ -73,7 +73,7 @@ the prefix's config, add the equivalent to yours:
     "@typescript-eslint/no-restricted-imports": ["error", {
       patterns: [{
         group: ["@/*", "@/**", "~~/*", "~~/**", "[#]/**"],
-        message: "Host-app alias import. The chaicore subtree must build standalone — use ~/ (its own src).",
+        message: "Host-app alias import. The @chaibuilder/core subtree must build standalone — use ~/ (its own src).",
       }],
     }],
   },

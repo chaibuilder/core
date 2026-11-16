@@ -16,8 +16,8 @@
     "jsx": "react-jsx",
     "paths": {
       "~/*": ["./src/*"],
-      "chaicore/db/schema-sqlite": ["./src/drizzle/schema.sqlite.ts"],
-      "chaicore/db/relations-sqlite": ["./src/drizzle/relations.sqlite.ts"]
+      "@chaibuilder/core/db/schema-sqlite": ["./src/drizzle/schema.sqlite.ts"],
+      "@chaibuilder/core/db/relations-sqlite": ["./src/drizzle/relations.sqlite.ts"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx", "**/*.mts"],

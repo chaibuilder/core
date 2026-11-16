@@ -11,8 +11,8 @@ Use `dataProvider` in config to fetch async data for a block. The resolved data 
 **Client-side data provider (in ChaiBlockConfig):**
 
 ```tsx
-import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "chaicore/registry";
-import type { ChaiBlockComponentProps, ChaiBlockConfig } from "chaicore/types";
+import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "@chaibuilder/core/registry";
+import type { ChaiBlockComponentProps, ChaiBlockConfig } from "@chaibuilder/core/types";
 
 type ProductProps = { productId: string; styles: ChaiStyles };
 type ProductData = { name: string; price: number };
@@ -21,7 +21,7 @@ const ProductComponent = (props: ChaiBlockComponentProps<ProductProps, ProductDa
   const { blockProps, styles, $loading, pageData } = props;
   const { name, price } = pageData ?? {};
 
-  if ($loading) return <div {...styles} className="animate-pulse h-20 bg-gray-100" />;
+  if ($loading) return <div {...styles} className="h-20 animate-pulse bg-gray-100" />;
 
   return (
     <div {...blockProps} {...styles}>
@@ -43,10 +43,10 @@ const ProductConfig: ChaiBlockConfig = {
   }),
   dataProvider: async ({ block, lang, draft }) => {
     const data = await fetchProduct(block.productId, { lang, draft });
-    return data;                  // merged into component props as pageData
+    return data; // merged into component props as pageData
   },
-  dataProviderMode: "live",       // "live" (always fetch) | "mock" (use mock in builder)
-  dataProviderDependencies: ["productId"],  // re-fetch when these props change
+  dataProviderMode: "live", // "live" (always fetch) | "mock" (use mock in builder)
+  dataProviderDependencies: ["productId"], // re-fetch when these props change
 };
 
 registerChaiBlock(ProductComponent, ProductConfig);
@@ -55,7 +55,7 @@ registerChaiBlock(ProductComponent, ProductConfig);
 **Server-side data provider with `registerChaiServerBlock`:**
 
 ```tsx
-import { registerChaiServerBlock } from "chaicore/registry";
+import { registerChaiServerBlock } from "@chaibuilder/core/registry";
 
 // Register only the server-side data provider for an already-registered block
 registerChaiServerBlock(ProductComponent, {
@@ -67,6 +67,7 @@ registerChaiServerBlock(ProductComponent, {
 ```
 
 **Rules:**
+
 - `dataProvider` runs on every render — keep it fast or cache results
 - `dataProviderDependencies` is an array of prop keys; data re-fetches when those values change
 - `dataProviderMode: "live"` → runs in both builder and render; `"mock"` → uses mock data in builder

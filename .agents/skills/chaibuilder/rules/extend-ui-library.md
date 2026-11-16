@@ -11,7 +11,7 @@ Use `registerChaiLibrary` to register a source of blocks that users can browse a
 **Correct:**
 
 ```ts
-import { registerChaiLibrary } from "chaicore";
+import { registerChaiLibrary } from "@chaibuilder/core";
 
 registerChaiLibrary("my-library", {
   name: "My Components",
@@ -22,7 +22,7 @@ registerChaiLibrary("my-library", {
     return blocks.map((b) => ({
       id: b.id,
       name: b.name,
-      preview: b.previewUrl,   // optional thumbnail
+      preview: b.previewUrl, // optional thumbnail
     }));
   },
 
@@ -35,6 +35,7 @@ registerChaiLibrary("my-library", {
 ```
 
 **Rules:**
+
 - `getBlocksList` — async, returns list of available blocks (shown in library panel)
 - `getBlock` — async, returns the actual block content as an HTML string or `ChaiBlock[]`
 - Registering the same `id` twice silently overrides the previous library

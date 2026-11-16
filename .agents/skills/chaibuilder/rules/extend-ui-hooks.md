@@ -11,7 +11,7 @@ Use `registerChaiHook` to intercept ChaiBuilder lifecycle events. Hooks run as a
 **Correct:**
 
 ```ts
-import { registerChaiHook, CHAI_HOOKS } from "chaicore";
+import { registerChaiHook, CHAI_HOOKS } from "@chaibuilder/core";
 
 // Transform data before save
 registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, async (pageData, context) => {
@@ -28,10 +28,10 @@ registerChaiHook(CHAI_HOOKS.AFTER_SAVE_PAGE, (pageData, context) => {
 
 **Available hooks (`CHAI_HOOKS`):**
 
-| Hook | When |
-|---|---|
+| Hook               | When                          |
+| ------------------ | ----------------------------- |
 | `BEFORE_SAVE_PAGE` | Before page data is persisted |
-| `AFTER_SAVE_PAGE` | After page data is persisted |
+| `AFTER_SAVE_PAGE`  | After page data is persisted  |
 
 **Incorrect (mutating data instead of returning new object):**
 
@@ -43,6 +43,7 @@ registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, (pageData) => {
 ```
 
 **Rules:**
+
 - Return a new object (don't mutate) to pass modified data to the next hook
 - Return `undefined` to pass the current data through unchanged
 - Errors are caught and logged — the pipeline continues with the last valid data

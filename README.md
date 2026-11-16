@@ -2,7 +2,7 @@
 
 **AI-enabled visual website builder for Next.js.**
 
-[![npm](https://img.shields.io/npm/v/chaicore.svg)](https://www.npmjs.com/package/chaicore)
+[![npm](https://img.shields.io/npm/v/@chaibuilder/core.svg)](https://www.npmjs.com/package/@chaibuilder/core)
 [![CI](https://github.com/chaibuilder/core/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/chaibuilder/core/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue.svg)](LICENSE)
 [![Discussions](https://img.shields.io/github/discussions/chaibuilder/core)](https://github.com/chaibuilder/core/discussions)
@@ -11,21 +11,21 @@ Build, edit, and render websites with a block-based editor, custom React blocks,
 
 - **Site:** [chaibuilder.com](https://chaibuilder.com)
 - **Docs:** [chaibuilder.com/docs](https://chaibuilder.com/docs)
-- **Package:** `chaicore`
+- **Package:** `@chaibuilder/core`
 - **Requires:** Next.js ≥ 15.3 · React ≥ 19 · Tailwind CSS 4
 
 ---
 
 ## Why ChaiBuilder Core
 
-| Capability    | What you get                                                             |
-| ------------- | ------------------------------------------------------------------------ |
-| Visual editor | Drag-and-drop canvas with Tailwind styling, media, SEO, and AI assist    |
-| Custom blocks | Register React components with typed props schemas (`chaicore/registry`) |
-| Server config | Request-scoped `getChaiBuilder`, actions, collections, page types        |
-| RSC rendering | `RenderChaiBlocks`, `ChaiPageCSS`, JSON-LD, draft preview                |
-| Extensibility | Slots, sidebar panels, hooks, feature flags, libraries                   |
-| Databases     | LibSQL, D1, better-sqlite3 adapters                                      |
+| Capability    | What you get                                                                      |
+| ------------- | --------------------------------------------------------------------------------- |
+| Visual editor | Drag-and-drop canvas with Tailwind styling, media, SEO, and AI assist             |
+| Custom blocks | Register React components with typed props schemas (`@chaibuilder/core/registry`) |
+| Server config | Request-scoped `getChaiBuilder`, actions, collections, page types                 |
+| RSC rendering | `RenderChaiBlocks`, `ChaiPageCSS`, JSON-LD, draft preview                         |
+| Extensibility | Slots, sidebar panels, hooks, feature flags, libraries                            |
+| Databases     | LibSQL, D1, better-sqlite3 adapters                                               |
 
 ---
 
@@ -36,24 +36,24 @@ Two supported ways to consume it.
 **As a package** — the default:
 
 ```bash
-pnpm add chaicore
+pnpm add @chaibuilder/core
 # or
-npm install chaicore
+npm install @chaibuilder/core
 ```
 
 **As a git subtree** — when you want the source in your tree, editable, with a supported
 path to pull upstream changes in:
 
 ```bash
-git remote add chaicore git@github.com:chaibuilder/core.git
-git fetch chaicore main
-git subtree add --prefix=src/chai chaicore main
+git remote add chaibuilder-core git@github.com:chaibuilder/core.git
+git fetch chaibuilder-core main
+git subtree add --prefix=src/chai chaibuilder-core main
 ```
 
 No `--squash` — the pull script needs real commits in your graph, so that later pulls are
 ordinary 3-way merges rather than blind replacements of the directory.
 
-Sync is **one-way**: you pull `chaicore` in, you never push back. Changes you want
+Sync is **one-way**: you pull `@chaibuilder/core` in, you never push back. Changes you want
 upstream go through a normal fork-and-PR on
 [chaibuilder/core](https://github.com/chaibuilder/core).
 
@@ -74,9 +74,9 @@ Vendor ChaiBuilder into this Next.js project as a git subtree, then wire it up.
 2. Add the subtree at src/chai. Do NOT pass --squash — the pull script refuses
    a squashed subtree, because without real merge bases a pull can only replace
    the directory and would silently discard local edits:
-       git remote add chaicore git@github.com:chaibuilder/core.git
-       git fetch chaicore main
-       git subtree add --prefix=src/chai chaicore main
+       git remote add chaibuilder-core git@github.com:chaibuilder/core.git
+       git fetch chaibuilder-core main
+       git subtree add --prefix=src/chai chaibuilder-core main
 3. Read src/chai/scripts/HOST-SETUP.md and do what it says. In short:
    - add "pull:chai" and "status:chai" to package.json, pointing at
      src/chai/scripts/subtree-{pull,status}.mjs with --prefix=src/chai
@@ -116,7 +116,7 @@ pnpm add better-sqlite3
 
 ```ts
 // next.config.ts
-import { withChaiBuilder } from "chaicore/nextjs";
+import { withChaiBuilder } from "@chaibuilder/core/nextjs";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {};
@@ -131,8 +131,8 @@ Plain data — keep framework imports out so scripts and CI can import it.
 ```ts
 // chaibuilder.config.ts
 import "server-only";
-import { buildChaiBuilderConfig } from "chaicore/nextjs/server";
-import { createLibsqlDB } from "chaicore/db/libsql"; // or chaicore/db/d1, chaicore/db/better-sqlite3
+import { buildChaiBuilderConfig } from "@chaibuilder/core/nextjs/server";
+import { createLibsqlDB } from "@chaibuilder/core/db/libsql"; // or @chaibuilder/core/db/d1, @chaibuilder/core/db/better-sqlite3
 
 export const chaiConfig = buildChaiBuilderConfig({
   db: createLibsqlDB({ url: process.env.DATABASE_URL! }),
@@ -151,7 +151,7 @@ Write the resolver with `createChaiBuilder`:
 ```ts
 // chaibuilder.server.ts
 import { cookies, draftMode } from "next/headers";
-import { createChaiBuilder } from "chaicore/server";
+import { createChaiBuilder } from "@chaibuilder/core/server";
 import { chaiConfig } from "@/chaibuilder.config";
 
 export const { getChaiBuilder } = createChaiBuilder(chaiConfig, {
@@ -177,7 +177,7 @@ export const { getChaiBuilder } = createChaiBuilder(chaiConfig, {
 ```ts
 // app/(builder)/api/chai/route.ts
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { handleChaiActionRequest } from "chaicore/nextjs/server";
+import { handleChaiActionRequest } from "@chaibuilder/core/nextjs/server";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest, props) {
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest, props) {
 ```tsx
 // app/(public)/[[...slug]]/page.tsx
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { RenderChaiBlocks, ChaiPageCSS, PreviewBanner } from "chaicore/render";
+import { RenderChaiBlocks, ChaiPageCSS, PreviewBanner } from "@chaibuilder/core/render";
 
 type Props = { params: Promise<{ slug?: string[] }> };
 
@@ -228,7 +228,7 @@ export async function generateMetadata(props: Props) {
 // app/(builder)/editor/page.tsx
 "use client";
 import "../chai-setup"; // registrations before mount
-import { ChaiWebsiteBuilder } from "chaicore";
+import { ChaiWebsiteBuilder } from "@chaibuilder/core";
 
 export default function EditorPage() {
   return <ChaiWebsiteBuilder />;
@@ -239,29 +239,29 @@ export default function EditorPage() {
 
 ## Package entry points
 
-| Import               | Use for                                                              |
-| -------------------- | -------------------------------------------------------------------- |
-| `chaicore`           | Editor UI — `ChaiWebsiteBuilder`, slots, hooks, panels (client-only) |
-| `chaicore/registry`  | `registerChaiBlock`, props helpers                                   |
-| `chaicore/types`     | Shared TypeScript types                                              |
-| `chaicore/utils`     | Binding analysis, block conversion, and other framework utilities    |
-| `chaicore/next`      | `withChaiBuilder` for `next.config`                                  |
-| `chaicore/server`    | Config, context, actions, `getChaiBuilder` (server-only)             |
-| `chaicore/render`    | `RenderChaiBlocks`, `ChaiPageCSS`, styles helpers                    |
-| `chaicore/styles`    | Builder CSS                                                          |
-| `chaicore/db/*`      | Database adapters and the drizzle schema barrel                      |
-| `chaicore/plugins/*` | Bundled client plugins (`empty-page-starter`, `page-errors`)         |
-| `chaicore/ai/*`      | AI provider plugins that import their SDK statically                 |
+| Import                        | Use for                                                              |
+| ----------------------------- | -------------------------------------------------------------------- |
+| `@chaibuilder/core`           | Editor UI — `ChaiWebsiteBuilder`, slots, hooks, panels (client-only) |
+| `@chaibuilder/core/registry`  | `registerChaiBlock`, props helpers                                   |
+| `@chaibuilder/core/types`     | Shared TypeScript types                                              |
+| `@chaibuilder/core/utils`     | Binding analysis, block conversion, and other framework utilities    |
+| `@chaibuilder/core/next`      | `withChaiBuilder` for `next.config`                                  |
+| `@chaibuilder/core/server`    | Config, context, actions, `getChaiBuilder` (server-only)             |
+| `@chaibuilder/core/render`    | `RenderChaiBlocks`, `ChaiPageCSS`, styles helpers                    |
+| `@chaibuilder/core/styles`    | Builder CSS                                                          |
+| `@chaibuilder/core/db/*`      | Database adapters and the drizzle schema barrel                      |
+| `@chaibuilder/core/plugins/*` | Bundled client plugins (`empty-page-starter`, `page-errors`)         |
+| `@chaibuilder/core/ai/*`      | AI provider plugins that import their SDK statically                 |
 
-Never import `chaicore` (the editor entry) from Server Components — it throws. Use `/server` and `/render` on the server.
+Never import `@chaibuilder/core` (the editor entry) from Server Components — it throws. Use `/server` and `/render` on the server.
 
 ---
 
 ## Custom blocks
 
 ```tsx
-import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "chaicore/registry";
-import type { ChaiBlockComponentProps, ChaiStyles } from "chaicore/types";
+import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "@chaibuilder/core/registry";
+import type { ChaiBlockComponentProps, ChaiStyles } from "@chaibuilder/core/types";
 
 type AlertProps = {
   message: string;
@@ -316,7 +316,7 @@ Register application pipes once in a shared module that is imported before both 
 
 ```ts
 // chai-bindings.ts
-import { registerChaiPipe } from "chaicore/registry";
+import { registerChaiPipe } from "@chaibuilder/core/registry";
 
 registerChaiPipe({
   name: "initials",
@@ -336,7 +336,7 @@ registerChaiPipe({
 import "./chai-bindings";
 ```
 
-Arguments may only be quoted strings, finite numbers, booleans, or `null`. Pipe output is still escaped, and raw HTML properties are sanitized after the pipeline runs. JavaScript expressions are unsupported: value bindings render empty and visibility bindings hide the block. A pipe that is not registered is skipped with a dev-only warning and the value passes through unformatted, so a removed pipe or a registration module that has not loaded yet does not blank the binding. Use `analyzeChaiBindings(blocks)` from `chaicore/utils` to locate invalid bindings and recognized pipe conversions.
+Arguments may only be quoted strings, finite numbers, booleans, or `null`. Pipe output is still escaped, and raw HTML properties are sanitized after the pipeline runs. JavaScript expressions are unsupported: value bindings render empty and visibility bindings hide the block. A pipe that is not registered is skipped with a dev-only warning and the value passes through unformatted, so a removed pipe or a registration module that has not loaded yet does not blank the binding. Use `analyzeChaiBindings(blocks)` from `@chaibuilder/core/utils` to locate invalid bindings and recognized pipe conversions.
 
 Value built-ins: `default`, `or`, `trim`, `uppercase`, `lowercase`, `capitalize`, `join`, `number`, `telephone`, `currency`, and `date`. Boolean built-ins are reserved for conditional visibility: `equals`, `notEquals`, `gt`, `gte`, `lt`, `lte`, `not`, `truthy`, `empty`, and `notEmpty`.
 
@@ -354,7 +354,7 @@ import {
   registerChaiSidebarPanel,
   CHAI_SLOT_IDS,
   CHAI_HOOKS,
-} from "chaicore";
+} from "@chaibuilder/core";
 
 registerChaiSlot(CHAI_SLOT_IDS.TOPBAR_RIGHT, MyButton);
 
@@ -395,8 +395,8 @@ Register the plugin explicitly in production:
 
 ```ts
 // chaibuilder.config.ts
-import { openRouterPlugin } from "chaicore/ai/openrouter"; // OPENROUTER_API_KEY
-// import { openAICompatiblePlugin } from "chaicore/ai/openai-compatible"; // OPENAI_COMPATIBLE_BASE_URL
+import { openRouterPlugin } from "@chaibuilder/core/ai/openrouter"; // OPENROUTER_API_KEY
+// import { openAICompatiblePlugin } from "@chaibuilder/core/ai/openai-compatible"; // OPENAI_COMPATIBLE_BASE_URL
 
 buildChaiBuilderConfig({
   ai: { providers: [openRouterPlugin], models: [...] },
@@ -406,7 +406,7 @@ buildChaiBuilderConfig({
 ChaiBuilder also detects these providers without registration, by importing the SDK at runtime —
 convenient in development, but that import is invisible to bundlers, so Next's output file tracing
 drops the package from a production build and the AI panel reports "configured but could not be
-loaded". Registering the plugin from `chaicore/ai/*` is a static import, which is why it survives
+loaded". Registering the plugin from `@chaibuilder/core/ai/*` is a static import, which is why it survives
 the build. Import it only when the SDK is installed.
 
 **OpenRouter** — install `@openrouter/ai-sdk-provider`:
@@ -478,7 +478,7 @@ built-ins get), register a plugin. Plugins are tried ahead of the built-ins and 
 `isConfigured()` returns true:
 
 ```ts
-import type { ChaiAiProviderPlugin } from "chaicore/types";
+import type { ChaiAiProviderPlugin } from "@chaibuilder/core/types";
 
 const myProvider: ChaiAiProviderPlugin = {
   id: "my-provider",
@@ -498,9 +498,9 @@ buildChaiBuilderConfig({ db, ai: { providers: [myProvider] } });
 ## Database adapters
 
 ```ts
-import { createLibsqlDB } from "chaicore/db/libsql";
-import { createD1DB } from "chaicore/db/d1";
-import { createBetterSqliteDB } from "chaicore/db/better-sqlite3";
+import { createLibsqlDB } from "@chaibuilder/core/db/libsql";
+import { createD1DB } from "@chaibuilder/core/db/d1";
+import { createBetterSqliteDB } from "@chaibuilder/core/db/better-sqlite3";
 ```
 
 Pass the returned setup into `buildChaiBuilderConfig({ db })`.
@@ -519,7 +519,7 @@ Re-export the schema barrel once and point drizzle-kit at it alongside your own:
 
 ```ts
 // src/db/chai-schema.ts
-export * from "chaicore/db/schema-sqlite";
+export * from "@chaibuilder/core/db/schema-sqlite";
 ```
 
 ```ts
@@ -537,7 +537,7 @@ migrate`.
 
 - The barrel is the core table set. A plugin contributes its own tables through
   a schema fragment when it is registered.
-- Table types come from the same barrel (`chaicore/db/schema-sqlite`),
+- Table types come from the same barrel (`@chaibuilder/core/db/schema-sqlite`),
   independent of migrations — the drizzle instance stays fully typed either way.
 - Releases that need a **data** migration (a backfill, not DDL) say so in the
   release notes with the migration body to drop into your migrations folder;
@@ -583,7 +583,7 @@ Sync is one-way: hosts pull, and contribute back by PR here. Host-side workflow:
 ### Releases
 
 Automated with [release-please](https://github.com/googleapis/release-please). Merging the
-standing release pull request tags the version and publishes `chaicore` to npm with provenance.
+standing release pull request tags the version and publishes `@chaibuilder/core` to npm with provenance.
 Nothing is published by hand.
 
 ---

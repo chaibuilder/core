@@ -124,7 +124,7 @@ const eslintConfig = defineConfig([
     // Plugin boundary: shared core code (everything outside src/plugins, src/payload and
     // src/edition) must never import a plugin. Dependencies point one way — plugins consume
     // core's public surfaces, never the reverse — so a violation here means a feature has
-    // leaked into core. The two editions (chaicore, chaipro) keep src/ identical except the
+    // leaked into core. The two editions (@chaibuilder/core, chaipro) keep src/ identical except the
     // paths in src-sync.exclude (see SYNC.md); src/edition is the one place that may wire
     // edition-specific plugins in.
     files: ["src/**/*.{ts,tsx,js,jsx,mjs}"],

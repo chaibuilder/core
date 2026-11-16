@@ -1,4 +1,4 @@
-# Paths under src/ that differ between chaicore and chaipro BY DESIGN.
+# Paths under src/ that differ between @chaibuilder/core and chaipro BY DESIGN.
 # Everything else under src/ must be byte-identical in both repos.
 #
 # Relative to src/. A leading "/" anchors at src/, a trailing "/" marks a directory.

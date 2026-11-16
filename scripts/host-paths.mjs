@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // tsconfig `paths` for a host app that vendors this repo as a git subtree instead of installing
-// the npm package. With them, host code imports `chaipro/<subpath>` (or `chaicore/<subpath>`)
+// the npm package. With them, host code imports `chaipro/<subpath>` (or `@chaibuilder/core/<subpath>`)
 // exactly as an npm host does, so docs, examples and the agent skills apply unchanged.
 //
 //   node <prefix>/scripts/host-paths.mjs            # print the entries, run from the host root

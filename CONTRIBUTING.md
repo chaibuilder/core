@@ -1,6 +1,6 @@
 # Contributing to ChaiBuilder Core
 
-Thanks for your interest in `chaicore`. Bug reports, reproductions, docs fixes, and code are all welcome.
+Thanks for your interest in `@chaibuilder/core`. Bug reports, reproductions, docs fixes, and code are all welcome.
 
 By participating you agree to the [Code of Conduct](CODE_OF_CONDUCT.md).
 
@@ -97,7 +97,7 @@ The reasoning lives in the comments in `eslint.config.mjs`.
 
 ### Two editions, one `src/`
 
-`chaicore` shares its `src/` tree with the commercial `chaipro` package; every file under
+`@chaibuilder/core` shares its `src/` tree with the commercial `chaipro` package; every file under
 `src/` is byte-identical in both except `src/edition/` and the pro-only trees listed in
 `src-sync.exclude` (`src/payload/` and the pro plugin directories, none of which exist here).
 Two habits keep that true: never write the package name in a shared file (runtime strings use
@@ -126,7 +126,7 @@ Add tests with your change. A bug fix should come with a test that fails without
 
 ## Commit messages
 
-Commit history is the changelog for the `chaicore` package, so subjects must follow
+Commit history is the changelog for the `@chaibuilder/core` package, so subjects must follow
 [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
@@ -164,7 +164,7 @@ Maintainers only.
 Releases are automated with [release-please](https://github.com/googleapis/release-please). Every
 push to `main` updates a standing "release" pull request that bumps the version and writes
 `CHANGELOG.md` from the commit subjects. Merging that pull request tags the release and publishes
-`chaicore` to npm with provenance.
+`@chaibuilder/core` to npm with provenance.
 
 Nothing is published by hand, and no one should push a `v*` tag manually.
 

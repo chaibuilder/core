@@ -27,8 +27,8 @@ collections: [{
 **Correct:**
 
 ```ts
-import { applyRepeaterQuery } from "chaicore/utils";
-import type { ChaiRepeaterDataConfig } from "chaicore/types";
+import { applyRepeaterQuery } from "@chaibuilder/core/utils";
+import type { ChaiRepeaterDataConfig } from "@chaibuilder/core/types";
 
 const blog: ChaiRepeaterDataConfig = {
   id: "blog",
@@ -75,6 +75,7 @@ chaiCollections: [
 **Dynamic values:** filter values may be the tokens `$page.slug`, `$page.baseSlug`, `$page.lang` (exposed in the UI as "Current page slug" etc.). Core resolves them from page context before calling `fetch` — a related-posts repeater is `slug` / `is not` / `Current page slug`. A filter whose token resolves to nothing is dropped from the query.
 
 **Rules:**
+
 - `chaiCollections` and legacy `collections` share the `{{#<id>}}` binding namespace; a `chaiCollections` source with the same id shadows the legacy collection, so migrating `collections: [Blog]` to `chaiCollections: [Blog]` needs no stored-page changes.
 - `fetch` receives already-validated input: unknown fields, invalid operators, and un-coercible values are dropped; `limit` is clamped to `maxLimit`. Never trust `block.filters` directly — read `query`.
 - Filters are AND-combined (v1). Express a range as two rows on the same field.
@@ -85,8 +86,8 @@ chaiCollections: [
 
 **Opt-in / migration:** a host that never sets `chaiCollections` (or the deprecated `repeaterData`) behaves exactly as before — the legacy collection path, its `fetch` result (extra keys included) and the Repeater block's stored props are all untouched, and `filters`/`sortBy` have no schema default so they are never written into existing blocks. Moving a source from `collections` to `chaiCollections` is the opt-in, and it changes three things for pages already using it:
 
-| On migrating a source | Before (`collections`) | After (`chaiCollections`) |
-| --- | --- | --- |
+| On migrating a source                  | Before (`collections`)                   | After (`chaiCollections`)                                                                                                        |
+| -------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | Block's legacy `filter` / `sort` props | passed to `fetch`, decoded by the source | not part of `query` — re-create them as filter/sort rows (core logs a one-time warning per block; the raw props stay on `block`) |
-| `limit` | source decided | `query.limit` = block limit, else `defaultLimit` (10), clamped to `maxLimit` (100) |
-| `totalItems` (Payload) | count of returned docs | `totalDocs` — total matches, so pagination shows real page counts |
+| `limit`                                | source decided                           | `query.limit` = block limit, else `defaultLimit` (10), clamped to `maxLimit` (100)                                               |
+| `totalItems` (Payload)                 | count of returned docs                   | `totalDocs` — total matches, so pagination shows real page counts                                                                |

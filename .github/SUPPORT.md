@@ -5,14 +5,14 @@
 Ask in [Discussions → Q&A](https://github.com/chaibuilder/core/discussions/categories/q-a).
 Search first; someone may have hit it already.
 
-Good questions include the `chaicore` version, your Next.js version, the database adapter, and
+Good questions include the `@chaibuilder/core` version, your Next.js version, the database adapter, and
 the smallest snippet that shows the problem.
 
 ## Documentation
 
 - [README](../README.md) — install, quick start, entry points, custom blocks, bindings
 - [docs.chaibuilder.com](https://docs.chaibuilder.com/) — full documentation
-- [AGENTS.md](../AGENTS.md) — repository map, for people working on `chaicore` itself
+- [AGENTS.md](../AGENTS.md) — repository map, for people working on `@chaibuilder/core` itself
 
 ## Bugs and feature requests
 

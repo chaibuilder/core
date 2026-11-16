@@ -8,7 +8,7 @@ config({ path: ".env.test", override: true });
 const url = process.env.TEST_DATABASE_URL || "file:./.tmp/chaibuilder_test.sqlite";
 
 export default defineConfig({
-  // Edition-specific schema barrel (core tables only in chaicore, the full union in chaipro).
+  // Edition-specific schema barrel (core tables only in @chaibuilder/core, the full union in chaipro).
   schema: "./src/edition/test-schema.ts",
   out: "./src/drizzle/migrations-sqlite",
   dialect: "sqlite",

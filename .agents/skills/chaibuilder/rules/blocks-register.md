@@ -11,9 +11,9 @@ A block has two parts: a **React component** and a **Config object**. Register b
 **Correct:**
 
 ```tsx
-import { registerChaiBlock } from "chaicore/registry";
-import { registerChaiBlockProps, stylesProp } from "chaicore/registry";
-import type { ChaiBlockComponentProps, ChaiBlockConfig, ChaiStyles } from "chaicore/types";
+import { registerChaiBlock } from "@chaibuilder/core/registry";
+import { registerChaiBlockProps, stylesProp } from "@chaibuilder/core/registry";
+import type { ChaiBlockComponentProps, ChaiBlockConfig, ChaiStyles } from "@chaibuilder/core/types";
 
 // 1. Type your block's own props
 type AlertProps = {
@@ -34,10 +34,10 @@ const AlertComponent = (props: ChaiBlockComponentProps<AlertProps>) => {
 
 // 3. Config
 const AlertConfig: ChaiBlockConfig = {
-  type: "Alert",           // unique string key — no spaces
-  label: "Alert",          // shown in the builder UI
-  group: "basic",          // groups in the "Add Block" panel
-  category: "core",        // optional, defaults to "core"
+  type: "Alert", // unique string key — no spaces
+  label: "Alert", // shown in the builder UI
+  group: "basic", // groups in the "Add Block" panel
+  category: "core", // optional, defaults to "core"
   description: "An alert box for messages",
   props: registerChaiBlockProps({
     properties: {
@@ -64,9 +64,10 @@ registerChaiBlock(AlertComponent, AlertConfig);
 ```
 
 **Rules:**
+
 - `type` must be unique across all registered blocks — use PascalCase (e.g. `"MyAlert"`)
 - `group` controls which panel group the block appears under in "Add Block"
 - `props` must use `registerChaiBlockProps(schema)` — not a raw schema object
 - Never spread `...props` onto DOM elements — use `blockProps` for data/aria attrs and spread `styles` separately
 - Call `registerChaiBlock` at module level, before the builder mounts
-- Both `registerChaiBlock` and `registerChaiBlockProps` import from `chaicore/registry`
+- Both `registerChaiBlock` and `registerChaiBlockProps` import from `@chaibuilder/core/registry`

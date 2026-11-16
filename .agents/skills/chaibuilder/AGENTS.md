@@ -58,10 +58,10 @@ All register APIs are client-only and must run before `ChaiWebsiteBuilder` mount
 
 ```ts
 // app/(builder)/chai-setup.ts
-import { registerChaiSidebarPanel } from "chaicore";
-import { registerChaiSlot, CHAI_SLOT_IDS } from "chaicore";
-import { registerChaiHook, CHAI_HOOKS } from "chaicore";
-import { registerChaiFeatureFlag } from "chaicore";
+import { registerChaiSidebarPanel } from "@chaibuilder/core";
+import { registerChaiSlot, CHAI_SLOT_IDS } from "@chaibuilder/core";
+import { registerChaiHook, CHAI_HOOKS } from "@chaibuilder/core";
+import { registerChaiFeatureFlag } from "@chaibuilder/core";
 
 registerChaiSidebarPanel("my-panel", { ... });
 registerChaiSlot(CHAI_SLOT_IDS.TOPBAR_RIGHT, MyButton);
@@ -73,7 +73,7 @@ registerChaiFeatureFlag("advanced-mode", { description: "Advanced features" });
 // app/(builder)/editor/page.tsx
 "use client";
 import "../chai-setup"; // ← runs all registrations before mount
-import { ChaiWebsiteBuilder } from "chaicore";
+import { ChaiWebsiteBuilder } from "@chaibuilder/core";
 
 export default function EditorPage() {
   return <ChaiWebsiteBuilder {...props} />;
@@ -89,13 +89,13 @@ export default function EditorPage() {
   return <ChaiWebsiteBuilder />;
 }
 
-// ❌ throws — chaicore is not available on the server
-import { registerChaiSlot } from "chaicore"; // in a Server Component
+// ❌ throws — @chaibuilder/core is not available on the server
+import { registerChaiSlot } from "@chaibuilder/core"; // in a Server Component
 ```
 
 **Rules:**
 
-- `chaicore` throws if imported in a server context — always use inside `"use client"` files or their non-async imports
+- `@chaibuilder/core` throws if imported in a server context — always use inside `"use client"` files or their non-async imports
 - One `chai-setup.ts` per project; import it exactly once at the editor entry point
 - Register calls warn on duplicate IDs — never call them inside loops or reactive code
 
@@ -108,7 +108,7 @@ Use `registerChaiSidebarPanel` to add a custom panel to the builder sidebar.
 **Correct:**
 
 ```tsx
-import { registerChaiSidebarPanel } from "chaicore";
+import { registerChaiSidebarPanel } from "@chaibuilder/core";
 
 registerChaiSidebarPanel("analytics-panel", {
   position: "bottom", // "top" | "bottom"
@@ -150,7 +150,7 @@ Use `registerChaiSlot` with `CHAI_SLOT_IDS` constants to inject React components
 **Correct:**
 
 ```ts
-import { registerChaiSlot, CHAI_SLOT_IDS } from "chaicore";
+import { registerChaiSlot, CHAI_SLOT_IDS } from "@chaibuilder/core";
 
 registerChaiSlot(CHAI_SLOT_IDS.TOPBAR_RIGHT, MyTopbarButton);
 registerChaiSlot(CHAI_SLOT_IDS.AFTER_BLOCK_OPTIONS, ExtraBlockActions);
@@ -202,7 +202,7 @@ Use `registerChaiHook` to intercept ChaiBuilder lifecycle events. Hooks run as a
 **Correct:**
 
 ```ts
-import { registerChaiHook, CHAI_HOOKS } from "chaicore";
+import { registerChaiHook, CHAI_HOOKS } from "@chaibuilder/core";
 
 // Transform data before save
 registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, async (pageData, context) => {
@@ -248,7 +248,7 @@ Register toggleable flags that users can enable inside the builder. State persis
 **Registering:**
 
 ```ts
-import { registerChaiFeatureFlag, registerChaiFeatureFlags } from "chaicore";
+import { registerChaiFeatureFlag, registerChaiFeatureFlags } from "@chaibuilder/core";
 
 registerChaiFeatureFlag("advanced-mode", {
   value: false,
@@ -264,7 +264,7 @@ registerChaiFeatureFlags({
 **Reading in components:**
 
 ```tsx
-import { useChaiFeatureFlag, IfChaiFeatureFlag } from "chaicore";
+import { useChaiFeatureFlag, IfChaiFeatureFlag } from "@chaibuilder/core";
 
 function MyComponent() {
   const isAdvanced = useChaiFeatureFlag("advanced-mode");
@@ -291,7 +291,7 @@ Inject a custom tab into the "Add Block" drawer.
 **Correct:**
 
 ```tsx
-import { registerChaiAddBlockTab } from "chaicore";
+import { registerChaiAddBlockTab } from "@chaibuilder/core";
 
 registerChaiAddBlockTab("my-templates", {
   tab: () => <span>Templates</span>,
@@ -314,7 +314,7 @@ Register a source of blocks users can browse and insert.
 **Correct:**
 
 ```ts
-import { registerChaiLibrary } from "chaicore";
+import { registerChaiLibrary } from "@chaibuilder/core";
 
 registerChaiLibrary("my-library", {
   name: "My Components",
@@ -349,7 +349,7 @@ import {
   registerChaiBlockSettingWidget,
   registerChaiBlockSettingField,
   registerChaiBlockSettingTemplate,
-} from "chaicore";
+} from "@chaibuilder/core";
 
 registerChaiBlockSettingWidget("color-picker", ColorPickerWidget);
 registerChaiBlockSettingField("icon-selector", IconSelectorField);
@@ -359,7 +359,7 @@ registerChaiBlockSettingTemplate("inline-label", InlineLabelTemplate);
 **Reference in block props schema:**
 
 ```ts
-import { registerChaiBlockProps } from "chaicore/registry";
+import { registerChaiBlockProps } from "@chaibuilder/core/registry";
 
 registerChaiBlockProps({
   type: "object",
@@ -390,7 +390,7 @@ Replace the default "Save to Library" dialog.
 **Correct:**
 
 ```tsx
-import { registerChaiSaveToLibrary } from "chaicore";
+import { registerChaiSaveToLibrary } from "@chaibuilder/core";
 
 registerChaiSaveToLibrary(({ blockId, blocks, close }) => (
   <MyLibraryDialog blockId={blockId} blocks={blocks} onClose={close} />
@@ -416,7 +416,7 @@ Transform raw HTML before it's converted into ChaiBlocks.
 **Correct:**
 
 ```ts
-import { registerChaiPreImportHTMLHook } from "chaicore";
+import { registerChaiPreImportHTMLHook } from "@chaibuilder/core";
 
 registerChaiPreImportHTMLHook(async (html) => {
   return sanitizeHtml(html);
@@ -437,7 +437,7 @@ registerChaiPreImportHTMLHook(async (html) => {
 
 APIs for defining and registering custom block components. Blocks are the building units of pages in ChaiBuilder. Each block has a React component (the rendered output) and a Config object (metadata, props schema, editor behaviour).
 
-All imports for blocks come from `chaicore/registry` (not `chaicore`).
+All imports for blocks come from `@chaibuilder/core/registry` (not `@chaibuilder/core`).
 
 ---
 
@@ -446,8 +446,8 @@ All imports for blocks come from `chaicore/registry` (not `chaicore`).
 **Correct:**
 
 ```tsx
-import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "chaicore/registry";
-import type { ChaiBlockComponentProps, ChaiBlockConfig, ChaiStyles } from "chaicore/types";
+import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "@chaibuilder/core/registry";
+import type { ChaiBlockComponentProps, ChaiBlockConfig, ChaiStyles } from "@chaibuilder/core/types";
 
 type AlertProps = {
   message: string;
@@ -499,7 +499,7 @@ registerChaiBlock(AlertComponent, AlertConfig);
 - `props` must use `registerChaiBlockProps()` — not a raw object
 - Never spread `...props` onto DOM elements — use `blockProps` and `styles` separately
 - Call `registerChaiBlock` at module level, before the builder mounts
-- Imports from `chaicore/registry`, not `chaicore`
+- Imports from `@chaibuilder/core/registry`, not `@chaibuilder/core`
 
 ---
 
@@ -508,7 +508,7 @@ registerChaiBlock(AlertComponent, AlertConfig);
 Use `registerChaiBlockProps(schema)` to define editable props. It extracts `ui` keys into `uiSchema` automatically.
 
 ```ts
-import { registerChaiBlockProps, stylesProp, builderProp } from "chaicore/registry";
+import { registerChaiBlockProps, stylesProp, builderProp } from "@chaibuilder/core/registry";
 
 const props = registerChaiBlockProps({
   properties: {
@@ -557,7 +557,7 @@ styles: stylesProp("flex items-center gap-2");
 Every component receives `ChaiBlockComponentProps<T>` — your props merged with runtime-injected props.
 
 ```tsx
-import type { ChaiBlockComponentProps, ChaiStyles } from "chaicore/types";
+import type { ChaiBlockComponentProps, ChaiStyles } from "@chaibuilder/core/types";
 
 type MyProps = { title: string; styles: ChaiStyles };
 
@@ -692,7 +692,7 @@ const BannerConfig: ChaiBlockConfig = {
 **`closestBlockProp` — read a prop from the nearest ancestor block:**
 
 ```ts
-import { closestBlockProp } from "chaicore/registry";
+import { closestBlockProp } from "@chaibuilder/core/registry";
 
 properties: {
   repeaterLang: closestBlockProp("Repeater", "lang"),
@@ -714,7 +714,7 @@ properties: {
 
 Server-side configuration for ChaiBuilder Core in a Next.js App Router project. Covers the `next.config.ts` wrapper, the main server config, per-request context resolution, the `getChaiBuilder` instance API, custom server actions, and data providers.
 
-All server imports come from `chaicore/server` or `chaicore/next`. Never import these in client components.
+All server imports come from `@chaibuilder/core/server` or `@chaibuilder/core/next`. Never import these in client components.
 
 ---
 
@@ -724,7 +724,7 @@ Wrap `next.config.ts` with `withChaiBuilder` to auto-generate the import map for
 
 ```ts
 // next.config.ts
-import { withChaiBuilder } from "chaicore/next";
+import { withChaiBuilder } from "@chaibuilder/core/next";
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {};
@@ -758,7 +758,7 @@ Create the frozen server config. Pass this object to every `getChaiBuilder` call
 ```ts
 // chaibuilder.config.ts
 import "server-only";
-import { buildChaiBuilderConfig } from "chaicore/server";
+import { buildChaiBuilderConfig } from "@chaibuilder/core/server";
 
 export const chaiConfig = buildChaiBuilderConfig({
   db, // required — createSQLiteDB(), createPostgresDB(), etc.
@@ -834,7 +834,7 @@ The resolver lives outside `chaibuilder.config.ts` on purpose: it needs framewor
 ```ts
 // chaibuilder.server.ts  (root — not inside pro/)
 import { cookies, draftMode } from "next/headers";
-import { createChaiBuilder, type ChaiIncomingRequest } from "chaicore/server";
+import { createChaiBuilder, type ChaiIncomingRequest } from "@chaibuilder/core/server";
 import config from "@/chaibuilder.config";
 
 /** Route handlers: identity from Authorization: Bearer header */
@@ -869,7 +869,7 @@ export const { getChaiBuilder } = createChaiBuilder(config, {
 ```ts
 // 1. Route handler — request present → Authorization header
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { handleChaiActionRequest } from "chaicore/nextjs/server";
+import { handleChaiActionRequest } from "@chaibuilder/core/nextjs/server";
 export async function POST(request: NextRequest, props) {
   const cb = await getChaiBuilder(props, request); // resolver receives request
   return handleChaiActionRequest(request, cb.handleHttpAction);
@@ -968,7 +968,7 @@ export async function generateMetadata(props) {
 ```ts
 // app/(builder)/api/chai/route.ts
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { handleChaiActionRequest, type ChaiBuilderRouteProps } from "chaicore/nextjs/server";
+import { handleChaiActionRequest, type ChaiBuilderRouteProps } from "@chaibuilder/core/nextjs/server";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest, props: ChaiBuilderRouteProps) {
@@ -979,15 +979,15 @@ export async function POST(request: NextRequest, props: ChaiBuilderRouteProps) {
 
 **Key instance methods:**
 
-| Method                         | Description                       |
-| ------------------------------ | --------------------------------- |
-| `cb.getPagePayload(slug)`      | Full render payload               |
-| `cb.generateMetaData(slug)`    | Next.js `Metadata` object         |
+| Method                      | Description                                                     |
+| --------------------------- | --------------------------------------------------------------- |
+| `cb.getPagePayload(slug)`   | Full render payload                                             |
+| `cb.generateMetaData(slug)` | Next.js `Metadata` object                                       |
 | `cb.handleHttpAction(body)` | Dispatch a builder action from a parsed `{ action, data }` body |
-| `cb.getSiteSettings()`         | Site-wide settings                |
-| `cb.getSiteGlobalData()`       | Output of `globalDataProvider`    |
-| `cb.getPageData(slug)`         | Resolved data for a page          |
-| `cb.getPages()`                | All pages                         |
+| `cb.getSiteSettings()`      | Site-wide settings                                              |
+| `cb.getSiteGlobalData()`    | Output of `globalDataProvider`                                  |
+| `cb.getPageData(slug)`      | Resolved data for a page                                        |
+| `cb.getPages()`             | All pages                                                       |
 
 **Rules:**
 
@@ -1006,7 +1006,7 @@ Extend ChaiBuilder by registering custom actions. All actions extend `ChaiBaseAc
 
 ```ts
 // src/app/(builder)/api/actions/check-user-access.ts
-import { ChaiBaseAction } from "chaicore/server";
+import { ChaiBaseAction } from "@chaibuilder/core/server";
 import { z } from "zod";
 
 export class CheckUserAccessAction extends ChaiBaseAction {
@@ -1048,7 +1048,7 @@ abstract class ChaiBaseAction<TInput = any, TOutput = any> {
 **Dispatching actions programmatically:**
 
 ```ts
-import { dispatchChaiAction, tryChaiAction } from "chaicore/server";
+import { dispatchChaiAction, tryChaiAction } from "@chaibuilder/core/server";
 
 const result = await dispatchChaiAction("MY_ACTION", { key: "value" }); // throws on error
 const safe = await tryChaiAction("MY_ACTION", { key: "value" }); // { ok, data } | { ok, error }
@@ -1120,7 +1120,7 @@ buildChaiBuilderConfig({
 
 **Impact: HIGH**
 
-APIs for rendering ChaiBuilder pages in Next.js App Router. All render imports come from `chaicore/render`.
+APIs for rendering ChaiBuilder pages in Next.js App Router. All render imports come from `@chaibuilder/core/render`.
 
 ---
 
@@ -1131,7 +1131,7 @@ APIs for rendering ChaiBuilder pages in Next.js App Router. All render imports c
 ```tsx
 // app/(public)/[[...slug]]/page.tsx
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { RenderChaiBlocks, ChaiPageCSS, ChaiPageJSONLD, PreviewBanner } from "chaicore/render";
+import { RenderChaiBlocks, ChaiPageCSS, ChaiPageJSONLD, PreviewBanner } from "@chaibuilder/core/render";
 
 type Props = { params: Promise<{ slug?: string[] }> };
 
@@ -1165,7 +1165,7 @@ export async function generateMetadata(props: Props) {
 
 ```tsx
 // app/(public)/layout.tsx
-import { ChaiPageCSS, ChaiPageJSONLD } from "chaicore/render";
+import { ChaiPageCSS, ChaiPageJSONLD } from "@chaibuilder/core/render";
 
 export default async function Layout({ children }) {
   const cb = await getChaiBuilder();
@@ -1209,7 +1209,7 @@ export default async function Layout({ children }) {
 **`getStylesForBlocks`** — generate Tailwind CSS for a block array (custom pipelines only):
 
 ```ts
-import { getStylesForBlocks } from "chaicore/render";
+import { getStylesForBlocks } from "@chaibuilder/core/render";
 
 // Without Tailwind preflight (default)
 const css = await getStylesForBlocks(blocks);
@@ -1221,7 +1221,7 @@ const css = await getStylesForBlocks(blocks, true);
 **`getChaiThemeCssVariables`** — CSS custom properties from a theme object:
 
 ```ts
-import { getChaiThemeCssVariables } from "chaicore/render";
+import { getChaiThemeCssVariables } from "@chaibuilder/core/render";
 
 const cssVars = await getChaiThemeCssVariables({ theme: siteSettings.theme });
 // inject: <style dangerouslySetInnerHTML={{ __html: cssVars }} />
@@ -1230,7 +1230,7 @@ const cssVars = await getChaiThemeCssVariables({ theme: siteSettings.theme });
 **`PreviewBanner`** — fixed draft mode indicator (client component):
 
 ```tsx
-import { PreviewBanner } from "chaicore/render";
+import { PreviewBanner } from "@chaibuilder/core/render";
 
 <PreviewBanner show={isDraft} disableUrl="/api/exit-preview" />;
 ```
@@ -1248,7 +1248,7 @@ import { PreviewBanner } from "chaicore/render";
 **`getMergedPartialBlocks`** — inline partial blocks before rendering in a custom pipeline:
 
 ```ts
-import { getMergedPartialBlocks } from "chaicore/render";
+import { getMergedPartialBlocks } from "@chaibuilder/core/render";
 
 // partials: Record<partialBlockId, ChaiBlock[]>
 const merged = getMergedPartialBlocks(page.blocks, partials);

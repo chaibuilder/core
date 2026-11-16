@@ -8,11 +8,11 @@ tags: server, createChaiBuilder, getChaiBuilder, ChaiContextResolver, ChaiReques
 
 Every ChaiBuilder request needs one envelope of facts, the `ChaiRequestContext`:
 
-| Group     | Fields                                                | Answers                        |
-| --------- | ----------------------------------------------------- | ------------------------------ |
-| **WHERE** | `appId`, `siteUrl`                                     | which tenant / which site      |
-| **WHO**   | `userId`, `role`, `permissions`, `delegatedPermissions` | who is asking, and may they    |
-| **HOW**   | `draft`, `lang`                                        | which content, in what language |
+| Group     | Fields                                                  | Answers                         |
+| --------- | ------------------------------------------------------- | ------------------------------- |
+| **WHERE** | `appId`, `siteUrl`                                      | which tenant / which site       |
+| **WHO**   | `userId`, `role`, `permissions`, `delegatedPermissions` | who is asking, and may they     |
+| **HOW**   | `draft`, `lang`                                         | which content, in what language |
 
 ChaiBuilder cannot work these out for you: auth, tenancy, and site URL are host decisions. So you write one resolver and hand it to `createChaiBuilder`, which gives back the `getChaiBuilder` your entry points call.
 
@@ -26,7 +26,7 @@ ChaiBuilder cannot work these out for you: auth, tenancy, and site URL are host 
 // chaibuilder.server.ts  (root of the project — not inside pro/)
 import config from "@/chaibuilder.config";
 import { cookies, draftMode } from "next/headers";
-import { createChaiBuilder, type ChaiIncomingRequest } from "chaicore/server";
+import { createChaiBuilder, type ChaiIncomingRequest } from "@chaibuilder/core/server";
 
 /** Route handlers: identity from the Authorization header. */
 async function userIdFromRequest(request: ChaiIncomingRequest): Promise<string | null> {
@@ -79,7 +79,7 @@ The resolver runs once per request. Return only what you own — every field has
 ```ts
 // app/(builder)/api/chai/route.ts
 import { getChaiBuilder } from "@/chaibuilder.server";
-import { handleChaiActionRequest, type ChaiBuilderRouteProps } from "chaicore/nextjs/server";
+import { handleChaiActionRequest, type ChaiBuilderRouteProps } from "@chaibuilder/core/nextjs/server";
 import { NextRequest } from "next/server";
 
 export async function POST(request: NextRequest, props: ChaiBuilderRouteProps) {
@@ -118,7 +118,7 @@ export async function saveSettings(data: unknown) {
 ```ts
 // scripts/seed.ts
 import config from "../chaibuilder.config";
-import { createChaiBuilder } from "chaicore/server";
+import { createChaiBuilder } from "@chaibuilder/core/server";
 
 const { getChaiBuilder } = createChaiBuilder(config, {
   context: async () => ({
@@ -154,7 +154,7 @@ Permission keys are `entity:operation` (`pages:read`, `assets:update`), with `*`
 - a list → the user's grants. `[]` means authenticated with none.
 - `undefined` / `null` → not a member: authenticated actions fail 401.
 
-**Delegation** — `delegatedPermissions` is the ceiling for the *credential*, independent of the user behind it. Effective permissions become `permissions ∩ delegatedPermissions`. Use it for OAuth apps, MCP tokens, and scoped API keys:
+**Delegation** — `delegatedPermissions` is the ceiling for the _credential_, independent of the user behind it. Effective permissions become `permissions ∩ delegatedPermissions`. Use it for OAuth apps, MCP tokens, and scoped API keys:
 
 ```ts
 // An admin's token, but the token was only granted page reads.
@@ -204,4 +204,4 @@ The previous API still works and is what the factory calls internally:
 setChaiContextResolver(async ({ request }) => ({ ... })); // deprecated
 ```
 
-It registered the resolver as a *side effect* of importing the module, so every entry point needed `import "@/chai-context";` and forgetting it in one route silently downgraded that route to the env-only context. `createChaiBuilder` closes that hole: `getChaiBuilder` cannot be imported without the resolver coming with it. Migrate by moving the resolver body into `createChaiBuilder(config, { context })` and replacing each `getChaiBuilder(config, props, request)` call with `getChaiBuilder(props, request)`.
+It registered the resolver as a _side effect_ of importing the module, so every entry point needed `import "@/chai-context";` and forgetting it in one route silently downgraded that route to the env-only context. `createChaiBuilder` closes that hole: `getChaiBuilder` cannot be imported without the resolver coming with it. Migrate by moving the resolver body into `createChaiBuilder(config, { context })` and replacing each `getChaiBuilder(config, props, request)` call with `getChaiBuilder(props, request)`.

@@ -2,7 +2,7 @@
 
 ## Supported versions
 
-`chaicore` is pre-1.0 and moves fast. Only the latest published release is supported. Fixes land
+`@chaibuilder/core` is pre-1.0 and moves fast. Only the latest published release is supported. Fixes land
 on `main` and ship in the next release; there are no backports to older versions.
 
 | Version        | Supported |
@@ -39,7 +39,7 @@ Please give us a reasonable window to ship a fix before disclosing publicly.
 
 ## Scope
 
-In scope: the `chaicore` package — the editor, renderer, server runtime, actions, database
+In scope: the `@chaibuilder/core` package — the editor, renderer, server runtime, actions, database
 adapters, and the block and binding pipelines.
 
 Out of scope: vulnerabilities in your own application code, in third-party dependencies (report

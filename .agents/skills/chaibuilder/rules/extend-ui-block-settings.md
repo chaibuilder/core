@@ -15,7 +15,7 @@ import {
   registerChaiBlockSettingWidget,
   registerChaiBlockSettingField,
   registerChaiBlockSettingTemplate,
-} from "chaicore";
+} from "@chaibuilder/core";
 
 // Widget — maps to uiSchema "ui:widget"
 registerChaiBlockSettingWidget("color-picker", ColorPickerWidget);
@@ -30,7 +30,7 @@ registerChaiBlockSettingTemplate("inline-label", InlineLabelTemplate);
 **Reference in a block's props schema:**
 
 ```ts
-import { registerChaiBlockProps } from "chaicore/registry";
+import { registerChaiBlockProps } from "@chaibuilder/core/registry";
 
 registerChaiBlockProps({
   type: "object",
@@ -48,5 +48,6 @@ registerChaiBlockProps({
 ```
 
 **Rules:**
+
 - Widget, field, and template IDs are global — use namespaced keys to avoid collisions (e.g. `"myapp-color-picker"`)
 - The `ui` key on a prop's schema becomes the `uiSchema` entry for that field

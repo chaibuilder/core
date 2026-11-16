@@ -1,8 +1,8 @@
-# Agents — `chaicore`
+# Agents — `@chaibuilder/core`
 
 ## What this package is
 
-`chaicore` — the open-source ChaiBuilder package: visual editor, block registry,
+`@chaibuilder/core` — the open-source ChaiBuilder package: visual editor, block registry,
 RSC renderer, server config/actions and DB adapters. Published as a standalone
 npm package **and** vendored into host apps as a git subtree (one-way: hosts
 pull, and contribute back by PR here). Requires Next.js ≥ 15.3, React ≥ 19,
@@ -13,7 +13,7 @@ happens to be vendored into.
 
 ## Two editions, one `src/`
 
-`chaicore` and `chaipro` (the commercial edition, core plus plugins) share one
+`@chaibuilder/core` and `chaipro` (the commercial edition, core plus plugins) share one
 `src/` tree. Every file under `src/` is byte-identical in both repos except the
 paths in `src-sync.exclude` — `src/edition/` (each repo's own copy: package
 identity, always-on plugins, plugin barrels, test harness) and the pro-only trees
@@ -181,7 +181,7 @@ comments there before working around any of them.
   `packageManager` in `package.json`.
 - Likewise `.husky/` hooks (commitlint, ESLint on staged files) fire only when
   committing in this repo.
-- Commit subjects become the `chaicore` changelog and are enforced by commitlint
+- Commit subjects become the `@chaibuilder/core` changelog and are enforced by commitlint
   (`@commitlint/config-conventional`). Subtree hosts pull only and never push
   commits back, so this repo is the sole path into that history — outside
   contributions arrive as PRs here.

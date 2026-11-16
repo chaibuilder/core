@@ -13,7 +13,7 @@ The prefix (in parentheses) is used as the filename prefix to group rules.
 ## 2. Custom Blocks (blocks) ✅
 
 **Impact:** HIGH  
-**Description:** Defining and registering custom block components with typed props schemas, styles, and builder-only props. Uses `registerChaiBlock`, `registerChaiBlockProps`, `stylesProp`, `builderProp`, and `closestBlockProp` from `chaicore/registry`.
+**Description:** Defining and registering custom block components with typed props schemas, styles, and builder-only props. Uses `registerChaiBlock`, `registerChaiBlockProps`, `stylesProp`, `builderProp`, and `closestBlockProp` from `@chaibuilder/core/registry`.
 
 ## 3. Server Setup (server)
 
@@ -23,4 +23,4 @@ The prefix (in parentheses) is used as the filename prefix to group rules.
 ## 4. Page Rendering (render)
 
 **Impact:** HIGH  
-**Description:** Rendering ChaiBuilder pages in Next.js using `RenderChaiBlocks`, `ChaiPageCSS`, `getStylesForBlocks`, and `getMergedPartialBlocks` from `chaicore/render`.
+**Description:** Rendering ChaiBuilder pages in Next.js using `RenderChaiBlocks`, `ChaiPageCSS`, `getStylesForBlocks`, and `getMergedPartialBlocks` from `@chaibuilder/core/render`.

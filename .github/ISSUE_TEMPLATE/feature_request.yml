@@ -6,7 +6,7 @@ body:
     attributes:
       value: |
         Good feature requests start from a problem, not a solution. Tell us what you were trying
-        to do and where `chaicore` got in the way.
+        to do and where `@chaibuilder/core` got in the way.
 
         If you want to discuss an idea before it is fully formed, open a
         [discussion](https://github.com/chaibuilder/core/discussions/categories/ideas) instead.

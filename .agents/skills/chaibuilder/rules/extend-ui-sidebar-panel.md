@@ -11,13 +11,13 @@ Use `registerChaiSidebarPanel` to add a custom panel to the builder sidebar. Pan
 **Correct:**
 
 ```tsx
-import { registerChaiSidebarPanel } from "chaicore";
+import { registerChaiSidebarPanel } from "@chaibuilder/core";
 
 registerChaiSidebarPanel("analytics-panel", {
-  position: "bottom",       // "top" | "bottom"
-  view: "drawer",           // "standard" | "modal" | "overlay" | "drawer"
+  position: "bottom", // "top" | "bottom"
+  view: "drawer", // "standard" | "modal" | "overlay" | "drawer"
   label: "Analytics",
-  width: 320,               // optional, pixels
+  width: 320, // optional, pixels
   button: ({ isActive, show }) => (
     <button onClick={show} aria-pressed={isActive}>
       <BarChartIcon />
@@ -38,6 +38,7 @@ export default function EditorPage() {
 ```
 
 **Rules:**
+
 - Always call at module level, not inside a component or hook
 - `position: "top"` groups with main nav icons; `"bottom"` appears below
 - `view: "standard"` replaces the default side panel content area

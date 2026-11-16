@@ -11,7 +11,7 @@ Use `registerChaiPreImportHTMLHook` to transform raw HTML before it's converted 
 **Correct:**
 
 ```ts
-import { registerChaiPreImportHTMLHook } from "chaicore";
+import { registerChaiPreImportHTMLHook } from "@chaibuilder/core";
 
 registerChaiPreImportHTMLHook(async (html) => {
   const cleaned = await sanitizeHtml(html);
@@ -20,6 +20,7 @@ registerChaiPreImportHTMLHook(async (html) => {
 ```
 
 **Rules:**
+
 - Singleton — only one hook; last call wins
 - Must return the transformed HTML string
 - Async functions are supported

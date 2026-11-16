@@ -11,24 +11,21 @@ Use `registerChaiSaveToLibrary` to replace the default "Save to Library" dialog 
 **Correct:**
 
 ```tsx
-import { registerChaiSaveToLibrary } from "chaicore";
+import { registerChaiSaveToLibrary } from "@chaibuilder/core";
 
 registerChaiSaveToLibrary(({ blockId, blocks, close }) => (
-  <MyLibraryDialog
-    blockId={blockId}
-    blocks={blocks}
-    onClose={close}
-  />
+  <MyLibraryDialog blockId={blockId} blocks={blocks} onClose={close} />
 ));
 ```
 
 **Props received by your component:**
 
-| Prop | Type | Description |
-|---|---|---|
-| `blockId` | `string` | ID of the block being saved |
-| `blocks` | `ChaiBlock[]` | The block and its descendants |
-| `close` | `() => void` | Call to close the dialog |
+| Prop      | Type          | Description                   |
+| --------- | ------------- | ----------------------------- |
+| `blockId` | `string`      | ID of the block being saved   |
+| `blocks`  | `ChaiBlock[]` | The block and its descendants |
+| `close`   | `() => void`  | Call to close the dialog      |
 
 **Rules:**
+
 - Singleton — only one component can be registered; last call wins

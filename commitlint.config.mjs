@@ -1,5 +1,5 @@
 /**
- * Commit messages become the changelog for the `chaicore` package, so subjects must be
+ * Commit messages become the changelog for the `@chaibuilder/core` package, so subjects must be
  * conventional commits. Gated in two places: the .husky/commit-msg hook locally, and the
  * commitlint job in .github/workflows/pr-checks.yml on every pull request.
  *
