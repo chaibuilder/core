@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { schema } from "~/server/chai-actions/db";
 import { slugTag } from "~/server/chai-builder/public/page-routing-cache";
 import { fake } from "~/tests/setup/fakers";
-import { TEST_APP_ID } from "~/tests/setup/test-app";
+import { TEST_APP_ID, TEST_USER_ID } from "~/tests/setup/test-app";
 import { withTestDB } from "~/tests/setup/transaction-manager";
 import { PublishChangesAction } from "./publish-changes";
 
@@ -210,6 +210,37 @@ describe("PublishChangesAction - Integration", () => {
       expect(online?.blocks).toEqual([]);
       expect(online?.partialBlocks).toBe("");
       expect(online?.links).toBe("");
+    });
+  });
+
+  it("should overwrite an existing online row in place, as a fresh publish", async () => {
+    await withTestDB(async ({ db, seed, action }) => {
+      const page = await seed("appPages", fake.appPages({ slug: "/republish", name: "Draft name", changes: ["Page"] }));
+      await seed(
+        "appPagesOnline",
+        fake.appPagesOnline({
+          id: page.id,
+          slug: "/old-slug",
+          name: "Old name",
+          changes: ["stale"],
+          currentEditor: "someone-else",
+          source: "mcp",
+          createdAt: "2020-01-01 00:00:00",
+        }),
+      );
+
+      await action(PublishChangesAction).run({ ids: [page.id] });
+
+      const online = await db.query.appPagesOnline.findFirst({ where: eq(schema.appPagesOnline.id, page.id) });
+      expect(online).toMatchObject({
+        slug: "/republish",
+        name: "Draft name",
+        changes: null,
+        currentEditor: TEST_USER_ID,
+        source: "builder",
+      });
+      // The online row's createdAt is the publish time that revision history shows.
+      expect(online?.createdAt).not.toBe("2020-01-01 00:00:00");
     });
   });
 

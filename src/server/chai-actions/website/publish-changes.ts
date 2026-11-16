@@ -1,4 +1,4 @@
-import { and, eq, getTableColumns, inArray, InferSelectModel, isNotNull, like } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, InferSelectModel, is, isNotNull, like, SQL, type Table } from "drizzle-orm";
 import { flattenDeep, isEmpty, omit, uniq } from "lodash-es";
 import { z } from "zod";
 import { getAppFields, getAppRow, updateAppFields } from "~/server/chai-actions/apps/app-store";
@@ -40,6 +40,30 @@ type AddOnlinePageResult = {
   id: string;
   primaryPage: string | null;
 };
+
+/**
+ * The draft row's values for every column the online table also declares, minus `skip`. A column
+ * a host declares on both tables (a NOT NULL site type, a derived jsonb snapshot) publishes with the
+ * rest instead of failing or going stale; a draft-only column has no online counterpart and is left out.
+ */
+function columnsBothTablesDeclare(
+  row: Record<string, unknown>,
+  onlineTable: Table,
+  skip: readonly string[],
+): Record<string, unknown> {
+  const onlineColumns = getTableColumns(onlineTable);
+  const fields: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(row)) {
+    if (!skip.includes(key) && Object.hasOwn(onlineColumns, key)) fields[key] = value;
+  }
+  return fields;
+}
+
+/** A column's SQL default (`now()`, `datetime('now')`), or undefined when it declares none. */
+function columnDefaultSql(table: Table, key: string): SQL | undefined {
+  const value = (getTableColumns(table)[key] as { default?: unknown } | undefined)?.default;
+  return is(value, SQL) ? value : undefined;
+}
 
 /**
  * Action to publish changes to pages or theme
@@ -184,16 +208,9 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
    * first-ever publish still inserts the whole row — there is no live value to keep yet.
    */
   private async upsertOnlineApp(app: AppData, errorCode: string, keepOnline: "theme" | "designTokens"): Promise<void> {
-    // Every draft column apps_online also has, so a column a host adds to both tables (a NOT NULL
-    // site type, a derived jsonb snapshot) publishes with the rest instead of failing or going stale.
     // Deliberately excludes apiKey (lives only on apps_online) and createdAt (kept from the
-    // existing online row); a draft-only column has no apps_online counterpart and is skipped.
-    const onlineColumns = getTableColumns(schema.appsOnline);
-    const publishedFields: Record<string, unknown> = {};
-    for (const [key, value] of Object.entries(app)) {
-      if (key === "id" || key === "createdAt" || key === "apiKey") continue;
-      if (Object.hasOwn(onlineColumns, key)) publishedFields[key] = value;
-    }
+    // existing online row).
+    const publishedFields = columnsBothTablesDeclare(app, schema.appsOnline, ["id", "createdAt", "apiKey"]);
     publishedFields.changes = null;
 
     const { error } = await safeQuery(() =>
@@ -342,7 +359,7 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
    */
   private async publishPage(id: string): Promise<PublishChangesActionResponse> {
     const page = await this.clonePage(id);
-    // Read before addOnlinePage deletes the online row
+    // Read before addOnlinePage overwrites the online row
     const oldSlug = await this.getOldOnlineSlug(page.id);
     await this.addOnlinePage(page);
 
@@ -386,7 +403,11 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
   }
 
   /**
-   * Add page to online table
+   * Copy the draft page onto its app_pages_online row WITHOUT deleting it, for the same reasons as
+   * `upsertOnlineApp`. A delete + re-insert reset every online column the draft row does not carry
+   * (a column a host added only to app_pages_online, or one its own migration added that Pro's
+   * schema does not declare) and cascaded to any host row referencing the online page. The upsert
+   * replaces every column both tables declare, exactly as the re-insert did, and leaves the rest.
    */
   private async addOnlinePage(page: AppPageData): Promise<AddOnlinePageResult> {
     // The outgoing live row is still in place: whoever keeps page history snapshots it now.
@@ -396,31 +417,28 @@ export class PublishChangesAction extends ChaiBaseAction<PublishChangesActionDat
       revisions: this.revisionsEnabled,
     });
 
-    const { error: deleteError } = await safeQuery(() =>
-      db.delete(schema.appPagesOnline).where(eq(schema.appPagesOnline.id, page.id)),
-    );
-
-    if (deleteError) {
-      throw new ActionError("Error deleting online page", "ERROR_PUBLISHING_PAGE", 500, deleteError);
-    }
-
-    // Destructure to remove fields that shouldn't be copied or are auto-generated
-    const { changes: _changes, createdAt: _createdAt, ...pageData } = page;
+    const published = columnsBothTablesDeclare(page, schema.appPagesOnline, ["id", "createdAt", "changes"]);
     // Language pages render the primary's blocks (get-page.ts), and their cache invalidation rides
     // on the primary's row. Don't mirror orphaned draft blocks, or the partials/links derived from
     // them, into the online row: they only trigger redundant revalidations (#2842).
-    if (pageData.primaryPage) Object.assign(pageData, { blocks: [], partialBlocks: "", links: "" });
+    if (published.primaryPage) Object.assign(published, { blocks: [], partialBlocks: "", links: "" });
+    Object.assign(published, {
+      changes: null,
+      // `?? null`: an undefined value would leave the previous publisher in place on update.
+      currentEditor: this.context?.userId ?? null,
+      // A `page:publishing` subscriber may copy this row wholesale on the next
+      // publish, so recording it here also attributes that snapshot.
+      source: resolveEditSource(this.context),
+      // The online row's createdAt is the publish time (revision history reads it). The column's own
+      // default keeps the format a fresh insert stores; ISO only when the table declares none.
+      createdAt: columnDefaultSql(schema.appPagesOnline, "createdAt") ?? new Date().toISOString(),
+    });
 
     const { data, error } = await safeQuery(() =>
       db
         .insert(schema.appPagesOnline)
-        .values({
-          ...pageData,
-          currentEditor: this.context?.userId,
-          // A `page:publishing` subscriber may copy this row wholesale on the next
-          // publish, so recording it here also attributes that snapshot.
-          source: resolveEditSource(this.context),
-        })
+        .values({ ...published, id: page.id })
+        .onConflictDoUpdate({ target: schema.appPagesOnline.id, set: published })
         .returning(),
     );
 

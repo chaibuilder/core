@@ -53,7 +53,9 @@ Notes:
 schema built from `TEST_DB_NAMING` (`naming-fixture.ts`: every table prefixed or renamed and
 every relationship column renamed) with `createChaiSqliteSchema(naming)` +
 `useTestChaiConfig({ db })`; `table-mapping.integration.test.ts` does the same under host code
-names. Read tables from `schema` (`~/server/chai-actions/db`), never a SQL name, so a test holds
+names. `host-columns.integration.test.ts` adds host columns with `ALTER TABLE` and runs the page
+actions with them undeclared and declared (`withHostColumns`, `~/tests/utils/host-columns`).
+Read tables from `schema` (`~/server/chai-actions/db`), never a SQL name, so a test holds
 under any naming.
 
 ## DOM tests (`src/tests/builder`)
