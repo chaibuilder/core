@@ -2,7 +2,7 @@ import { useAtomValue } from "jotai";
 import { isEmpty } from "lodash-es";
 import { useCallback, useMemo } from "react";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { currentBlocksPartialIdsAtom, partialBlocksAtom } from "./atoms";
 import { getPartialUsageDepth } from "./utils";
 
@@ -22,7 +22,7 @@ export type PartialGraph = {
  * 3. The currently edited page's own (possibly unsaved) partial references.
  */
 export const usePartialGraph = (): PartialGraph => {
-  const { data: pages } = useWebsitePrimaryPages();
+  const { data: pages } = useChaiPrimaryPages();
   const partialBlocks = useAtomValue(partialBlocksAtom);
   // Equality-guarded id list, NOT the raw blocks array: this hook mounts under
   // every canvas block (dnd chain), and a raw presentBlocksAtom subscription
@@ -58,8 +58,5 @@ export const usePartialGraph = (): PartialGraph => {
 
   const getUsageDepth = useCallback((id: string) => getPartialUsageDepth(id, dependencies), [dependencies]);
 
-  return useMemo(
-    () => ({ dependencies, isPartialPage, getUsageDepth }),
-    [dependencies, isPartialPage, getUsageDepth],
-  );
+  return useMemo(() => ({ dependencies, isPartialPage, getUsageDepth }), [dependencies, isPartialPage, getUsageDepth]);
 };

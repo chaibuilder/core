@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 import { useAskAi } from "~/builder/hooks/use-ask-ai";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
-import { LANGUAGES } from "~/constants/LANGUAGES";
+import { CHAI_LANGUAGES } from "~/constants/LANGUAGES";
 
 export function QuickPrompts({ onClick }: { onClick: (prompt: string) => void }) {
   const { loading } = useAskAi();
@@ -64,11 +64,11 @@ export function QuickPrompts({ onClick }: { onClick: (prompt: string) => void })
   if (selectedLang && selectedLang !== fallbackLang) {
     quickPrompts.splice(0, 0, {
       name: t(`Translate to {{lang}}`, {
-        lang: get(LANGUAGES, selectedLang, selectedLang),
+        lang: get(CHAI_LANGUAGES, selectedLang, selectedLang),
       }),
       icon: ChatBubbleIcon,
       prompt: t(`Translate the content to {{lang}}. Maintain same tone, style and length.`, {
-        lang: get(LANGUAGES, selectedLang, selectedLang),
+        lang: get(CHAI_LANGUAGES, selectedLang, selectedLang),
       }),
     });
   }
@@ -96,7 +96,7 @@ export function QuickPrompts({ onClick }: { onClick: (prompt: string) => void })
           ) : (
             <li
               onClick={() => onClick(prompt)}
-              className="flex cursor-pointer items-center space-x-2 rounded p-1 text-xs hover:bg-primary/10 hover:text-primary dark:hover:bg-gray-800"
+              className="hover:bg-primary/10 hover:text-primary flex cursor-pointer items-center space-x-2 rounded p-1 text-xs dark:hover:bg-gray-800"
               key={name}>
               <Icon className="h-3.5 w-3.5" />
               <span>{t(name)}</span>

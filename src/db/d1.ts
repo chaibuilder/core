@@ -9,7 +9,7 @@ import { chaiDrizzleLogger } from "~/db/logger";
  * to the core tables under the default naming. Pass `createChaiSqliteSchema(naming).schema` for a
  * programmatic naming. `schema` is the older spelling of the same option.
  */
-export type D1DbInput =
+export type CreateD1DbOptions =
   | {
       d1: AnyD1Database;
       tableMapping?: ChaiTableMapping;
@@ -27,7 +27,7 @@ export function createD1Instance(d1: AnyD1Database): DrizzleD1Database<typeof sc
   return drizzleD1(d1, { schema, logger: chaiDrizzleLogger });
 }
 
-function assertSingleD1Input(input: D1DbInput): void {
+function assertSingleD1Input(input: CreateD1DbOptions): void {
   const count = Number("d1" in input) + Number("drizzle" in input);
   if (count !== 1) {
     throw new Error("ChaiBuilder: createD1DB expects exactly one of `d1` or `drizzle`.");
@@ -35,7 +35,7 @@ function assertSingleD1Input(input: D1DbInput): void {
 }
 
 /** Creates a Cloudflare D1 Drizzle setup for `buildChaiBuilderConfig({ db: ... })`. */
-export function createD1DB(input: D1DbInput): ChaiDbSetup {
+export function createD1Db(input: CreateD1DbOptions): ChaiDbSetup {
   assertSingleD1Input(input);
 
   const activeSchema = mapChaiTables(input.tables ?? input.schema ?? schema, input.tableMapping, schema);
@@ -65,3 +65,6 @@ export function createD1DB(input: D1DbInput): ChaiDbSetup {
 export type { DrizzleD1Database };
 
 export type { ChaiTableMapping } from "~/db/table-mapping";
+
+// Deprecated names, kept for compatibility. See ./d1.deprecated.ts.
+export * from "./d1.deprecated";

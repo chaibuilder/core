@@ -3,11 +3,11 @@ import { find } from "lodash-es";
 import { useCallback, useMemo } from "react";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
 import { useDynamicPageSlug } from "./use-dynamic-page-selector";
-import { useLanguagePages } from "./use-language-pages";
-import { useWebsiteLanguagePages, useWebsitePrimaryPages } from "./use-project-pages";
+import { useChaiLanguagePages } from "./use-language-pages";
+import { useWebsiteLanguagePages, useChaiPrimaryPages } from "./use-project-pages";
 
 const pageEditInfoAtom = atom<{
   lastSaved?: string;
@@ -20,7 +20,7 @@ export const usePageEditInfo = () => {
 export const useChaiCurrentPage = () => {
   const [searchParams] = useSearchParams();
   const page = searchParams.get("page");
-  const { data: pages, isFetching } = useLanguagePages();
+  const { data: pages, isFetching } = useChaiLanguagePages();
   const currentPage = useMemo(() => {
     const match = pages?.find((p) => p.id === page);
     return match ? { ...match } : {};
@@ -32,7 +32,7 @@ export const useChaiCurrentPage = () => {
 export const usePrimaryPage = () => {
   const [searchParams] = useSearchParams();
   const page = searchParams.get("page");
-  const { data: pages, isFetching } = useWebsitePrimaryPages();
+  const { data: pages, isFetching } = useChaiPrimaryPages();
   const currentPage = useMemo(() => {
     const match = pages?.find((p) => p.id === page);
     return match ? { ...match } : {};
@@ -40,13 +40,13 @@ export const usePrimaryPage = () => {
   return { data: currentPage as any, isFetching };
 };
 
-export const useCurrentActivePage = () => {
+export const useChaiActivePage = () => {
   const [searchParams] = useSearchParams();
   const lang = searchParams.get("lang") ?? "";
   const page = searchParams.get("page");
   const { data: languagePages, isFetching } = useWebsiteLanguagePages(lang);
-  const { data: primaryPages } = useWebsitePrimaryPages();
-  const { data: pageTypes } = usePageTypes();
+  const { data: primaryPages } = useChaiPrimaryPages();
+  const { data: pageTypes } = useChaiPageTypes();
   const currentPage = useMemo(() => {
     const primaryRecord = primaryPages?.find((p) => p.id === page);
     const pageTypeConfig = find(pageTypes, { key: primaryRecord?.pageType });
@@ -85,9 +85,9 @@ const appendDynamicSlug = (baseUrl: string, dynamicSlug: string) => {
  */
 export const useGetPageFullSlug = () => {
   const { selectedLang, fallbackLang } = useLanguages();
-  const { data: activePage } = useCurrentActivePage();
+  const { data: activePage } = useChaiActivePage();
   const { data: currentPage } = usePrimaryPage();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const dynamicPageSlug = useDynamicPageSlug();
   const getLiveUrl = usePagesProp("getLiveUrl", (s: string) => s);
 
@@ -113,8 +113,8 @@ export const useGetPagePreviewUrl = () => {
   const getPreviewUrl = usePagesProp("getPreviewUrl", (s: string) => s);
 
   const { data: currentPage } = usePrimaryPage();
-  const { data: languagePages } = useLanguagePages();
-  const { data: pageTypes } = usePageTypes();
+  const { data: languagePages } = useChaiLanguagePages();
+  const { data: pageTypes } = useChaiPageTypes();
   const dynamicPageSlug = useDynamicPageSlug();
 
   const slug = useMemo(

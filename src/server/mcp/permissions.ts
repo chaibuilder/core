@@ -1,4 +1,4 @@
-import { hasPermission } from "~/server/rbac/permissions";
+import { hasChaiPermission } from "~/server/rbac/permissions";
 import type { ChaiMcpToolMeta } from "~/types/mcp";
 
 /**
@@ -12,10 +12,10 @@ import type { ChaiMcpToolMeta } from "~/types/mcp";
  */
 export function canInvokeChaiMcpTool(permissions: string[], tool: ChaiMcpToolMeta | undefined): boolean {
   if (!tool) return false;
-  return tool.permissions.every((required) => hasPermission(permissions, required));
+  return tool.permissions.every((required) => hasChaiPermission(permissions, required));
 }
 
 /** The permissions a caller is missing for a tool, for a message that says what to fix. */
-export function missingChaiMcpToolPermissions(permissions: string[], tool: ChaiMcpToolMeta): string[] {
-  return tool.permissions.filter((required) => !hasPermission(permissions, required));
+export function getMissingChaiMcpToolPermissions(permissions: string[], tool: ChaiMcpToolMeta): string[] {
+  return tool.permissions.filter((required) => !hasChaiPermission(permissions, required));
 }

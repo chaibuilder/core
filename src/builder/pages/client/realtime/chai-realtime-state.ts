@@ -53,7 +53,7 @@ export type ChaiAiPageEditLease = {
  * The current page's AI lease: `undefined` until the first check for this page has
  * answered, then the active lease or `null`. Written only by the realtime plugin's
  * lease poll — never by presence — so the two sources cannot fight over
- * `pageStatusAtom`; `usePageLockStatus` combines them.
+ * `pageStatusAtom`; `useChaiPageLockStatus` combines them.
  */
 export const aiPageEditLeaseAtom = atom<ChaiAiPageEditLease | null | undefined>(undefined);
 
@@ -82,7 +82,7 @@ const LOCKED_STATUSES: ChaiPageStatus[] = [
  * @returns
  * { pageId: { pageId: string; userId: string; clientId: string; onlineAt: number }}
  */
-export const usePageToUser = () => {
+export const useChaiPageLocks = () => {
   const [pageToUser, setPageToUser] = useAtom(pageUserMapAtom);
   return { pageToUser, setPageToUser };
 };
@@ -115,7 +115,7 @@ export const resolvePageStatus = (
  * holding the page, so this reports a plain editing session — never CHECKING, which
  * would otherwise leave the editor blurred behind a loader forever.
  */
-export const usePageLockStatus = () => {
+export const useChaiPageLockStatus = () => {
   const [trackedStatus, setPageStatus] = useAtom(pageStatusAtom);
   const aiLease = useAtomValue(aiPageEditLeaseAtom);
   const pageStatus: ChaiPageStatus = isChaiRealtimeEnabled()
@@ -154,9 +154,9 @@ export const usePageLockMeta = () => {
  * @returns
  * null | { pageId: string; userId: string; clientId: string; onlineAt: number }
  */
-export const useCurrentPageOwner = () => {
+export const useChaiPageLockOwner = () => {
   const pageId = usePageId();
-  const { pageToUser } = usePageToUser();
+  const { pageToUser } = useChaiPageLocks();
   return useMemo(() => pageToUser[pageId], [pageToUser, pageId]);
 };
 

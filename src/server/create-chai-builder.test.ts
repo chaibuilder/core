@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildChaiBuilderConfig } from "~/server/build-config";
-import { getChaiContextResolver, resetChaiContextResolverForTests } from "~/server/chai-context-resolver";
+import { getRegisteredChaiContextResolver, resetChaiContextResolverForTests } from "~/server/chai-context-resolver";
 import { createChaiBuilder } from "~/server/create-chai-builder";
 import { resetActiveChaiBuilderConfigForTests } from "~/server/defaults/config-registry";
 import { resetChaiBuilderCoreForTests } from "~/server/get-chaibuilder";
@@ -37,7 +37,7 @@ describe("createChaiBuilder", () => {
     });
 
     expect(boundConfig).toBe(config);
-    expect(getChaiContextResolver()).not.toBeNull();
+    expect(getRegisteredChaiContextResolver()).not.toBeNull();
 
     const cb = await getChaiBuilder();
     expect(cb.config).toBe(config);
@@ -70,7 +70,7 @@ describe("createChaiBuilder", () => {
   it("falls back to the static env context when no resolver is supplied", async () => {
     const { getChaiBuilder } = createChaiBuilder(makeConfig());
 
-    expect(getChaiContextResolver()).toBeNull();
+    expect(getRegisteredChaiContextResolver()).toBeNull();
     const cb = await getChaiBuilder();
     expect(cb.context).toMatchObject({ appId: "test-app-id", userId: null, draft: false });
   });
@@ -86,6 +86,8 @@ describe("createChaiBuilder", () => {
   it("rejects a request passed without route props", async () => {
     const { getChaiBuilder } = createChaiBuilder(makeConfig(), { context: async () => ({ userId: "user-1" }) });
 
-    await expect(getChaiBuilder(undefined, makeRequest())).rejects.toThrow("when passing a request, supply route props");
+    await expect(getChaiBuilder(undefined, makeRequest())).rejects.toThrow(
+      "when passing a request, supply route props",
+    );
   });
 });

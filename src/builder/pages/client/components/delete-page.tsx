@@ -7,8 +7,8 @@ import { useSidebarActivePanel } from "~/builder/hooks/use-sidebar-active-panel"
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
 import { getTrashLabels } from "~/builder/pages/constants/trash-config";
 import { useDeletePage } from "~/builder/pages/hooks/pages/mutations";
-import { useLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useSiteWideUsage } from "~/builder/pages/hooks/use-site-wide-usage";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
@@ -34,11 +34,11 @@ function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
   const { singular } = usePartialTypeLabel();
   const [, setQueryParams] = useSearchParams();
   const { mutate: deletePage, isPending: isDeleting } = useDeletePage();
-  const { data: allPages = [] } = useWebsitePrimaryPages();
+  const { data: allPages = [] } = useChaiPrimaryPages();
   const { setSelectedLang, fallbackLang } = useLanguages();
   const [, setActivePanel] = useSidebarActivePanel();
   const isPrimaryPage = !page?.primaryPage;
-  const { data: languagePages = [] } = useLanguagePages(isPrimaryPage ? page?.id : undefined);
+  const { data: languagePages = [] } = useChaiLanguagePages(isPrimaryPage ? page?.id : undefined);
   const { data: siteWideUsage } = useSiteWideUsage();
   const flags = usePagesProp("flags", {}) as Record<string, boolean>;
 
@@ -104,7 +104,7 @@ function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
           <DialogTitle>{flags?.trash ? t(getTrashLabels().confirmMoveTitle) : t("Delete Page")}</DialogTitle>
         </DialogHeader>
         <div className="rounded-md">
-          <div className="mb-2 text-sm font-light text-foreground/90">
+          <div className="text-foreground/90 mb-2 text-sm font-light">
             {flags?.trash ? t("Are you sure you want to move") : t("Are you sure you want to delete")}{" "}
             <b>{page?.name ?? page?.slug}</b> {flags?.trash ? t("to archive?") : t("? This action cannot be undone.")}
           </div>
@@ -112,13 +112,13 @@ function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
           {/* Warning for primary page with language pages or nested children */}
           {isPrimaryPage && (languagePagesCount > 0 || childPageCount > 0) && (
             <div className="mt-3 rounded-md border p-3 text-sm">
-              <div className="font-semibold text-destructive">
+              <div className="text-destructive font-semibold">
                 {t(
                   `Warning: ${flags?.trash ? getTrashLabels().warning : "Deleting"} this primary page will also remove`,
                 )}
                 :
               </div>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-destructive">
+              <ul className="text-destructive mt-2 list-inside list-disc space-y-1">
                 {childPageCount > 0 && (
                   <li>
                     <span className="font-medium">{childPageCount}</span>{" "}
@@ -132,11 +132,11 @@ function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
 
           {/* Warning for partial being used in pages */}
           {isPartial && pagesUsingPartial.length > 0 && (
-            <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm">
-              <div className="font-semibold text-destructive">
+            <div className="bg-destructive/10 mt-3 rounded-md p-3 text-sm">
+              <div className="text-destructive font-semibold">
                 {t("Warning: This {{name}} is currently used in the following pages", { name: singular })}:
               </div>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-destructive">
+              <ul className="text-destructive mt-2 list-inside list-disc space-y-1">
                 {pagesUsingPartial.map(({ id, name }) => (
                   <li key={id}>
                     <span className="font-medium">{name}</span>
@@ -146,7 +146,7 @@ function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
             </div>
           )}
           {page.lang && (
-            <div className="py-2 text-sm font-light text-foreground">
+            <div className="text-foreground py-2 text-sm font-light">
               {t("Language")}: <span className="font-medium">{get(LANGUAGES, page.lang, page.lang)}</span>
             </div>
           )}

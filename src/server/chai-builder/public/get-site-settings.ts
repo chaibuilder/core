@@ -1,11 +1,11 @@
 import { getAppRow } from "~/server/chai-actions/apps/app-store";
 import { getConfigSiteSettingsTransform } from "~/server/defaults/config-registry";
-import type { ChaiWebsiteSetting } from "~/types";
+import type { ChaiSiteSettings } from "~/types";
 import { getInitializedState } from "../state";
 import { withChaiCache } from "./cache-utils";
 
 // Stable function reference for caching - defined once at module level
-async function fetchSiteSettings(appId: string, draftMode: boolean): Promise<ChaiWebsiteSetting> {
+async function fetchSiteSettings(appId: string, draftMode: boolean): Promise<ChaiSiteSettings> {
   const { data: settings, error } = await getAppRow(appId, { draft: draftMode });
 
   if (error || !settings) {
@@ -19,10 +19,10 @@ async function fetchSiteSettings(appId: string, draftMode: boolean): Promise<Cha
   const transform = getConfigSiteSettingsTransform();
   const transformed = transform ? await transform(settings, { appId, draftMode }) : settings;
 
-  return { ...transformed, appKey: "" } as ChaiWebsiteSetting;
+  return { ...transformed, appKey: "" } as ChaiSiteSettings;
 }
 
-export const getSiteSettings = async (): Promise<ChaiWebsiteSetting> => {
+export const getSiteSettings = async (): Promise<ChaiSiteSettings> => {
   const state = getInitializedState();
   return await withChaiCache(
     fetchSiteSettings,

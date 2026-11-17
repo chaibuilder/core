@@ -1,7 +1,7 @@
 /**
  * Base (core) permission catalog only. Plugin-owned keys (redirects, trash,
  * revisions, roles, …) live in their plugin's `permissions.ts` and enter the
- * runtime catalog via `registerChaiPermissions` — see `getPermissionCatalog()`
+ * runtime catalog via `registerChaiPermissions` — see `getChaiPermissionCatalog()`
  * in ~/server/rbac/permission-catalog.
  */
 export const CHAI_PERMISSIONS = {

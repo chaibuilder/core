@@ -15,7 +15,7 @@ export function getBgImageValue(value: string) {
 /**
  * Get the unique uuid
  */
-export function generateUUID(length: number = 6): string {
+export function generateUuid(length: number = 6): string {
   return nanoid(length);
 }
 

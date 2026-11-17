@@ -1,7 +1,7 @@
 import { filter, has, isEmpty, startCase } from "lodash-es";
 import { useCallback } from "react";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { ChaiBlock } from "~/types/common";
 import { PARTIAL_TAGS_METADATA_KEY } from "~/types/partial-blocks";
 import { useFetch } from "./use-fetch";
@@ -10,8 +10,8 @@ export const usePartialBlocksFn = (): {
   getPartialBlocks: () => Promise<Record<string, { name: string; description?: string; type: string; tags: string[] }>>;
   getPartialBlockBlocks: (partialBlockKey: string) => Promise<ChaiBlock[]>;
 } => {
-  const { data: projectPages } = useWebsitePrimaryPages();
-  const apiUrl = useApiUrl();
+  const { data: projectPages } = useChaiPrimaryPages();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   return {
     getPartialBlocks: useCallback(async () => {

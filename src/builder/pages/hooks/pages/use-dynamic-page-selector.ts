@@ -3,7 +3,7 @@ import { atom, PrimitiveAtom, useAtom } from "jotai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import { usePageType } from "~/builder/pages/hooks/project/use-page-types";
 import { usePrimaryPage } from "./use-current-page";
@@ -81,7 +81,7 @@ const useGetDynamicPages = ({
   const { data: currentPage } = usePrimaryPage();
   const pageType = currentPage?.pageType;
   const pageSlug = currentPage?.slug;
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
 
   const lang = resolveEffectiveLang(selectedLang, fallbackLang);
@@ -106,7 +106,7 @@ const useGetDynamicPages = ({
 export const useDynamicPageSelector = () => {
   const { selectedLang, fallbackLang } = useLanguages();
   const [storedDynamicPage, setDynamicPage] = useSelectedDynamicPage();
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const { data: currentPage } = usePrimaryPage();
   const pageType = currentPage?.pageType;

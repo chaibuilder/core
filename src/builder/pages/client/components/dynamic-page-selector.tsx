@@ -1,10 +1,11 @@
 import { get } from "lodash-es";
 import { ChevronDown, Pencil, Plus } from "lucide-react";
 import { lazy, Suspense, useState } from "react";
-import { useLanguagePages, useTranslation } from "~/builder";
+import { useChaiLanguagePages } from "~/builder";
+import { useTranslation } from "react-i18next";
 import SearchInput from "~/builder/core/components/sidepanels/panels/add-blocks/search-input";
 import { useLanguages } from "~/builder/hooks/use-languages";
-import { useCurrentActivePage, usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
+import { useChaiActivePage, usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
 import { useDynamicPageSelector } from "~/builder/pages/hooks/pages/use-dynamic-page-selector";
 import { usePageType } from "~/builder/pages/hooks/project/use-page-types";
 import { Button } from "~/components/ui/button";
@@ -32,7 +33,7 @@ const PageListItem = ({
       key={page.id}
       onClick={onClick}
       className={`no-scrollbar flex cursor-pointer flex-col justify-start overflow-x-auto whitespace-nowrap ${isSelected ? "bg-muted-foreground/20" : "hover:bg-muted/20"}`}>
-      <div className="w-full whitespace-nowrap px-1 text-xs">
+      <div className="w-full px-1 text-xs whitespace-nowrap">
         <div className="flex items-center gap-x-2">
           {icon && (
             <div
@@ -92,15 +93,15 @@ const PageSelector = ({
   const isDefaultLang = selectedLang?.length === 0;
   const trimmedQuery = searchQuery.trim();
   const canUseQueryAsIdentifier = isDefaultLang && trimmedQuery.length > 0;
-  const { data: page, isFetching } = useCurrentActivePage();
-  const { data: languagePages } = useLanguagePages();
+  const { data: page, isFetching } = useChaiActivePage();
+  const { data: languagePages } = useChaiLanguagePages();
   const { t } = useTranslation();
   const currentLangPage = languagePages?.find((langPage) => langPage.lang === selectedLang);
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         {isFetching ? (
-          <Loading className="h-4 w-4 text-muted-foreground" />
+          <Loading className="text-muted-foreground h-4 w-4" />
         ) : (
           <Button
             variant="outline"
@@ -119,12 +120,12 @@ const PageSelector = ({
         )}
       </DropdownMenuTrigger>
       <DropdownMenuContent className="ml-10 max-h-[350px] w-80 divide-y p-0.5 pb-3 shadow-xl">
-        <div className="flex items-center gap-x-1 overflow-hidden whitespace-nowrap p-2 text-xs font-light text-muted-foreground">
+        <div className="text-muted-foreground flex items-center gap-x-1 overflow-hidden p-2 text-xs font-light whitespace-nowrap">
           <span className="shrink-0">{t("Current Page")}</span>
           {dynamicPage && (
             <>
               <span className="shrink-0">:</span>
-              <span title={dynamicPage.name} className="mr-2 truncate font-medium text-foreground">
+              <span title={dynamicPage.name} className="text-foreground mr-2 truncate font-medium">
                 {dynamicPage.name}
               </span>
             </>
@@ -148,7 +149,7 @@ const PageSelector = ({
             <Button
               variant="ghost"
               size="sm"
-              className="shrink-0 text-primary"
+              className="text-primary shrink-0"
               title={`Add new ${pageTypeName}`}
               onClick={(e) => {
                 e.stopPropagation();
@@ -171,12 +172,12 @@ const PageSelector = ({
                 <span className="w-full truncate text-xs font-medium">
                   {t("Use")} &quot;{trimmedQuery}&quot; {t("as identifier")}
                 </span>
-                <span className="text-[11px] font-light text-muted-foreground">
+                <span className="text-muted-foreground text-[11px] font-light">
                   {t("Opens this item directly. It may not exist.")}
                 </span>
               </DropdownMenuItem>
             ) : (
-              <div className="flex h-24 flex-col items-center justify-center gap-1 px-3 text-center text-xs text-muted-foreground">
+              <div className="text-muted-foreground flex h-24 flex-col items-center justify-center gap-1 px-3 text-center text-xs">
                 <span>{t("No pages found")}</span>
                 {isDefaultLang && <span>{t("Type a slug or identifier to open it directly.")}</span>}
               </div>
@@ -245,7 +246,7 @@ const DynamicPageSelector = () => {
           <Button
             variant="ghost"
             size="icon-sm"
-            className="h-6 w-6 text-muted-foreground hover:text-foreground"
+            className="text-muted-foreground hover:text-foreground h-6 w-6"
             title={`Edit ${dynamicPage.name}`}
             onClick={() => setEditOpen(true)}>
             <Pencil className="h-3! w-3!" />

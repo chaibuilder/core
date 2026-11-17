@@ -1,5 +1,5 @@
 import type { AIModel } from "~/builder/pages/panels/ai-panel/ai-models-context";
-import type { ResolvedChaiAIGlobalConfig } from "~/types/server-config";
+import type { ResolvedChaiAiGlobalConfig } from "~/types/server-config";
 
 /** The AI config as the builder sees it: plain data only. */
 export type SerializedAIConfig = {
@@ -17,7 +17,7 @@ export type SerializedAIConfig = {
  *
  * `defaultModelId` is not included — the builder has no read site for it and picks its own default.
  */
-export function serializeAIConfigForClient(config: ResolvedChaiAIGlobalConfig): SerializedAIConfig {
+export function serializeAIConfigForClient(config: ResolvedChaiAiGlobalConfig): SerializedAIConfig {
   return {
     models: config.models.map((model) => ({
       id: model.id,

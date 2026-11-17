@@ -28,11 +28,8 @@ import { SearchPagesAction } from "~/server/chai-actions/pages/search-pages";
 import { TakeOfflineAction } from "~/server/chai-actions/pages/take-offline";
 import { UpdatePageAction } from "~/server/chai-actions/pages/update-page";
 import { UpdatePageMetadataAction } from "~/server/chai-actions/pages/update-page-metadata";
-import {
-  CloneUpstreamPageAction,
-  ResetToUpstreamAction,
-} from "~/server/chai-actions/pages/upstream-pages";
-import { declaredPermissionKeysOf } from "~/server/chai-actions/permission-keys";
+import { CloneUpstreamPageAction, ResetToUpstreamAction } from "~/server/chai-actions/pages/upstream-pages";
+import { getDeclaredChaiPermissionKeys } from "~/server/chai-actions/permission-keys";
 import { updatePagePermission } from "~/server/chai-actions/pages/seo-permission";
 import { GetTemplatesByTypeAction } from "~/server/chai-actions/templates/get-templates-by-type";
 import { MarkAsTemplateAction } from "~/server/chai-actions/templates/mark-as-template";
@@ -53,11 +50,11 @@ import {
 /**
  * Assigns `requiredPermission` on an action instance and returns it. Also records
  * `declaredPermissionKeys` for guards that audit permissions without dispatching
- * (a resolver must be tagged with `permissionResolver()`, or this throws).
+ * (a resolver must be tagged with `defineChaiPermissionResolver()`, or this throws).
  */
 function wp<T extends ChaiAction<any, any>>(action: T, permission: ChaiRequiredPermission<any>): T {
   action.requiredPermission = permission;
-  action.declaredPermissionKeys = declaredPermissionKeysOf(permission);
+  action.declaredPermissionKeys = getDeclaredChaiPermissionKeys(permission);
   return action;
 }
 
@@ -131,7 +128,7 @@ export const BUILTIN_CHAI_ACTIONS: Record<string, ChaiAction<any, any>> = {
 // than "unwrapped, requirement unknown".
 for (const action of Object.values(BUILTIN_CHAI_ACTIONS)) {
   if (!action.declaredPermissionKeys) {
-    action.declaredPermissionKeys = declaredPermissionKeysOf(action.requiredPermission);
+    action.declaredPermissionKeys = getDeclaredChaiPermissionKeys(action.requiredPermission);
   }
 }
 

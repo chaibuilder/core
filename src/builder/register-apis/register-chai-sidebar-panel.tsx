@@ -1,6 +1,6 @@
 import { filter, has, set, sortBy, values } from "lodash-es";
 import { ComponentType, useMemo } from "react";
-import { DEFAULT_SIDEBAR_PANEL_ORDER, FIXED_SIDEBAR_PANEL_ORDER } from "./sidebar-panel-order";
+import { CHAI_SIDEBAR_PANEL_DEFAULT_ORDER, CHAI_SIDEBAR_PANEL_PINNED_ORDER } from "./sidebar-panel-order";
 
 export interface ChaiSidebarPanel {
   id: string;
@@ -38,7 +38,7 @@ export const registerChaiSidebarPanel = (panelId: string, panelOptions: Omit<Cha
   if (has(CHAI_BUILDER_PANELS, panelId)) {
     console.warn(`Panel ${panelId} already registered. Overriding...`);
   }
-  const order = FIXED_SIDEBAR_PANEL_ORDER[panelId] ?? panelOptions.order ?? DEFAULT_SIDEBAR_PANEL_ORDER;
+  const order = CHAI_SIDEBAR_PANEL_PINNED_ORDER[panelId] ?? panelOptions.order ?? CHAI_SIDEBAR_PANEL_DEFAULT_ORDER;
   set(CHAI_BUILDER_PANELS, panelId, { id: panelId, ...panelOptions, order, seq: registrationSeq++ });
 };
 

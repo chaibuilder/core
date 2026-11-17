@@ -5,7 +5,7 @@ import { BookOpen, FileText, Wand2Icon } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import { useActivePage, useBuilderFetch } from "~/builder";
+import { useChaiActivePage, useChaiActionFetch } from "~/builder";
 import { PromptInputSpeechButton } from "~/builder/pages/components/ai-elements/prompt-input";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { AI_CONTEXT_QUERY_KEY, useAiContext } from "~/builder/pages/hooks/ai/use-ai-context";
@@ -19,7 +19,7 @@ import { Loading } from "~/components/ui/loader";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { Textarea } from "~/components/ui/textarea";
-import { AIContext } from "~/types";
+import { ChaiAiContext } from "~/types";
 
 const SITE_CONTEXT_EXAMPLE =
   "e.g. TechFlow is a software company for project management. We help creative agencies collaborate faster with AI-driven scheduling...";
@@ -87,8 +87,8 @@ const SiteContextTab = ({
   isEnhancing,
   onEnhance,
 }: {
-  data: AIContext;
-  onChange: (updates: Partial<AIContext>) => void;
+  data: ChaiAiContext;
+  onChange: (updates: Partial<ChaiAiContext>) => void;
   isEnhancing: boolean;
   onEnhance: () => void;
 }) => {
@@ -101,7 +101,7 @@ const SiteContextTab = ({
     <div className="space-y-1">
       {/* Context Label */}
       <div className="space-y-1">
-        <p className="rounded border border-border bg-accent/50 p-2 text-[11px] font-light leading-relaxed text-foreground/80">
+        <p className="border-border bg-accent/50 text-foreground/80 rounded border p-2 text-[11px] leading-relaxed font-light">
           <span className="font-semibold">{t("Include: ")}</span>
           {t("Business name & industry (e.g. TechFlow is a project management")}
           {t("company")}
@@ -118,7 +118,7 @@ const SiteContextTab = ({
       <div className="h-2" />
       <Label htmlFor="site-context-textarea">{t("Enter Site Context:")}</Label>
 
-      <div className="bg-surface overflow-hidden rounded-lg border border-border shadow-sm transition-all">
+      <div className="bg-surface border-border overflow-hidden rounded-lg border shadow-sm transition-all">
         <Textarea
           id="site-context-textarea"
           ref={textareaRef}
@@ -192,7 +192,7 @@ const SiteContextTab = ({
           onChange={(e) => onChange({ site: { ...site, bannedWords: e.target.value } })}
           placeholder="e.g. word1, word2, word3"
         />
-        <p className="mt-1 text-[10px] text-muted-foreground">
+        <p className="text-muted-foreground mt-1 text-[10px]">
           <span className="font-medium">Note:</span> These words will be avoided by AI. Enter them as a comma-separated
           list.
         </p>
@@ -210,8 +210,8 @@ const PageContextTab = ({
   isEnhancing,
   onEnhance,
 }: {
-  data: AIContext;
-  onChange: (updates: Partial<AIContext>) => void;
+  data: ChaiAiContext;
+  onChange: (updates: Partial<ChaiAiContext>) => void;
   isEnhancing: boolean;
   onEnhance: () => void;
 }) => {
@@ -224,7 +224,7 @@ const PageContextTab = ({
     <div className="space-y-1">
       {/* Context Label */}
       <div className="space-y-1">
-        <p className="rounded border border-border bg-accent/50 p-2 text-[11px] font-light leading-relaxed text-foreground/80">
+        <p className="border-border bg-accent/50 text-foreground/80 rounded border p-2 text-[11px] leading-relaxed font-light">
           <span className="font-medium">{t("Include: ")}</span>
           {t("Page purpose (e.g. This is the Services page targeting ")}
           <code>{t("custom web design")}</code>&nbsp;{")"}
@@ -238,7 +238,7 @@ const PageContextTab = ({
       {/* Textarea with bottom toolbar */}
       <div className="h-2" />
       <Label htmlFor="page-context-textarea">{t("Enter Page Context:")}</Label>
-      <div className="bg-surface overflow-hidden rounded-lg border border-border shadow-sm transition-all">
+      <div className="bg-surface border-border overflow-hidden rounded-lg border shadow-sm transition-all">
         <Textarea
           id="page-context-textarea"
           ref={textareaRef}
@@ -285,8 +285,8 @@ export const AiContextModal = ({
   onOpenChange: (v: boolean) => void;
   defaultTab?: "site" | "page";
 }) => {
-  const { data: activePage } = useActivePage();
-  const builderFetch = useBuilderFetch();
+  const { data: activePage } = useChaiActivePage();
+  const builderFetch = useChaiActionFetch();
   const enhanceModel = useAIActionModel("AI_ENHANCE_CONTEXT");
   const { t } = useTranslation();
 
@@ -296,13 +296,13 @@ export const AiContextModal = ({
   const [activeTab, setActiveTab] = useState<string>(defaultTab);
 
   // Local form state
-  const [formData, setFormData] = useState<AIContext>({
+  const [formData, setFormData] = useState<ChaiAiContext>({
     site: {},
     page: {},
   });
 
   // Track the initial data from DB to detect changes
-  const [initialData, setInitialData] = useState<AIContext | null>(null);
+  const [initialData, setInitialData] = useState<ChaiAiContext | null>(null);
 
   const isDataChanged = initialData ? JSON.stringify(formData) !== JSON.stringify(initialData) : false;
 
@@ -321,7 +321,7 @@ export const AiContextModal = ({
 
   const isLoading = isContextLoading && open;
 
-  const handleChange = useCallback((updates: Partial<AIContext>) => {
+  const handleChange = useCallback((updates: Partial<ChaiAiContext>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
   }, []);
 
@@ -357,7 +357,7 @@ export const AiContextModal = ({
         toast.error(<p className="font-medium">{error.message || t("Failed to enhance with AI")}</p>, {
           action: {
             label: "Buy Credits",
-            onClick: () => window.open('/plan/addons', '_blank'),
+            onClick: () => window.open("/plan/addons", "_blank"),
           },
           duration: 8000,
         });
@@ -405,7 +405,7 @@ export const AiContextModal = ({
         toast.error(<p className="font-medium">{error.message || "Failed to enhance with AI"}</p>, {
           action: {
             label: "Buy Credits",
-            onClick: () => window.open('/plan/addons', '_blank'),
+            onClick: () => window.open("/plan/addons", "_blank"),
           },
           duration: 8000,
         });
@@ -459,9 +459,9 @@ export const AiContextModal = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-[560px]" aria-describedby="ai-context-description">
         {/* Header */}
-        <DialogHeader className="px-5 pb-2 pt-3">
+        <DialogHeader className="px-5 pt-3 pb-2">
           <DialogTitle className="py-0 text-sm leading-none">{t("Manage Context")}</DialogTitle>
-          <DialogDescription id="ai-context-description" className="py-0 text-xs leading-none text-muted-foreground">
+          <DialogDescription id="ai-context-description" className="text-muted-foreground py-0 text-xs leading-none">
             {t("Configure site and page context to help AI generate better, more")}
             relevant content.
           </DialogDescription>

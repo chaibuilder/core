@@ -9,7 +9,7 @@ import { installMemoryPersistentCache } from "~/tests/setup/persistent-cache";
 import { withRequestContext } from "~/tests/setup/request-context";
 import { TEST_APP_ID } from "~/tests/setup/test-app";
 import { getSiteDomains } from "./get-site-domains";
-import { resolveAppIdByHostname } from "./resolve-app-id-by-hostname";
+import { resolveChaiAppIdByHostname } from "./resolve-app-id-by-hostname";
 
 // Where domains are stored belongs to whichever plugin registers the site domain resolver. These
 // tests install a Map-backed one, so they hold in every edition.
@@ -44,8 +44,8 @@ describe("resolveAppIdByHostname", () => {
     useResolver(memoryResolver);
     const cache = installMemoryPersistentCache();
 
-    await expect(resolveAppIdByHostname("www.example.com")).resolves.toBe(TEST_APP_ID);
-    await expect(resolveAppIdByHostname("www.example.com")).resolves.toBe(TEST_APP_ID);
+    await expect(resolveChaiAppIdByHostname("www.example.com")).resolves.toBe(TEST_APP_ID);
+    await expect(resolveChaiAppIdByHostname("www.example.com")).resolves.toBe(TEST_APP_ID);
     expect(lookups).toEqual(["example.com"]);
     expect(cache.wraps[0]).toEqual({ keyParts: ["hostname", "example.com"], tags: ["hostname-example.com"] });
   });
@@ -53,14 +53,14 @@ describe("resolveAppIdByHostname", () => {
   it("supports the draft (request-cache) path", async () => {
     useResolver(memoryResolver);
 
-    await expect(resolveAppIdByHostname("my-site.chaibuilder.xyz", { draft: true })).resolves.toBe(TEST_APP_ID);
+    await expect(resolveChaiAppIdByHostname("my-site.chaibuilder.xyz", { draft: true })).resolves.toBe(TEST_APP_ID);
   });
 
   it("throws when no site matches the hostname", async () => {
     useResolver(memoryResolver);
     installMemoryPersistentCache();
 
-    await expect(resolveAppIdByHostname("unknown.example.com")).rejects.toThrow(
+    await expect(resolveChaiAppIdByHostname("unknown.example.com")).rejects.toThrow(
       "No site found for hostname: unknown.example.com",
     );
   });
@@ -70,7 +70,7 @@ describe("resolveAppIdByHostname", () => {
     useResolver({ ...memoryResolver, appIdByHostname: () => Promise.reject(failure) });
     installMemoryPersistentCache();
 
-    await expect(resolveAppIdByHostname("example.com")).rejects.toMatchObject({
+    await expect(resolveChaiAppIdByHostname("example.com")).rejects.toMatchObject({
       message: "No site found for hostname: example.com",
       cause: failure,
     });
@@ -80,7 +80,7 @@ describe("resolveAppIdByHostname", () => {
     useResolver(undefined);
     installMemoryPersistentCache();
 
-    await expect(resolveAppIdByHostname("example.com")).rejects.toThrow("No site found for hostname: example.com");
+    await expect(resolveChaiAppIdByHostname("example.com")).rejects.toThrow("No site found for hostname: example.com");
   });
 });
 

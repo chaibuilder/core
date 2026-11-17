@@ -120,7 +120,7 @@ function registerTools(owner: string, tools: ChaiMcpTool[], claimed: Set<string>
       if (!otherTools.some((other) => other.name === tool.name)) continue;
       // The other owner took this name deliberately, and re-registering the
       // original over it is routine — every setup-hook run re-registers a whole
-      // list — so it loses the name in `getChaiMcpTools` rather than throwing.
+      // list — so it loses the name in `getRegisteredChaiMcpTools` rather than throwing.
       if (overridesRegistry().get(otherOwner)?.has(tool.name)) continue;
       throw new Error(
         `ChaiBuilder MCP: "${owner}" registered the tool "${tool.name}", already owned by "${otherOwner}". Pass { override: true } to replace it deliberately.`,
@@ -130,7 +130,7 @@ function registerTools(owner: string, tools: ChaiMcpTool[], claimed: Set<string>
 
   registry.set(owner, [...tools]);
   // The claim is remembered per owner rather than inferred from registration
-  // order: `getChaiMcpTools` would otherwise hand the name to whichever owner
+  // order: `getRegisteredChaiMcpTools` would otherwise hand the name to whichever owner
   // sits later in the Map, which is the order owners FIRST registered in — so an
   // app whose setup hook ran before this plugin's would silently lose the name
   // it asked to override. A claim on a name no longer in the list is dropped.
@@ -162,12 +162,24 @@ export function unregisterChaiMcpTools(owner: string): void {
   overridesRegistry().delete(owner);
 }
 
+/** Removes one tool an owner registered, and the override claim it held on that name. */
+export function unregisterChaiMcpTool(owner: string, name: string): void {
+  const remaining = (toolsRegistry().get(owner) ?? []).filter((tool) => tool.name !== name);
+  const claimed = new Set(overridesRegistry().get(owner) ?? []);
+  claimed.delete(name);
+  if (remaining.length === 0) {
+    unregisterChaiMcpTools(owner);
+    return;
+  }
+  registerTools(owner, remaining, claimed);
+}
+
 /**
  * Every registered tool, in list order. An owner that registered a name with
  * `override` wins it, whichever of the owners registered first; the shadowed
  * tool is dropped rather than listed twice.
  */
-export function getChaiMcpTools(): ChaiMcpTool[] {
+export function getRegisteredChaiMcpTools(): ChaiMcpTool[] {
   const overrides = overridesRegistry();
   const byName = new Map<string, ChaiMcpTool>();
   const claimed = new Set<string>();
@@ -183,8 +195,8 @@ export function getChaiMcpTools(): ChaiMcpTool[] {
   return [...byName.values()];
 }
 
-export function getChaiMcpTool(name: string): ChaiMcpTool | undefined {
-  return getChaiMcpTools().find((tool) => tool.name === name);
+export function getRegisteredChaiMcpTool(name: string): ChaiMcpTool | undefined {
+  return getRegisteredChaiMcpTools().find((tool) => tool.name === name);
 }
 
 export function registerChaiMcpInstructions(
@@ -223,7 +235,7 @@ export function unregisterChaiMcpInstructions(owner: string): void {
 }
 
 /** Registered sections, sorted by `order` then by id so the render is deterministic. */
-export function getChaiMcpInstructionsSections(): ChaiMcpInstructionsSection[] {
+export function getRegisteredChaiMcpInstructions(): ChaiMcpInstructionsSection[] {
   const byId = new Map<string, ChaiMcpInstructionsSection>();
   for (const sections of instructionsRegistry().values()) {
     for (const section of sections) byId.set(section.id, section);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defineChaiServerPlugin, setPluginFeatures, setPluginMediaManager } from "~/server/plugin-api";
-import { DEFAULT_CHAI_BUILDER_SERVER_CONFIG, resolveChaiBuilderConfig } from "./index";
+import { CHAI_DEFAULT_SERVER_CONFIG, resolveChaiBuilderConfig } from "./index";
 import { stubChaiDbSetup } from "~/tests/setup/stub-chai-db";
 
 /**
@@ -33,7 +33,7 @@ describe("resolveChaiBuilderConfig", () => {
     expect(config.pageTypes.map((p) => p.key)).toEqual(["page", "global", "_folder"]);
     // Trash entities are plugin-owned; the bare core has none.
     expect(config.trash).toEqual([]);
-    expect(config.ai.logging.logger).toBe(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.ai.logging.logger);
+    expect(config.ai.logging.logger).toBe(CHAI_DEFAULT_SERVER_CONFIG.ai.logging.logger);
     expect(config.ai.models.length).toBeGreaterThan(0);
     expect(config.debugLevel).toBe(0);
     expect(config.db).toBe(db);
@@ -77,7 +77,7 @@ describe("resolveChaiBuilderConfig", () => {
     });
 
     expect(config.ai.logging.clientId).toBe("client-1");
-    expect(config.ai.logging.logger).toBe(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.ai.logging.logger);
+    expect(config.ai.logging.logger).toBe(CHAI_DEFAULT_SERVER_CONFIG.ai.logging.logger);
   });
 
   it("applies scalar overrides", () => {

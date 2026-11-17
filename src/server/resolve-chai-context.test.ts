@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { resetChaiContextResolverForTests, setChaiContextResolver } from "~/server/chai-context-resolver";
+import { resetChaiContextResolverForTests, registerChaiContextResolver } from "~/server/chai-context-resolver";
 import {
   resetSharedChaiRequestContextForTests,
   resolveChaiContextViaResolver,
@@ -26,7 +26,7 @@ describe("resolveChaiContextViaResolver", () => {
   });
 
   it("captures the request headers accessor for plugins only when a request is present", async () => {
-    setChaiContextResolver(async () => ({ userId: "user-1" }));
+    registerChaiContextResolver(async () => ({ userId: "user-1" }));
 
     const withRequest = await resolveChaiContextViaResolver({ request: request({ "x-hint": "a, b" }) });
     expect(withRequest.requestHeaders?.get("x-hint")).toBe("a, b");
@@ -37,7 +37,7 @@ describe("resolveChaiContextViaResolver", () => {
   });
 
   it("carries host-supplied permissions and role onto the context", async () => {
-    setChaiContextResolver(async () => ({ userId: "user-1", role: "editor", permissions: ["pages:read"] }));
+    registerChaiContextResolver(async () => ({ userId: "user-1", role: "editor", permissions: ["pages:read"] }));
 
     const context = await resolveChaiContextViaResolver({});
 
@@ -45,7 +45,7 @@ describe("resolveChaiContextViaResolver", () => {
   });
 
   it("accepts the deprecated delegatedScopes name and mirrors it onto delegatedPermissions", async () => {
-    setChaiContextResolver(async () => ({ delegatedScopes: ["pages:read"] }));
+    registerChaiContextResolver(async () => ({ delegatedScopes: ["pages:read"] }));
 
     const context = await resolveChaiContextViaResolver({});
 
@@ -54,7 +54,7 @@ describe("resolveChaiContextViaResolver", () => {
   });
 
   it("mirrors delegatedPermissions back onto the deprecated name", async () => {
-    setChaiContextResolver(async () => ({ delegatedPermissions: ["assets:read"] }));
+    registerChaiContextResolver(async () => ({ delegatedPermissions: ["assets:read"] }));
 
     const context = await resolveChaiContextViaResolver({});
 
@@ -63,7 +63,7 @@ describe("resolveChaiContextViaResolver", () => {
   });
 
   it("prefers delegatedPermissions when both names are returned", async () => {
-    setChaiContextResolver(async () => ({
+    registerChaiContextResolver(async () => ({
       delegatedPermissions: ["pages:read"],
       delegatedScopes: ["pages:*"],
     }));
@@ -75,7 +75,7 @@ describe("resolveChaiContextViaResolver", () => {
   });
 
   it("leaves delegation unset when the resolver names neither field", async () => {
-    setChaiContextResolver(async () => ({ userId: "user-1" }));
+    registerChaiContextResolver(async () => ({ userId: "user-1" }));
 
     const context = await resolveChaiContextViaResolver({});
 
@@ -99,7 +99,7 @@ describe("resolveSharedChaiContext re-entrancy", () => {
     // Models Payload auth: the resolver triggers a hook that calls getChaiBuilder() again.
     // Pre-guard this recursed forever (the nested call re-ran the resolver, which re-ran auth).
     let calls = 0;
-    setChaiContextResolver(async () => {
+    registerChaiContextResolver(async () => {
       calls++;
       if (calls > 5) throw new Error("resolver recursed");
       const nested = await resolveSharedChaiContext();
@@ -114,7 +114,7 @@ describe("resolveSharedChaiContext re-entrancy", () => {
   });
 
   it("does not cache the nested static default as the shared request context", async () => {
-    setChaiContextResolver(async () => {
+    registerChaiContextResolver(async () => {
       await resolveSharedChaiContext();
       return { appId: "app-1", userId: "user-1" };
     });
@@ -127,13 +127,13 @@ describe("resolveSharedChaiContext re-entrancy", () => {
   });
 
   it("clears the guard when the resolver throws", async () => {
-    setChaiContextResolver(async () => {
+    registerChaiContextResolver(async () => {
       throw new Error("boom");
     });
 
     await expect(resolveSharedChaiContext({ params: Promise.resolve({}) } as any)).rejects.toThrow("boom");
 
-    setChaiContextResolver(async () => ({ appId: "app-2", userId: "user-2" }));
+    registerChaiContextResolver(async () => ({ appId: "app-2", userId: "user-2" }));
     const context = await resolveSharedChaiContext();
     expect(context).toMatchObject({ appId: "app-2", userId: "user-2" });
   });

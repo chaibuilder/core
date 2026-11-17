@@ -16,7 +16,7 @@ export type ChaiRepeaterOperator =
 /**
  * Single source of truth for which operators each field type supports.
  * Used by the builder filter UI, server-side query validation and
- * the in-memory `applyRepeaterQuery` helper.
+ * the in-memory `applyChaiRepeaterQuery` helper.
  */
 export const CHAI_REPEATER_OPERATORS_BY_TYPE: Record<ChaiRepeaterFieldType, ChaiRepeaterOperator[]> = {
   text: ["equals", "not_equals", "contains"],
@@ -72,7 +72,7 @@ export type ChaiRepeaterQuery = {
   offset?: number;
 };
 
-export type ChaiRepeaterDataFetchParams = {
+export type ChaiRepeaterDataFetchArgs = {
   block: ChaiBlock;
   inBuilder: boolean;
   draft: boolean;
@@ -104,7 +104,7 @@ export interface ChaiRepeaterDataConfig<T = any> {
    * in draft), and always stripped from the data. Per-call, so per-item tags
    * are possible. Tags must be tenant-scoped (include the app/company id).
    */
-  fetch: (params: ChaiRepeaterDataFetchParams) => Promise<{ items: T[]; totalItems?: number; $cacheTags?: string[] }>;
+  fetch: (params: ChaiRepeaterDataFetchArgs) => Promise<{ items: T[]; totalItems?: number; $cacheTags?: string[] }>;
   /**
    * Detailed single-item fetch for the Collection Item block. The list `fetch`
    * returns subset fields for cards/grids; this returns the full document for
@@ -112,7 +112,7 @@ export interface ChaiRepeaterDataConfig<T = any> {
    * Implementing it opts the source into the Collection Item source picker.
    * Follows the same `$cacheTags` convention as `fetch`.
    */
-  fetchItem?: (params: ChaiRepeaterDataFetchParams) => Promise<{ item: T | null; $cacheTags?: string[] }>;
+  fetchItem?: (params: ChaiRepeaterDataFetchArgs) => Promise<{ item: T | null; $cacheTags?: string[] }>;
 }
 
 export type ChaiRepeaterDataEntry = ChaiRepeaterDataConfig<any>;

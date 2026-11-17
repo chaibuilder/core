@@ -14,17 +14,13 @@ export type ChaiActionResult<T> = ChaiActionSuccess<T> | ChaiActionFailure;
 // AI_EDIT_PAGE is intentionally NOT listed: it streams AI SDK UIMessage SSE,
 // and pre-stream failures (credits, auth, validation) must return plain JSON
 // errors with real HTTP statuses so the client chat transport can surface them.
-export const STREAMING_CHAI_ACTIONS = new Set([
-  "AI_EDIT_BLOCK",
-  "AI_EDIT_LANG_PAGE",
-  "AI_GENERATE_IMAGE",
-]);
+export const STREAMING_CHAI_ACTIONS = new Set(["AI_EDIT_BLOCK", "AI_EDIT_LANG_PAGE", "AI_GENERATE_IMAGE"]);
 
 export function isStreamingChaiAction(action: string): boolean {
   return STREAMING_CHAI_ACTIONS.has(action);
 }
 
-export function toActionErrorPayload(error: unknown): ChaiActionErrorPayload {
+export function toChaiActionErrorPayload(error: unknown): ChaiActionErrorPayload {
   if (error instanceof ActionError) {
     return {
       code: error.code,
@@ -62,12 +58,12 @@ export function toActionErrorPayload(error: unknown): ChaiActionErrorPayload {
   };
 }
 
-export function toActionError(error: unknown): ActionError {
+export function toChaiActionError(error: unknown): ActionError {
   if (error instanceof ActionError) {
     return error;
   }
 
-  const payload = toActionErrorPayload(error);
+  const payload = toChaiActionErrorPayload(error);
   return new ActionError(payload.message, payload.code, payload.status);
 }
 

@@ -5,7 +5,7 @@ import { Bot, Square } from "lucide-react";
 import { Fragment, lazy, startTransition, Suspense, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useI18nBlocks } from "~/builder/hooks/use-i18n-blocks";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useStreamMultipleBlocksProps } from "~/builder/hooks/use-update-blocks-props";
 import {
@@ -94,7 +94,7 @@ const AiPanelForOtherLang = ({
   const [, setSelectedBlockIds] = useSelectedBlockIds();
   const i18nBlocks = useI18nBlocks();
   const updateBlocksWithStream = useStreamMultipleBlocksProps();
-  const { savePageAsync } = useSavePage();
+  const { savePageAsync } = useChaiSavePage();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -294,7 +294,7 @@ const AiPanelForOtherLang = ({
     <div className="flex h-full flex-col">
       {/* Messages area */}
       <div className={`flex-1 overflow-y-auto ${isLoading ? "relative z-50" : ""}`}>
-        <Conversation className="h-full no-scrollbar px-0">
+        <Conversation className="no-scrollbar h-full px-0">
           <ConversationContent className="gap-4 px-0 pb-4">
             {messages.length === 0 && (
               <ConversationEmptyState
@@ -311,7 +311,7 @@ const AiPanelForOtherLang = ({
                   <Fragment key={message.id}>
                     {message.isReasoning ? (
                       <Reasoning isStreaming={message.isStreaming} defaultOpen={true} className="gap-0 space-y-0">
-                        <ReasoningTrigger className="text-xs [&_p]:text-muted-foreground" />
+                        <ReasoningTrigger className="[&_p]:text-muted-foreground text-xs" />
                         <ReasoningContent className="p-0 text-xs" showLastLinesOnly={2}>
                           {message.content}
                         </ReasoningContent>
@@ -324,7 +324,7 @@ const AiPanelForOtherLang = ({
                           {message.role === "assistant" ? (
                             <MessageResponse className="p-0 text-xs">{message.content}</MessageResponse>
                           ) : (
-                            <div className="rounded-sm bg-accent p-2 text-xs">
+                            <div className="bg-accent rounded-sm p-2 text-xs">
                               {message.userMessage || message.content}
                             </div>
                           )}
@@ -342,38 +342,40 @@ const AiPanelForOtherLang = ({
       {/* Selected Block display and Quick actions */}
       <div className="p-1">
         <SelectedBlockDisplay onRemove={() => setSelectedBlockIds([])} isLoading={isLoading} />
-        <div className="border rounded-md border-border pb-1">
-        <div className="px-4 pb-2 flex flex-col border-b pt-2 px-1 bg-accent/30">
-          <h4 className="text-xs font-medium text-foreground">{t("Quick actions")}</h4>
-          <span className="mt-0.5 text-xs text-muted-foreground">{t("Actions will work only on the selected block")}</span>
-        </div>
-        <div className="flex flex-col gap-0.5 px-2 pt-2">
-          {/* Translate action */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-auto justify-start px-2 py-1 text-left"
-            disabled={isLoading}
-            onClick={() => handleTranslationPrompt("TRANSLATE", t("Translate to {{lang}}", { lang: langName }))}>
-            <span className="text-xs">{t("Translate to {{lang}}", { lang: langName })}</span>
-          </Button>
-
-          {/* Content actions (excluding emoji actions) */}
-          {LANGUAGE_CONTENT_ACTIONS.filter(
-            (action) => !action.prompt.toLowerCase().includes("emoji"),
-          ).map((action) => (
+        <div className="border-border rounded-md border pb-1">
+          <div className="bg-accent/30 flex flex-col border-b px-1 px-4 pt-2 pb-2">
+            <h4 className="text-foreground text-xs font-medium">{t("Quick actions")}</h4>
+            <span className="text-muted-foreground mt-0.5 text-xs">
+              {t("Actions will work only on the selected block")}
+            </span>
+          </div>
+          <div className="flex flex-col gap-0.5 px-2 pt-2">
+            {/* Translate action */}
             <Button
-              key={action.label}
               variant="ghost"
               size="sm"
               className="h-auto justify-start px-2 py-1 text-left"
               disabled={isLoading}
-              onClick={() => handleTranslationPrompt(action.prompt)}>
-              <span className="text-xs">{t(action.label)}</span>
+              onClick={() => handleTranslationPrompt("TRANSLATE", t("Translate to {{lang}}", { lang: langName }))}>
+              <span className="text-xs">{t("Translate to {{lang}}", { lang: langName })}</span>
             </Button>
-          ))}
+
+            {/* Content actions (excluding emoji actions) */}
+            {LANGUAGE_CONTENT_ACTIONS.filter((action) => !action.prompt.toLowerCase().includes("emoji")).map(
+              (action) => (
+                <Button
+                  key={action.label}
+                  variant="ghost"
+                  size="sm"
+                  className="h-auto justify-start px-2 py-1 text-left"
+                  disabled={isLoading}
+                  onClick={() => handleTranslationPrompt(action.prompt)}>
+                  <span className="text-xs">{t(action.label)}</span>
+                </Button>
+              ),
+            )}
+          </div>
         </div>
-      </div>
       </div>
 
       {/* Bottom bar: model selector + stop button */}

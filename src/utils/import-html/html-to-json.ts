@@ -24,10 +24,10 @@ import {
   unset,
 } from "lodash-es";
 import { canAddChildBlock } from "~/builder/core/functions/block-helpers";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import { STYLES_KEY } from "~/constants/STRINGS";
 import { cn } from "~/lib/utils";
-import { getBlockDefaultProps, syncBlocksWithDefaultProps } from "~/registry";
+import { getChaiBlockDefaultProps, syncChaiBlocksWithDefaultProps } from "~/registry";
 import { ChaiBlock } from "~/types";
 import {
   decodeStyleText,
@@ -475,7 +475,7 @@ const traverseNodes = (nodes: HimalayaNode[], parent: any = null): ChaiBlock[] =
     if (node.type === "comment") return [];
 
     // * Generating block id and setting parent id if nested
-    let block: Partial<ChaiBlock<any>> = { _id: generateUUID() };
+    let block: Partial<ChaiBlock<any>> = { _id: generateUuid() };
     if (parent) block._parent = parent.block._id;
 
     /**
@@ -762,7 +762,9 @@ const traverseNodes = (nodes: HimalayaNode[], parent: any = null): ChaiBlock[] =
       // button's text (or a submit input's value) becomes the label instead
       // of a Text child that does not show, which left the default "Submit"
       // on a French page.
-      const text = getTextContent(node.children || []).replace(/\s+/g, " ").trim();
+      const text = getTextContent(node.children || [])
+        .replace(/\s+/g, " ")
+        .trim();
       const value = String(get(find(node.attributes, { key: "value" }), "value", "") ?? "").trim();
       const label = text || value;
       if (label) set(block, "label", label);
@@ -920,7 +922,7 @@ export const mergeBlocksWithExisting = (importedBlocks: ChaiBlock[], existingBlo
       // AI rewrites emit a partial placement as a bare <chai-partial-block partial-id>, and import
       // fills in the default wrapper. Keep the placement's own wrapper unless the edit set another.
       if (existingBlock._type === "PartialBlock") {
-        const defaults = getBlockDefaultProps("PartialBlock") as Record<string, unknown>;
+        const defaults = getChaiBlockDefaultProps("PartialBlock") as Record<string, unknown>;
         for (const key of PARTIAL_PLACEMENT_PROPS) {
           if (has(original, key) && (!has(importedBlock, key) || isEqual(merged[key], defaults[key]))) {
             merged[key] = original[key];
@@ -950,5 +952,5 @@ export const getBlocksFromHTML = async (html: string): Promise<ChaiBlock[]> => {
   // syncBlocksWithDefaultProps first so every block carries its registered
   // schema-typed defaults; restoreBlockPropTypes then coerces any prop the
   // AI-HTML round-trip turned into a string back to its schema type.
-  return await resolveIconNames(restoreBlockPropTypes(syncBlocksWithDefaultProps(blocks)));
+  return await resolveIconNames(restoreBlockPropTypes(syncChaiBlocksWithDefaultProps(blocks)));
 };

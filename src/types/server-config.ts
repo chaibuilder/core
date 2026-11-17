@@ -5,7 +5,6 @@ import type { CreditStatus } from "~/types/credits";
 import type { ChaiAction } from "~/types/chai-action";
 import type {
   ChaiBlockDataProvider,
-  ChaiCollectionEntry,
   ChaiRepeaterDataEntry,
   ChaiContextResolver,
   ChaiDebugLevel,
@@ -16,12 +15,13 @@ import type {
   ChaiPageTypeEntry,
   ChaiTrashEntry,
 } from "~/types/chaibuilder-config";
+import type { ChaiCollectionEntry } from "~/types/deprecated";
 import type { ChaiDbSetup } from "~/types/db";
 import type { ChaiDesignSystemFeature } from "~/types/design-system";
 import type { ChaiRequestMiddlewareEntry, ChaiSchemaFragment, ChaiServerPlugin, ChaiSetupHook } from "~/types/plugin";
 import type { ChaiRolesAndPermissions } from "~/types/rbac";
 
-export type LogAiRequestParams = {
+export type ChaiLogAiRequestArgs = {
   userId: string;
   startTime: number;
   response: Record<string, any>;
@@ -34,7 +34,7 @@ export type LogAiRequestParams = {
 
 export type { ChaiDbSetup };
 
-/** Result of `createPostgresDB`, `createLibsqlDB`, etc. — pass to `buildChaiBuilderConfig({ db })`. */
+/** Result of `createPostgresDb`, `createLibsqlDb`, etc. — pass to `buildChaiBuilderConfig({ db })`. */
 export type ChaiDbConfigInput = ChaiDbSetup;
 
 export type ResolvedChaiDbConfig = ChaiDbSetup;
@@ -80,7 +80,7 @@ export type ChaiAiProviderPlugin = {
   fingerprint?: () => string | undefined;
 };
 
-export type ResolvedChaiAIGlobalConfig = {
+export type ResolvedChaiAiGlobalConfig = {
   models: AIModel[];
   defaultModelId: string;
   /** Model key -> AI action names it handles, e.g. `{ "google/gemini-3-flash": ["AI_GENERATE_THEME"] }`. */
@@ -103,7 +103,7 @@ export type ResolvedChaiAIGlobalConfig = {
    */
   providers?: ChaiAiProviderPlugin[];
   logging: {
-    logger: (params: LogAiRequestParams) => void | Promise<void>;
+    logger: (params: ChaiLogAiRequestArgs) => void | Promise<void>;
     clientId: string | null;
   };
 };
@@ -315,7 +315,7 @@ export type ResolvedChaiBuilderServerConfig = {
   defaultRoleGrants: ChaiDefaultRoleGrants;
   /** Role configuration. Undefined = use DEFAULT_ROLE_MAPS. */
   roles: ChaiRolesConfig | undefined;
-  ai: ResolvedChaiAIGlobalConfig;
+  ai: ResolvedChaiAiGlobalConfig;
   mediaManager: ChaiMediaManagerConfig;
   db: ResolvedChaiDbConfig;
   /** Drizzle fragments contributed by plugins; merged into `db.schema` per dialect. */
@@ -367,7 +367,7 @@ export type ChaiBuilderServerConfigInput = {
   /** Collection data sources with declarative filter/sort/limit support. */
   chaiCollections?: ChaiRepeaterDataEntry[];
   blockDataProviders?: Record<string, ChaiBlockDataProvider>;
-  ai?: ChaiConfigDeepPartial<ResolvedChaiAIGlobalConfig>;
+  ai?: ChaiConfigDeepPartial<ResolvedChaiAiGlobalConfig>;
   /** Media manager tabs owned by the core. Plugin tabs are configured via plugin options. */
   mediaManager?: ChaiMediaManagerConfigInput;
   trash?: ChaiTrashEntry[];
@@ -385,7 +385,7 @@ export type ChaiBuilderServerConfigInput = {
   /**
    * Additional default-role grants (role -> permission keys, wildcards allowed).
    * Contributed by plugins for their own keys; applied only on the
-   * DEFAULT_ROLE_MAPS fallback. Use `mergeDefaultRoleGrants` to append.
+   * DEFAULT_ROLE_MAPS fallback. Use `mergeChaiDefaultRoleGrants` to append.
    */
   defaultRoleGrants?: ChaiDefaultRoleGrants;
   /** Role configuration. Omit to use DEFAULT_ROLE_MAPS. Pass `{ source: 'custom' }` to load from DB. */

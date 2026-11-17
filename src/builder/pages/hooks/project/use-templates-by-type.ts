@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { filter } from "lodash-es";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
-import { useApiUrl } from "./use-builder-prop";
+import { useChaiApiUrl } from "./use-builder-prop";
 
 export interface Template {
   id: string;
@@ -14,7 +14,7 @@ export interface Template {
 }
 
 export const useTemplatesByType = (pageType?: string) => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
 
   return useQuery({

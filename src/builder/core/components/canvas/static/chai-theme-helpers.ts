@@ -1,5 +1,5 @@
 import { flatten, get, keys, uniq, uniqBy } from "lodash-es";
-import { resolveFont } from "~/registry/fonts";
+import { resolveChaiFont } from "~/registry/fonts";
 import type { ChaiFontBySrc, ChaiFontByUrl } from "~/types";
 import type { ChaiTheme, ChaiThemeOptions } from "~/types/chaibuilder-editor-props";
 
@@ -120,7 +120,7 @@ export function hexToHSL(hex: string) {
 }
 
 export const getFontFamily = (font: string) => {
-  const fallback = get(resolveFont(font), "fallback", "");
+  const fallback = get(resolveChaiFont(font), "fallback", "");
   // A font with no fallback would otherwise leave a trailing comma, which makes the whole
   // font-family declaration invalid and silently drops the font.
   return fallback ? `"${font}", ${fallback}` : `"${font}"`;
@@ -156,7 +156,7 @@ export const getChaiThemeCssVariables = ({ theme }: { theme: ChaiTheme }) => {
   }`;
 };
 
-export const getThemeFontsLinkMarkup = (fonts: ChaiFontByUrl[]) => {
+export const getChaiThemeFontsLinkMarkup = (fonts: ChaiFontByUrl[]) => {
   if (!fonts || fonts.length === 0) return "";
 
   return uniqBy(fonts, "family")
@@ -172,7 +172,7 @@ export const getThemeFontsUrls = (fonts: ChaiFontByUrl[]) => {
   return uniq(uniqBy(fonts, "family").map((font: ChaiFontByUrl) => font.url));
 };
 
-export const getThemeFontsCSSImport = (fonts: ChaiFontByUrl[]) => {
+export const getChaiThemeFontsCssImport = (fonts: ChaiFontByUrl[]) => {
   if (!fonts || fonts.length === 0) return "";
 
   return uniqBy(fonts, "family")

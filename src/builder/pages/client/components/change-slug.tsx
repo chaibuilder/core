@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
 import { useChangeSlug } from "~/builder/pages/hooks/pages/mutations";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { Alert } from "~/components/ui/alert";
 import { Button } from "~/components/ui/button";
 import {
@@ -24,7 +24,7 @@ export const ChangeSlug = ({ page, onClose }: { page: any; onClose: () => void }
   const [slug, setSlug] = useState(page.slug || "");
   const { mutate: changeSlug, isPending: isChanging } = useChangeSlug();
 
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const pageType = find(pageTypes, { key: page?.pageType });
 
   const onSubmit = (e: FormEvent) => {

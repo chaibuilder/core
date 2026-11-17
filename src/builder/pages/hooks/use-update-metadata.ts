@@ -1,13 +1,13 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useCurrentActivePage } from "./pages/use-current-page";
-import { useApiUrl } from "./project/use-builder-prop";
+import { useChaiActivePage } from "./pages/use-current-page";
+import { useChaiApiUrl } from "./project/use-builder-prop";
 import { useFetch } from "./utils/use-fetch";
 
-export const useUpdateActivePageMetadata = () => {
-  const apiUrl = useApiUrl();
+export const useChaiUpdateActivePageMetadata = () => {
+  const apiUrl = useChaiApiUrl();
   const fetch = useFetch();
-  const { data: currentPage } = useCurrentActivePage();
+  const { data: currentPage } = useChaiActivePage();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (metadata: Record<string, any>) => {

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { makePartialBlockModalAtom } from "~/builder/atoms/builder";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import {
   useBlocksStore,
   useBlocksStoreUndoableActions,
@@ -13,10 +13,10 @@ import { extractPartialIds, getPartialDepth, usePartialGraph } from "~/builder/h
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useCreatePartialLabel, usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { useCreatePage } from "~/builder/pages/hooks/pages/mutations";
-import { getBlockDefaultProps } from "~/registry";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { getChaiBlockDefaultProps } from "~/registry";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { Button } from "~/components/ui/button";
 import {
   Dialog,
@@ -60,9 +60,9 @@ export const MakePartialBlockModal = () => {
   const [modalState, setModalState] = useAtom(makePartialBlockModalAtom);
   const [blocks] = useBlocksStore();
   const { replaceBlocks } = useBlocksStoreUndoableActions();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const { mutateAsync: createPage, isPending: isCreating } = useCreatePage();
-  const { savePageAsync } = useSavePage();
+  const { savePageAsync } = useChaiSavePage();
   const gotoPage = useBuilderProp("gotoPage", noop);
   const currentPageId = useBuilderProp("pageId", "");
   const { dependencies, isPartialPage, getUsageDepth } = usePartialGraph();
@@ -200,8 +200,8 @@ export const MakePartialBlockModal = () => {
         // Create PartialBlock to replace the original section
         const partialBlock: ChaiBlock = {
           // Defaults carry the wrapper `styles` prop, so the new placement can be styled before a reload.
-          ...getBlockDefaultProps("PartialBlock"),
-          _id: generateUUID(),
+          ...getChaiBlockDefaultProps("PartialBlock"),
+          _id: generateUuid(),
           _type: "PartialBlock",
           _name: name,
           _parent: targetBlock._parent || null,
@@ -229,7 +229,7 @@ export const MakePartialBlockModal = () => {
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>{label}</DialogTitle>
-          <DialogDescription className="text-xs text-muted-foreground">
+          <DialogDescription className="text-muted-foreground text-xs">
             {t("Convert this section into a {{name}} that can be reused across pages.", { name: singular })}
           </DialogDescription>
         </DialogHeader>
@@ -277,19 +277,18 @@ export const MakePartialBlockModal = () => {
           </div>
           <div className="grid gap-2">
             <Label>{t("Tags")}</Label>
-            <TagsInput
-              value={tags}
-              onChange={setTags}
-              suggestions={tagSuggestions}
-              placeholder={t("Add tag")}
-            />
+            <TagsInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder={t("Add tag")} />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" size="sm" onClick={close}>
             {t("Cancel")}
           </Button>
-          <Button size="sm" onClick={handleMakeGlobal} disabled={isSubmitting} loading={isSubmitting || isCreating || !!navTarget}>
+          <Button
+            size="sm"
+            onClick={handleMakeGlobal}
+            disabled={isSubmitting}
+            loading={isSubmitting || isCreating || !!navTarget}>
             {label}
           </Button>
         </DialogFooter>

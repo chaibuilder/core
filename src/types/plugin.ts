@@ -4,7 +4,7 @@ import type { ChaiBuilderServerConfigInput, ResolvedChaiBuilderServerConfig } fr
 /**
  * Drizzle table/relation objects contributed by a plugin, keyed by export name.
  * The fragment matching the active dialect is merged into the DB schema at
- * `buildChaiBuilderConfig` time, before `registerDb`.
+ * `buildChaiBuilderConfig` time, before `registerChaiDb`.
  */
 export type ChaiSchemaFragment = {
   pg?: Record<string, unknown>;

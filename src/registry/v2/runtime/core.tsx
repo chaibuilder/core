@@ -29,7 +29,7 @@ export const useRegisteredChaiBlocks = () => {
 };
 
 /** Returns all registered ChaiBlock configs. Safe to call outside React. */
-export const getAllRegisteredChaiBlocks = (): Record<
+export const getRegisteredChaiBlocks = (): Record<
   string,
   ChaiBlockConfig & { component: React.ComponentType<ChaiBlockComponentProps> }
 > => {
@@ -47,7 +47,9 @@ export const getRegisteredChaiBlock = (
       component: React.ComponentType<ChaiBlockComponentProps>;
     })
   | undefined => {
-  return get(REGISTERED_CHAI_BLOCKS, type) as ChaiBlockConfig & { component: React.ComponentType<ChaiBlockComponentProps> };
+  return get(REGISTERED_CHAI_BLOCKS, type) as ChaiBlockConfig & {
+    component: React.ComponentType<ChaiBlockComponentProps>;
+  };
 };
 
 type RegisteredBlock = ChaiBlockConfig & { component: React.ComponentType<ChaiBlockComponentProps> };
@@ -113,7 +115,7 @@ export const getChaiBlockVariantProps = (
   if (controlledProps.size === 0) return undefined;
 
   const selectedProps = getBlockVariant(registeredBlock, variant)?.props ?? {};
-  const defaults = getBlockDefaultProps(registeredBlock!.type);
+  const defaults = getChaiBlockDefaultProps(registeredBlock!.type);
 
   const variantProps: Record<string, unknown> = {};
   controlledProps.forEach((prop) => {
@@ -133,10 +135,12 @@ export const getChaiBlockVariantProps = (
 // re-registration, HMR), so plain memoize(type) can cache stale results.
 // This skips caching while the type is unregistered, and registry mutations
 // call invalidateBlockMemoCaches(type) to evict entries for updated types.
+/** @internal */
 export type MemoizedByRegisteredType<T> = ((type: keyof typeof REGISTERED_CHAI_BLOCKS) => T) & {
   cache: { delete: (key: string) => boolean };
 };
 
+/** @internal */
 export const memoizeByRegisteredType = <T,>(
   getter: (type: keyof typeof REGISTERED_CHAI_BLOCKS) => T,
 ): MemoizedByRegisteredType<T> => {
@@ -147,7 +151,7 @@ export const memoizeByRegisteredType = <T,>(
   return wrapped;
 };
 
-export const getBlockDefaultProps = memoizeByRegisteredType((type: keyof typeof REGISTERED_CHAI_BLOCKS) => {
+export const getChaiBlockDefaultProps = memoizeByRegisteredType((type: keyof typeof REGISTERED_CHAI_BLOCKS) => {
   const registeredBlock = get(REGISTERED_CHAI_BLOCKS, type);
   const schema = registeredBlock?.props?.schema ?? {};
   const properties = get(schema, "properties", {});
@@ -166,7 +170,7 @@ export const getBlockI18nProps = memoizeByRegisteredType((type: keyof typeof REG
   return get(REGISTERED_CHAI_BLOCKS, `${type}.i18nProps`, []);
 });
 
-export const getBlockAIProps = memoizeByRegisteredType((type: keyof typeof REGISTERED_CHAI_BLOCKS) => {
+export const getChaiBlockAiProps = memoizeByRegisteredType((type: keyof typeof REGISTERED_CHAI_BLOCKS) => {
   return get(REGISTERED_CHAI_BLOCKS, `${type}.aiProps`, []);
 });
 
@@ -213,7 +217,7 @@ const getMemoizedBlockFormSchemas = memoizeByRegisteredType(
   },
 );
 
-export const getBlockFormSchemas = (
+export const getChaiBlockFormSchemas = (
   type: keyof typeof REGISTERED_CHAI_BLOCKS,
 ): { schema: RJSFSchema; uiSchema: UiSchema } | undefined => {
   const cachedSchemas = getMemoizedBlockFormSchemas(type);
@@ -228,7 +232,12 @@ export const getBlockFormSchemas = (
 };
 
 const MEMOIZED_BLOCK_GETTERS = new Map<string, MemoizedByRegisteredType<unknown>>(
-  Object.entries({ getBlockDefaultProps, getBlockI18nProps, getBlockAIProps, getMemoizedBlockFormSchemas }),
+  Object.entries({
+    getBlockDefaultProps: getChaiBlockDefaultProps,
+    getBlockI18nProps,
+    getBlockAIProps: getChaiBlockAiProps,
+    getMemoizedBlockFormSchemas,
+  }),
 );
 
 // getBlockRuntimeProps lives in the render-helper module
@@ -236,6 +245,7 @@ const MEMOIZED_BLOCK_GETTERS = new Map<string, MemoizedByRegisteredType<unknown>
 // its memoized getter through this hook to opt into the same cache invalidation
 // on block (re)registration. Keyed by name, so a hot-reloaded module replaces its
 // previous getter instead of adding another.
+/** @internal */
 export const registerMemoizedBlockGetter = (name: string, getter: MemoizedByRegisteredType<unknown>) => {
   MEMOIZED_BLOCK_GETTERS.set(name, getter);
 };
@@ -246,10 +256,10 @@ const invalidateBlockMemoCaches = (type: keyof typeof REGISTERED_CHAI_BLOCKS) =>
   }
 };
 
-export const syncBlocksWithDefaultProps = (blocks: ChaiBlock[]): ChaiBlock[] => {
+export const syncChaiBlocksWithDefaultProps = (blocks: ChaiBlock[]): ChaiBlock[] => {
   return blocks.map((block) => {
     if (has(REGISTERED_CHAI_BLOCKS, block._type)) {
-      const defaults = getBlockDefaultProps(block._type);
+      const defaults = getChaiBlockDefaultProps(block._type);
       return { ...defaults, ...block } as ChaiBlock;
     }
     return block;
@@ -317,7 +327,7 @@ export const applyBlockDataProviderToRegistry = <K extends Record<string, any> =
   invalidateBlockMemoCaches(type);
 };
 
-export const setChaiBlockComponent = (
+export const registerChaiBlockComponent = (
   type: keyof typeof REGISTERED_CHAI_BLOCKS,
   component: React.ComponentType<ChaiBlockComponentProps<any>>,
 ) => {

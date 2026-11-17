@@ -33,6 +33,11 @@ export const registerChaiClientPlugins = (plugins: ChaiClientPlugin[] = []): voi
   }
 };
 
+/** Registers one client plugin. Same as `registerChaiClientPlugins([plugin])`. */
+export const registerChaiClientPlugin = (plugin: ChaiClientPlugin): void => {
+  registerChaiClientPlugins([plugin]);
+};
+
 /** @internal Clears registered plugin names between unit tests. */
 export const resetChaiClientPluginsForTests = (): void => {
   REGISTERED_CLIENT_PLUGINS.clear();

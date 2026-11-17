@@ -22,7 +22,7 @@ import { useLibraryChaiBlocks } from "~/builder/hooks/use-library-chai-blocks";
 import { usePartialTabLabel } from "~/builder/hooks/use-create-partial-label";
 import { usePartialBlocksList } from "~/builder/hooks/use-partial-blocks-store";
 import { usePermissions } from "~/builder/hooks/use-permissions";
-import { useChaiAddBlockTabs, useChaiLibraries } from "~/builder/register-apis";
+import { useChaiAddBlockTabs, useRegisteredChaiLibraries } from "~/builder/register-apis";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { ScrollArea } from "~/components/ui/scroll-area";
@@ -207,7 +207,7 @@ export const ChaiBuilderBlocks = ({
         )}>
         {/* Sidebar for groups */}
         {!disableBlockGroupsSidebar && sortedGroups.length > 0 && (
-          <div className="w-1/4 min-w-[120px] border-r border-border">
+          <div className="border-border w-1/4 min-w-[120px] border-r">
             <ScrollArea className="h-full">
               <div className="space-y-1 pr-2">
                 <Button
@@ -244,7 +244,7 @@ export const ChaiBuilderBlocks = ({
           }`}>
           <ScrollArea id="add-blocks-scroll-area" className="no-scrollbar h-full">
             {filteredGroups.length === 0 && searchTerm ? (
-              <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground">
+              <div className="text-muted-foreground flex flex-col items-center justify-center p-8 text-center">
                 <p>
                   {t("No blocks found matching")} &quot;{searchTerm}&quot;
                 </p>
@@ -261,7 +261,7 @@ export const ChaiBuilderBlocks = ({
                             className={`flex h-6 w-6 items-center justify-center rounded-full ${groupConfig?.bg || "bg-primary text-primary-foreground"}`}>
                             {groupConfig?.icon || <PanelTop className="h-4 w-4" />}
                           </div>
-                          <Label className="text-xs uppercase text-foreground">{t(group.toLowerCase())}</Label>
+                          <Label className="text-foreground text-xs uppercase">{t(group.toLowerCase())}</Label>
                         </div>
                       )}
                       <div className={"grid gap-2 " + gridCols}>
@@ -273,7 +273,11 @@ export const ChaiBuilderBlocks = ({
                         ).map((block, blockIndex) => {
                           const isDisabled =
                             !dnd &&
-                            (!canAcceptInto(find(allBlocks, (b) => b._id === parentId), block.type, allBlocks) ||
+                            (!canAcceptInto(
+                              find(allBlocks, (b) => b._id === parentId),
+                              block.type,
+                              allBlocks,
+                            ) ||
                               !canBeNestedInside(parentType!, block.type));
                           const key = block.type + "-" + index + "-" + blockIndex;
                           return renderBlock ? (
@@ -362,7 +366,7 @@ const AddBlocksPanel = ({
 
   const addBlockAdditionalTabs = useChaiAddBlockTabs();
   const canImportHTML = importHtmlEnabled && hasPermission(CHAI_PERMISSIONS["pages:update"]);
-  const uiLibraries = useChaiLibraries();
+  const uiLibraries = useRegisteredChaiLibraries();
   const libraryChaiBlocks = useLibraryChaiBlocks();
   const hasUiLibraries = uiLibraries.length > 0 || libraryChaiBlocks.length > 0;
 
@@ -384,10 +388,10 @@ const AddBlocksPanel = ({
     <div className={mergeClasses("flex h-full w-full flex-col overflow-hidden", className)}>
       {showHeading ? (
         <div className="mb-2 flex flex-col justify-between rounded-md px-2 py-1">
-          <h1 className="flex flex-col items-baseline text-xl font-semibold text-foreground xl:flex-col">
+          <h1 className="text-foreground flex flex-col items-baseline text-xl font-semibold xl:flex-col">
             {t("Add block")}
           </h1>
-          <span className="text-xs font-light leading-3 text-muted-foreground">
+          <span className="text-muted-foreground text-xs leading-3 font-light">
             {tab === "html" ? t("Enter or paste TailwindCSS HTML snippet") : t("Click to add block to page")}
           </span>
         </div>
@@ -405,35 +409,35 @@ const AddBlocksPanel = ({
         className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {!isSearching && (
           <TabsList
-          className={`flex min-w-0 max-w-full shrink-0 items-center overflow-x-auto no-scrollbar [&>button]:shrink-0 ${fromSidebar ? "h-max " : ""}${
-            totalTabs >= 4 ? (fromSidebar ? "w-full justify-start" : "w-full justify-between") : "w-max justify-start"
-          }`}>
-          {hasUiLibraries && (
-            <TabsTrigger value="library" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
-              {libraryLabel}
+            className={`no-scrollbar flex max-w-full min-w-0 shrink-0 items-center overflow-x-auto [&>button]:shrink-0 ${fromSidebar ? "h-max" : ""} ${
+              totalTabs >= 4 ? (fromSidebar ? "w-full justify-start" : "w-full justify-between") : "w-max justify-start"
+            }`}>
+            {hasUiLibraries && (
+              <TabsTrigger value="library" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
+                {libraryLabel}
+              </TabsTrigger>
+            )}
+            <TabsTrigger value="core" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
+              {blocksLabel}
             </TabsTrigger>
-          )}
-          <TabsTrigger value="core" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
-            {blocksLabel}
-          </TabsTrigger>
-          {hasPartialBlocks && (
-            <TabsTrigger value="partials" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
-              {partialTabLabel}
-            </TabsTrigger>
-          )}
-          {canImportHTML ? (
-            <TabsTrigger value="html" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
-              {t("Import")}
-            </TabsTrigger>
-          ) : null}
-          {map(addBlockAdditionalTabs, (tab) => (
-            <TabsTrigger
-              key={`tab-add-block-${tab.id}`}
-              value={tab.id}
-              className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
-              {React.createElement(tab.tab)}
-            </TabsTrigger>
-          ))}
+            {hasPartialBlocks && (
+              <TabsTrigger value="partials" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
+                {partialTabLabel}
+              </TabsTrigger>
+            )}
+            {canImportHTML ? (
+              <TabsTrigger value="html" className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
+                {t("Import")}
+              </TabsTrigger>
+            ) : null}
+            {map(addBlockAdditionalTabs, (tab) => (
+              <TabsTrigger
+                key={`tab-add-block-${tab.id}`}
+                value={tab.id}
+                className={fromSidebar ? "h-5 px-2 text-xs" : ""}>
+                {React.createElement(tab.tab)}
+              </TabsTrigger>
+            ))}
           </TabsList>
         )}
         {isSearching ? (
@@ -441,50 +445,50 @@ const AddBlocksPanel = ({
         ) : (
           <>
             <TabsContent value="core" className="h-full max-h-full flex-1 pb-20">
-          <div className={`h-full max-h-full overflow-hidden`}>
-            <div className={`h-full w-full`}>
-              <DefaultChaiBlocks
-                gridCols={fromSidebar ? "grid-cols-2" : "grid-cols-4"}
-                parentId={parentId}
-                position={position}
-                disableBlockGroupsSidebar={fromSidebar}
-                searchTerm={searchTerm}
-                onSearchChange={setSearchTerm}
-              />
-            </div>
-          </div>
-        </TabsContent>
-        {hasUiLibraries && (
-          <TabsContent value="library" className="h-full max-h-full flex-1 pb-8">
-            <UILibrariesPanel
-              fromSidebar={fromSidebar}
-              parentId={parentId}
-              position={position}
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-            />
-          </TabsContent>
-        )}
-        {hasPartialBlocks && (
-          <TabsContent value="partials" className="h-full max-h-full flex-1 pb-20">
-            <div className="h-full max-h-full overflow-hidden">
-              <div className="h-full w-full">
-                <PartialBlocks
+              <div className={`h-full max-h-full overflow-hidden`}>
+                <div className={`h-full w-full`}>
+                  <DefaultChaiBlocks
+                    gridCols={fromSidebar ? "grid-cols-2" : "grid-cols-4"}
+                    parentId={parentId}
+                    position={position}
+                    disableBlockGroupsSidebar={fromSidebar}
+                    searchTerm={searchTerm}
+                    onSearchChange={setSearchTerm}
+                  />
+                </div>
+              </div>
+            </TabsContent>
+            {hasUiLibraries && (
+              <TabsContent value="library" className="h-full max-h-full flex-1 pb-8">
+                <UILibrariesPanel
+                  fromSidebar={fromSidebar}
                   parentId={parentId}
                   position={position}
-                  disableBlockGroupsSidebar={fromSidebar}
                   searchTerm={searchTerm}
                   onSearchChange={setSearchTerm}
                 />
-              </div>
-            </div>
-          </TabsContent>
-        )}
-        {canImportHTML ? (
-          <TabsContent value="html" className={`h-full max-h-full flex-1 pb-20 ${fromSidebar ? "" : ""}`}>
-            <ImportHTML parentId={parentId} position={position} fromSidebar={fromSidebar} />
-          </TabsContent>
-        ) : null}
+              </TabsContent>
+            )}
+            {hasPartialBlocks && (
+              <TabsContent value="partials" className="h-full max-h-full flex-1 pb-20">
+                <div className="h-full max-h-full overflow-hidden">
+                  <div className="h-full w-full">
+                    <PartialBlocks
+                      parentId={parentId}
+                      position={position}
+                      disableBlockGroupsSidebar={fromSidebar}
+                      searchTerm={searchTerm}
+                      onSearchChange={setSearchTerm}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+            )}
+            {canImportHTML ? (
+              <TabsContent value="html" className={`h-full max-h-full flex-1 pb-20 ${fromSidebar ? "" : ""}`}>
+                <ImportHTML parentId={parentId} position={position} fromSidebar={fromSidebar} />
+              </TabsContent>
+            ) : null}
             {map(addBlockAdditionalTabs, (tab) => (
               <TabsContent key={`panel-add-block-${tab.id}`} value={tab.id}>
                 {React.createElement(tab.tabContent, {

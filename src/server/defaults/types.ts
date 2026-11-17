@@ -7,8 +7,8 @@ export type {
   ChaiServerFeaturesInput,
   ChaiDefaultRoleGrants,
   ChaiRolesConfig,
-  LogAiRequestParams,
-  ResolvedChaiAIGlobalConfig,
+  ChaiLogAiRequestArgs,
+  ResolvedChaiAiGlobalConfig,
   ResolvedChaiBuilderServerConfig,
   ResolvedChaiDbConfig,
 } from "~/types/server-config";

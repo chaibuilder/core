@@ -10,7 +10,7 @@ import { ChaiSlot } from "~/builder/register-apis";
 import { Badge } from "~/components/ui/badge";
 import { Label } from "~/components/ui/label";
 import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
-import { LANGUAGES } from "~/constants/LANGUAGES";
+import { CHAI_LANGUAGES } from "~/constants/LANGUAGES";
 import { useRegisteredChaiBlocks } from "~/registry";
 import { DataBindingSelector } from "./data-binding-selector";
 
@@ -21,7 +21,7 @@ const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
     () => (isEmpty(languages) ? "" : isEmpty(selectedLang) ? fallbackLang : selectedLang),
     [languages, selectedLang, fallbackLang],
   );
-  const currentLanguage = useMemo(() => get(LANGUAGES, lang, lang), [lang]);
+  const currentLanguage = useMemo(() => get(CHAI_LANGUAGES, lang, lang), [lang]);
   const pageExternalData = usePageExternalData();
 
   const selectedBlock = useSelectedBlock();
@@ -77,17 +77,17 @@ const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
             <label
               htmlFor={id}
               onClick={() => setOpenedList(isListOpen ? null : id)}
-              className="flex cursor-pointer items-center gap-x-1 p-1 leading-tight duration-200 hover:bg-accent rounded">
+              className="hover:bg-accent flex cursor-pointer items-center gap-x-1 rounded p-1 leading-tight duration-200">
               {isListOpen ? <ChevronDownIcon className="h-3 w-3" /> : <ChevronRightIcon className="h-3 w-3" />}
               <ListBulletIcon className="h-3 w-3" />
-              <span className="text-xs font-light leading-tight">{label}</span>&nbsp;
-              <Badge variant="secondary" className="h-4 px-1 text-[10px] rounded-full">
-                <span className="text-[9px] font-medium text-foreground bg-background">{formData?.length}</span>
+              <span className="text-xs leading-tight font-light">{label}</span>&nbsp;
+              <Badge variant="secondary" className="h-4 rounded-full px-1 text-[10px]">
+                <span className="text-foreground bg-background text-[9px] font-medium">{formData?.length}</span>
               </Badge>
               {schema.description && (
                 <Tooltip content={schema.description} side="right">
                   <InfoCircledIcon
-                    className="h-3 w-3 text-muted-foreground/70"
+                    className="text-muted-foreground/70 h-3 w-3"
                     onClick={(e) => e.stopPropagation()}
                     onMouseDown={(e) => e.stopPropagation()}
                   />
@@ -125,7 +125,7 @@ const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
             </Label>
             {schema.description && (
               <Tooltip content={schema.description} side="right">
-                <InfoCircledIcon className="h-3 w-3 text-muted-foreground/70" />
+                <InfoCircledIcon className="text-muted-foreground/70 h-3 w-3" />
               </Tooltip>
             )}
           </div>

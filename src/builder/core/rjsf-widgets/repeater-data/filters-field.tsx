@@ -2,7 +2,7 @@ import { Cross1Icon, PlusIcon } from "@radix-ui/react-icons";
 import { FieldProps } from "@rjsf/utils";
 import { isArray, isEmpty, map, reject, upperFirst } from "lodash-es";
 import { usePageExternalData } from "~/builder/atoms/builder";
-import { NestedPathSelector } from "~/builder/core/components/nested-path-selector";
+import { ChaiNestedPathSelector } from "~/builder/core/components/nested-path-selector";
 import { BindingTextField } from "~/builder/core/rjsf-widgets/binding-editor/binding-editor-widget";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
@@ -48,7 +48,7 @@ const FilterValueBinding = ({
   const dataBindingEnabled = useBuilderProp("flags.dataBinding", true);
   if (!dataBindingEnabled) return null;
   return (
-    <NestedPathSelector
+    <ChaiNestedPathSelector
       data={pageExternalData ?? {}}
       dataType={dataType}
       withCollections={false}
@@ -99,13 +99,20 @@ const FilterValueTextInput = ({
 // Rows are always emitted with the key order {field, operator, value} — the
 // canvas refetch key is a JSON.stringify of these objects, so a stable key
 // order keeps identical filters from triggering refetches.
-const makeRow = (field: string, operator: ChaiRepeaterOperator, value: ChaiRepeaterFilter["value"]): ChaiRepeaterFilter => ({
+const makeRow = (
+  field: string,
+  operator: ChaiRepeaterOperator,
+  value: ChaiRepeaterFilter["value"],
+): ChaiRepeaterFilter => ({
   field,
   operator,
   value,
 });
 
-const defaultValueForField = (field: ChaiRepeaterDataField, operator: ChaiRepeaterOperator): ChaiRepeaterFilter["value"] => {
+const defaultValueForField = (
+  field: ChaiRepeaterDataField,
+  operator: ChaiRepeaterOperator,
+): ChaiRepeaterFilter["value"] => {
   if (operator === "in" || operator === "not_in") return [];
   if (field.type === "boolean") return true;
   return "";
@@ -162,8 +169,8 @@ const FilterValueInput = ({
     if (row.operator === "in" || row.operator === "not_in") {
       if (typeof row.value === "string" && BINDING_PATTERN.test(row.value)) {
         return (
-          <div className="flex items-center justify-between gap-x-1 rounded-md border border-input px-2 py-1">
-            <span className="truncate font-mono text-xs text-muted-foreground">{row.value}</span>
+          <div className="border-input flex items-center justify-between gap-x-1 rounded-md border px-2 py-1">
+            <span className="text-muted-foreground truncate font-mono text-xs">{row.value}</span>
             <button type="button" title="Remove binding" onClick={() => onValueChange([])}>
               <Cross1Icon className="h-2.5 w-2.5" />
             </button>
@@ -175,8 +182,8 @@ const FilterValueInput = ({
         onValueChange(selected.includes(value) ? selected.filter((entry) => entry !== value) : [...selected, value]);
       return (
         <div className="space-y-1">
-          <div className="max-h-32 space-y-1 overflow-y-auto rounded-md border border-input p-2">
-            {options.length === 0 && <div className="text-xs italic text-gray-500">No options defined</div>}
+          <div className="border-input max-h-32 space-y-1 overflow-y-auto rounded-md border p-2">
+            {options.length === 0 && <div className="text-xs text-gray-500 italic">No options defined</div>}
             {options.map((option) => (
               <label key={option.value} className="flex cursor-pointer items-center gap-x-2 text-xs">
                 <input
@@ -281,13 +288,13 @@ const RepeaterFiltersField = ({ formData, onChange }: FieldProps) => {
         <button
           type="button"
           onClick={addRow}
-          className="flex items-center gap-x-1 rounded-md border border-input bg-transparent px-2 py-px text-xs text-muted-foreground hover:opacity-80">
+          className="border-input text-muted-foreground flex items-center gap-x-1 rounded-md border bg-transparent px-2 py-px text-xs hover:opacity-80">
           <PlusIcon className="h-3 w-3" />
         </button>
       </div>
       <div className="space-y-2">
         {rows.length === 0 ? (
-          <div className="rounded border border-dashed border-border p-2 text-xs italic text-muted-foreground">
+          <div className="border-border text-muted-foreground rounded border border-dashed p-2 text-xs italic">
             {emptyHint}
           </div>
         ) : (
@@ -295,11 +302,11 @@ const RepeaterFiltersField = ({ formData, onChange }: FieldProps) => {
             const field = fieldById(row.field) ?? filterableFields[0];
             const operators = CHAI_REPEATER_OPERATORS_BY_TYPE[field.type];
             return (
-              <div key={keys[index]} className="group relative space-y-1.5 rounded border border-border p-2">
+              <div key={keys[index]} className="group border-border relative space-y-1.5 rounded border p-2">
                 <button
                   type="button"
                   onClick={() => removeRow(index)}
-                  className="absolute -right-1 -top-1 z-10 rounded-full bg-destructive p-1 opacity-0 hover:bg-destructive/90 group-hover:opacity-100">
+                  className="bg-destructive hover:bg-destructive/90 absolute -top-1 -right-1 z-10 rounded-full p-1 opacity-0 group-hover:opacity-100">
                   <Cross1Icon className="h-2.5 w-2.5 text-white" />
                 </button>
                 <div className="grid grid-cols-2 gap-x-1.5">
@@ -310,7 +317,10 @@ const RepeaterFiltersField = ({ formData, onChange }: FieldProps) => {
                       // changing the field resets operator + value to that field's defaults
                       const nextField = fieldById(e.target.value) ?? filterableFields[0];
                       const nextOperator = CHAI_REPEATER_OPERATORS_BY_TYPE[nextField.type][0];
-                      updateRow(index, makeRow(nextField.id, nextOperator, defaultValueForField(nextField, nextOperator)));
+                      updateRow(
+                        index,
+                        makeRow(nextField.id, nextOperator, defaultValueForField(nextField, nextOperator)),
+                      );
                     }}>
                     {filterableFields.map((option) => (
                       <option key={option.id} value={option.id}>

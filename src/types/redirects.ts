@@ -1,4 +1,4 @@
-export type RedirectEntry = {
+export type ChaiRedirectEntry = {
   id: string;
   fromPath: string;
   toPath: string;

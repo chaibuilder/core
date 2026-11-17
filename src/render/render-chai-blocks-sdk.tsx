@@ -1,6 +1,6 @@
 import { find, get, isEmpty } from "lodash-es";
 import { ComponentType, ReactNode } from "react";
-import { syncBlocksWithDefaultProps } from "~/registry";
+import { syncChaiBlocksWithDefaultProps } from "~/registry";
 import { getBlocksIndex } from "./children-index";
 import { ChaiBlock, ChaiPageProps } from "~/types/common";
 import { ChaiDesignTokens } from "~/types/types";
@@ -73,7 +73,7 @@ export function RenderChaiBlocksSDK(props: RenderChaiBlocksProps) {
   const fallbackLang = props.fallbackLang ?? lang;
   // Sync with default block props so newly-added schema defaults (including
   // styles) propagate to blocks saved before the default existed.
-  const blocks = syncBlocksWithDefaultProps(props.blocks);
+  const blocks = syncChaiBlocksWithDefaultProps(props.blocks);
   const slotState = props.slotState ?? { used: new Set<string>() };
   // Merged once here so every block shares one object rather than a copy each.
   const designTokens = mergeDesignTokens(props.designTokens);

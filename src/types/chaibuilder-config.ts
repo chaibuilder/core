@@ -1,6 +1,5 @@
 import type { ChaiPageType } from "~/types/actions";
 import type { ChaiActionSurface } from "~/types/chai-action";
-import type { CollectionConfig } from "~/types/collection-config";
 import type { ChaiBlock, ChaiPageProps } from "~/types/common";
 import type { ChaiTrashableEntity } from "~/types/trash";
 
@@ -126,25 +125,6 @@ export type ChaiContextResolver<Req extends ChaiIncomingRequest = ChaiIncomingRe
 ) => Partial<ChaiRequestContext> | Promise<Partial<ChaiRequestContext>>;
 
 /**
- * @deprecated Context passed to the removed `resolveSiteUrl` config option.
- * Resolve `siteUrl` inside your {@link ChaiContextResolver} instead.
- */
-export type ChaiResolveSiteUrlContext = {
-  appId: string;
-};
-
-/** @deprecated Use {@link ChaiContextResolverArgs}. */
-export type ChaiRequestContextArgs<Req extends ChaiIncomingRequest = ChaiIncomingRequest> = {
-  routeProps: ChaiBuilderRouteProps;
-  request?: Req;
-};
-
-/** @deprecated Use {@link ChaiContextResolver}. */
-export type ChaiRequestContextResolver<Req extends ChaiIncomingRequest = ChaiIncomingRequest> = (
-  args: ChaiRequestContextArgs<Req>,
-) => Partial<ChaiRequestContext> | Promise<Partial<ChaiRequestContext>>;
-
-/**
  * Same shape as Next.js App Router route component props (`page` / `layout` / `generateMetadata`).
  * `params` / `searchParams` may be `Promise`s (Next 15+) or plain objects.
  *
@@ -247,11 +227,7 @@ export type ChaiUpstreamPageSource = {
    * Page `id` if site `appId` may link it on `userId`'s behalf, else null. Gates creating a
    * linked page and resetting a clone back to its upstream page.
    */
-  findLinkable(args: {
-    id: string;
-    appId: string;
-    userId: string;
-  }): Promise<{
+  findLinkable(args: { id: string; appId: string; userId: string }): Promise<{
     id: string;
     name: string;
     pageType: string | null;
@@ -275,12 +251,6 @@ export type ChaiUpstreamPageSource = {
 export type ChaiPageTypeEntry = ChaiPageType & {
   partial?: boolean;
 };
-
-/**
- * Collection entry
- * @deprecated Use `ChaiRepeaterDataEntry` instead.
- */
-export type ChaiCollectionEntry = CollectionConfig<any>;
 
 export type { ChaiRepeaterDataEntry } from "~/types/repeater-data";
 
@@ -334,7 +304,7 @@ export type {
   ChaiBuilderServerConfigInput,
   ChaiDbConfigInput,
   ChaiDbSetup,
-  ResolvedChaiAIGlobalConfig,
+  ResolvedChaiAiGlobalConfig,
   ResolvedChaiBuilderServerConfig,
   ResolvedChaiDbConfig,
 } from "~/types/server-config";

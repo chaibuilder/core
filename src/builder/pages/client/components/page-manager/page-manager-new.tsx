@@ -8,9 +8,9 @@ import { usePartialTabLabel } from "~/builder/hooks/use-create-partial-label";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { addNewLangAtom } from "~/builder/pages/atom/add-new-lang";
 import { PAGE_CATEGORY_FILTER_KEY } from "~/builder/pages/atom/page-manager";
-import { useWebsiteLanguagePages, useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
-import { useFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
+import { useWebsiteLanguagePages, useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
 import { usePageExpandManager } from "~/builder/pages/hooks/utils/use-page-expand-manager";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
 import { navigateToPage } from "~/builder/pages/utils/navigation";
@@ -34,13 +34,13 @@ interface PageManagerNewProps {
 const PagesManagerNew = ({ close }: PageManagerNewProps) => {
   const { t } = useTranslation();
   const { languages, setSelectedLang } = useLanguages();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const layoutPagesEnabled = useBuilderProp("flags.layoutPages", false);
   const partialsLabel = usePartialTabLabel();
-  const { data, isFetching } = useWebsitePrimaryPages();
+  const { data, isFetching } = useChaiPrimaryPages();
   const [queryParams, setQueryParams] = useSearchParams();
   const { updateForSelectedPage, expandPagesOnSearch } = usePageExpandManager(null);
-  const fallbackLang = useFallbackLang();
+  const fallbackLang = useChaiFallbackLang();
   const currentPage = queryParams.get("page");
 
   // * Page manager
@@ -327,15 +327,15 @@ const PagesManagerNew = ({ close }: PageManagerNewProps) => {
             setCategory={setCategory}
           />
         </Suspense>
-        <div className="flex-1 overflow-y-auto px-4 pb-6 pt-2">
+        <div className="flex-1 overflow-y-auto px-4 pt-2 pb-6">
           {isFetching || isFetchingLangPages ? (
             <div className="space-y-2">
               {map([...Array(15).keys()], (key) => (
-                <div key={key} className="h-7 w-full animate-pulse rounded border border-border bg-accent" />
+                <div key={key} className="border-border bg-accent h-7 w-full animate-pulse rounded border" />
               ))}
             </div>
           ) : isEmpty(pages) ? (
-            <div className="flex h-[70vh] flex-col items-center justify-center gap-y-1 text-center text-sm font-medium text-muted-foreground">
+            <div className="text-muted-foreground flex h-[70vh] flex-col items-center justify-center gap-y-1 text-center text-sm font-medium">
               <File className="h-6 w-6 stroke-[1]" />
               {search ? (
                 <>
@@ -358,7 +358,7 @@ const PagesManagerNew = ({ close }: PageManagerNewProps) => {
             <div className="space-y-2">
               {filter(pages, (p) => hasSlug(p.pageType)).length > 0 && (
                 <div>
-                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">{t("Pages")}</div>
+                  <div className="text-muted-foreground px-2 py-1 text-xs font-semibold">{t("Pages")}</div>
                   <RenderPageItems
                     tier={0}
                     pages={filter(pages, (p) => hasSlug(p.pageType))}
@@ -373,7 +373,7 @@ const PagesManagerNew = ({ close }: PageManagerNewProps) => {
               )}
               {filter(pages, (p) => !hasSlug(p.pageType)).length > 0 && (
                 <div>
-                  <div className="px-2 py-1 text-xs font-semibold text-muted-foreground">{partialsLabel}</div>
+                  <div className="text-muted-foreground px-2 py-1 text-xs font-semibold">{partialsLabel}</div>
                   <RenderPageItems
                     tier={0}
                     pages={filter(pages, (p) => !hasSlug(p.pageType))}

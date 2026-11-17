@@ -4,7 +4,7 @@ import { registerChaiBlockProps } from "~/registry";
 import { ChaiBlockComponentProps } from "~/types/blocks";
 
 export type PageSlotProps = {
-  /** Empty = default slot (`children`). Named = matched via `WithChaiLayout slots={{ name: … }}`. */
+  /** Empty = default slot (`children`). Named = matched via `ChaiLayout slots={{ name: … }}`. */
   slotName: string;
 };
 

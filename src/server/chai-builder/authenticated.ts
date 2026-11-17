@@ -1,5 +1,5 @@
-import type { GetAssetInput, SearchImagesInput, UpdateAssetInput } from "~/types/media";
-import { dispatchChaiAction } from "~/server/chai-actions/dispatch-action";
+import type { ChaiGetAssetArgs, ChaiSearchImagesArgs, ChaiUpdateAssetArgs } from "~/types/media";
+import { runChaiAction } from "~/server/chai-actions/dispatch-action";
 import type {
   DeleteLibraryItemActionData,
   GetLibraryItemActionData,
@@ -14,38 +14,33 @@ import { TakeOfflineActionData } from "~/server/chai-actions/pages/take-offline"
 import { UpdatePageActionData } from "~/server/chai-actions/pages/update-page";
 import { UpdatePageMetadataActionData } from "~/server/chai-actions/pages/update-page-metadata";
 import type {
-  DeletePageRevisionActionData,
-  GetPageRevisionsActionData,
-  GetRevisionPageActionData,
-  RestorePageActionData,
+  ChaiDeletePageRevisionArgs,
+  ChaiGetPageRevisionsArgs,
+  ChaiGetRevisionPageArgs,
+  ChaiRestorePageArgs,
 } from "~/types/revisions";
-import type {
-  CreateRoleActionData,
-  DeleteRoleActionData,
-  GetRoleActionData,
-  UpdateRoleActionData,
-} from "~/types/roles";
+import type { ChaiCreateRoleArgs, ChaiDeleteRoleArgs, ChaiGetRoleArgs, ChaiUpdateRoleArgs } from "~/types/roles";
 import { GetTemplatesByTypeActionData } from "~/server/chai-actions/templates/get-templates-by-type";
 import { MarkAsTemplateActionData } from "~/server/chai-actions/templates/mark-as-template";
 import { UnmarkAsTemplateActionData } from "~/server/chai-actions/templates/unmark-as-template";
 import type {
-  DeletePermanentlyData,
-  GetTrashedItemsData,
-  PermanentlyDeleteByDaysData,
-  RestoreTrashedItemData,
-  TrashEntityData,
+  ChaiDeleteTrashPermanentlyArgs,
+  ChaiGetTrashedItemsArgs,
+  ChaiDeleteTrashByDaysArgs,
+  ChaiRestoreTrashedItemArgs,
+  ChaiTrashEntityArgs,
 } from "~/types/trash";
 
 export const runRegisteredAction = async <T>(actionName: string, data: T): Promise<any> => {
-  return dispatchChaiAction(actionName, data);
+  return runChaiAction(actionName, data);
 };
 
 // Assets
-export const getAsset = (data: GetAssetInput) => runRegisteredAction("GET_ASSET", data);
+export const getAsset = (data: ChaiGetAssetArgs) => runRegisteredAction("GET_ASSET", data);
 export const getAssets = (data: { search?: string; page?: number; limit?: number } = {}) =>
   runRegisteredAction("GET_ASSETS", data);
-export const searchImages = (data: SearchImagesInput) => runRegisteredAction("SEARCH_IMAGES", data);
-export const updateAsset = (data: UpdateAssetInput) => runRegisteredAction("UPDATE_ASSET", data);
+export const searchImages = (data: ChaiSearchImagesArgs) => runRegisteredAction("SEARCH_IMAGES", data);
+export const updateAsset = (data: ChaiUpdateAssetArgs) => runRegisteredAction("UPDATE_ASSET", data);
 
 // Pages
 export const createPage = (data: CreatePageActionData) => runRegisteredAction("CREATE_PAGE", data);
@@ -76,24 +71,25 @@ export const markAsTemplate = (data: MarkAsTemplateActionData) => runRegisteredA
 export const unmarkAsTemplate = (data: UnmarkAsTemplateActionData) => runRegisteredAction("UNMARK_AS_TEMPLATE", data);
 
 // Trash
-export const deleteTrashedItemPermanently = (data: DeletePermanentlyData) =>
+export const deleteTrashedItemPermanently = (data: ChaiDeleteTrashPermanentlyArgs) =>
   runRegisteredAction("DELETE_PERMANENTLY", data);
-export const getTrashedItems = (data: GetTrashedItemsData) => runRegisteredAction("GET_TRASHED_ITEMS", data);
-export const permanentlyDeleteByDays = (data: PermanentlyDeleteByDaysData) =>
+export const getTrashedItems = (data: ChaiGetTrashedItemsArgs) => runRegisteredAction("GET_TRASHED_ITEMS", data);
+export const permanentlyDeleteByDays = (data: ChaiDeleteTrashByDaysArgs) =>
   runRegisteredAction("PERMANENTLY_DELETE_BY_DAYS", data);
-export const restoreTrashedItem = (data: RestoreTrashedItemData) => runRegisteredAction("RESTORE_TRASHED_ITEM", data);
-export const trashEntity = (data: TrashEntityData) => runRegisteredAction("TRASH_ENTITY", data);
+export const restoreTrashedItem = (data: ChaiRestoreTrashedItemArgs) =>
+  runRegisteredAction("RESTORE_TRASHED_ITEM", data);
+export const trashEntity = (data: ChaiTrashEntityArgs) => runRegisteredAction("TRASH_ENTITY", data);
 
 // Roles
 export const getRoles = () => runRegisteredAction("GET_ROLES", {});
-export const getRole = (data: GetRoleActionData) => runRegisteredAction("GET_ROLE", data);
-export const createRole = (data: CreateRoleActionData) => runRegisteredAction("CREATE_ROLE", data);
-export const updateRole = (data: UpdateRoleActionData) => runRegisteredAction("UPDATE_ROLE", data);
-export const deleteRole = (data: DeleteRoleActionData) => runRegisteredAction("DELETE_ROLE", data);
+export const getRole = (data: ChaiGetRoleArgs) => runRegisteredAction("GET_ROLE", data);
+export const createRole = (data: ChaiCreateRoleArgs) => runRegisteredAction("CREATE_ROLE", data);
+export const updateRole = (data: ChaiUpdateRoleArgs) => runRegisteredAction("UPDATE_ROLE", data);
+export const deleteRole = (data: ChaiDeleteRoleArgs) => runRegisteredAction("DELETE_ROLE", data);
 
 // Revisions
-export const deletePageRevision = (data: DeletePageRevisionActionData) =>
+export const deletePageRevision = (data: ChaiDeletePageRevisionArgs) =>
   runRegisteredAction("DELETE_PAGE_REVISION", data);
-export const getPageRevisions = (data: GetPageRevisionsActionData) => runRegisteredAction("GET_PAGE_REVISIONS", data);
-export const getRevisionPage = (data: GetRevisionPageActionData) => runRegisteredAction("GET_REVISION_PAGE", data);
-export const restorePage = (data: RestorePageActionData) => runRegisteredAction("RESTORE_PAGE_REVISION", data);
+export const getPageRevisions = (data: ChaiGetPageRevisionsArgs) => runRegisteredAction("GET_PAGE_REVISIONS", data);
+export const getRevisionPage = (data: ChaiGetRevisionPageArgs) => runRegisteredAction("GET_REVISION_PAGE", data);
+export const restorePage = (data: ChaiRestorePageArgs) => runRegisteredAction("RESTORE_PAGE_REVISION", data);

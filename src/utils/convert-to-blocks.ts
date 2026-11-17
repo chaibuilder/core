@@ -30,7 +30,7 @@ function removeAssetPrefix(input: string): string {
  * This function converts the chai format content to chai blocks
  * @param chaiFormatContent
  */
-export const convertToBlocks = (chaiFormatContent: string): ChaiBlock[] => {
+export const parseChaiBlocksFromChaiFile = (chaiFormatContent: string): ChaiBlock[] => {
   if (!chaiFormatContent) return [];
   try {
     const blocks = JSON.parse(removeAssetPrefix(chaiFormatContent));

@@ -1,11 +1,11 @@
 import { filter } from "lodash-es";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 
 export const useCreatePartialLabel = () => {
   const { t } = useTranslation();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
 
   const partialTypes = useMemo(() => {
     return filter(pageTypes, (type) => type.hasSlug === false && type.key !== "_layout");
@@ -16,7 +16,7 @@ export const useCreatePartialLabel = () => {
 
 export const useSearchLabel = (category: string = "pages") => {
   const { t } = useTranslation();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const partialTypes = useMemo(() => {
     return filter(pageTypes, (type) => type.hasSlug === false && type.key !== "_layout");
   }, [pageTypes]);
@@ -33,7 +33,7 @@ export const useSearchLabel = (category: string = "pages") => {
 
 export const usePartialTypeLabel = () => {
   const { t } = useTranslation();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const partialTypes = useMemo(() => {
     return filter(pageTypes, (type) => type.hasSlug === false && type.key !== "_layout");
   }, [pageTypes]);

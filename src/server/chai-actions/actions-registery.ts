@@ -42,12 +42,6 @@ export { ChaiActionsRegistry };
 
 const chaiActionsRegistry = ChaiActionsRegistry.getInstance();
 
-/**
- * @deprecated Same object as `ChaiActionsRegistry` from `<pkg>/nextjs/server` (the shared instance,
- * not the class). Prefer `actions` in `buildChaiBuilderConfig` or a server plugin over runtime registration.
- */
-export const BuilderActionsRegistry = chaiActionsRegistry;
-
 /** The shared registered instance. To run an action, use {@link getChaiActionInstance}. */
 export const getChaiAction = (action: string): ChaiAction<any, any> | undefined => {
   const legacyOverride = chaiActionsRegistry.getAction(action);

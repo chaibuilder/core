@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import type { HttpChaiActionBody } from "~/server/chai-builder/handle-http-action";
+import type { ChaiHttpActionBody } from "~/server/chai-builder/handle-http-action";
 import { handleChaiActionRequest } from "./handle-action-request";
 
 const okHandler = () =>
-  vi.fn(async (_body: HttpChaiActionBody) => Response.json({ ok: true, data: { id: "asset-1" } }));
+  vi.fn(async (_body: ChaiHttpActionBody) => Response.json({ ok: true, data: { id: "asset-1" } }));
 
 describe("handleChaiActionRequest", () => {
   it("dispatches ordinary JSON actions", async () => {

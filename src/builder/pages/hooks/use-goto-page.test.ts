@@ -5,7 +5,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { act, waitFor } from "@testing-library/react";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { useIsPublishing } from "~/builder/pages/hooks/pages/mutations";
-import { useGotoPage } from "~/builder/pages/hooks/use-goto-page";
+import { useChaiGotoPage } from "~/builder/pages/hooks/use-goto-page";
 import { createTestQueryClient, renderHookInBuilder } from "~/tests/builder/render-in-builder";
 
 /** Puts a real, never-settling PUBLISH_CHANGES mutation in flight. */
@@ -30,7 +30,7 @@ describe("useGotoPage", () => {
   });
 
   it("navigates to the requested page", () => {
-    const { result } = renderHookInBuilder(() => useGotoPage());
+    const { result } = renderHookInBuilder(() => useChaiGotoPage());
 
     act(() => result.current({ pageId: "page-2", blockId: "block-1" }));
 
@@ -40,7 +40,7 @@ describe("useGotoPage", () => {
 
   it("does not switch pages while a publish is in flight", async () => {
     const queryClient = createTestQueryClient();
-    const { result } = renderHookInBuilder(() => ({ gotoPage: useGotoPage(), isPublishing: useIsPublishing() }), {
+    const { result } = renderHookInBuilder(() => ({ gotoPage: useChaiGotoPage(), isPublishing: useIsPublishing() }), {
       queryClient,
     });
     startPublishing(queryClient);

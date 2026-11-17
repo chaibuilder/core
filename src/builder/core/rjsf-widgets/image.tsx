@@ -12,9 +12,12 @@ import { useLanguages } from "~/builder/hooks/use-languages";
 import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
-import { BindingTextField, useBindingInputEnabled } from "~/builder/core/rjsf-widgets/binding-editor/binding-editor-widget";
+import {
+  BindingTextField,
+  useBindingInputEnabled,
+} from "~/builder/core/rjsf-widgets/binding-editor/binding-editor-widget";
 import { applyBindingToBlockProps } from "~/render/apply-binding";
-import { getBlockDefaultProps } from "~/registry";
+import { getChaiBlockDefaultProps } from "~/registry";
 import { ChaiAsset } from "~/types";
 
 const PLACEHOLDER_IMAGE =
@@ -122,7 +125,7 @@ const ImagePickerField = ({ value, onChange, id, onBlur, uiSchema }: WidgetProps
         // Remove w-full and h-full from styles only when they are still at default (initial load)
         // If the user has customized styles, preserve them as-is
         if ((width || height) && selectedBlock?._type && selectedBlock?.styles) {
-          const defaultProps = getBlockDefaultProps(selectedBlock._type);
+          const defaultProps = getChaiBlockDefaultProps(selectedBlock._type);
           const defaultStyles = get(defaultProps, "styles", "");
           if (selectedBlock.styles === defaultStyles) {
             props.styles = removeSizeClasses(selectedBlock.styles as string, width, height);
@@ -162,7 +165,7 @@ const ImagePickerField = ({ value, onChange, id, onBlur, uiSchema }: WidgetProps
             <ChaiImage
               src={resolvedValue}
               className={
-                `h-[72px] w-[72px] overflow-hidden rounded-md border border-border object-cover transition duration-200 ` +
+                `border-border h-[72px] w-[72px] overflow-hidden rounded-md border object-cover transition duration-200 ` +
                 (assetId && assetId !== "" ? "cursor-pointer group-hover:scale-105 group-hover:opacity-50" : "")
               }
               alt=""
@@ -174,7 +177,7 @@ const ImagePickerField = ({ value, onChange, id, onBlur, uiSchema }: WidgetProps
               onClick={clearImage}
               size="icon-xs"
               variant="destructive"
-              className="absolute -right-2 -top-2 z-20 h-5 w-5 rounded-full p-1">
+              className="absolute -top-2 -right-2 z-20 h-5 w-5 rounded-full p-1">
               <Cross1Icon className="!h-3 !w-3" />
             </Button>
           )}
@@ -184,21 +187,21 @@ const ImagePickerField = ({ value, onChange, id, onBlur, uiSchema }: WidgetProps
                 size="icon-xs"
                 variant="ghost"
                 type="button"
-                className="absolute inset-0 left-1/2 top-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center opacity-0 transition duration-200 group-hover:opacity-100">
-                <Pencil2Icon className="h-4 w-4 text-foreground" />
+                className="absolute inset-0 top-1/2 left-1/2 z-10 flex -translate-x-1/2 -translate-y-1/2 cursor-pointer items-center justify-center opacity-0 transition duration-200 group-hover:opacity-100">
+                <Pencil2Icon className="text-foreground h-4 w-4" />
               </Button>
             </MediaManagerModal>
           )}
         </div>
       ) : (
         <MediaManagerModal onSelect={handleSelect} mode="image" assetId={assetId}>
-          <div className="h-[72px] w-[72px] cursor-pointer rounded-md border border-border bg-[radial-gradient(hsl(var(--muted-foreground)),transparent_1px)] duration-300 [background-size:10px_10px]"></div>
+          <div className="border-border h-[72px] w-[72px] cursor-pointer rounded-md border bg-[radial-gradient(hsl(var(--muted-foreground)),transparent_1px)] [background-size:10px_10px] duration-300"></div>
         </MediaManagerModal>
       )}
       <div className="flex w-3/5 flex-col">
         {showImagePicker && (
           <>
-            <p className="sr-only max-w-[250px] truncate pr-2 text-xs text-muted-foreground">{fileName}</p>
+            <p className="text-muted-foreground sr-only max-w-[250px] truncate pr-2 text-xs">{fileName}</p>
             <MediaManagerModal onSelect={handleSelect} assetId="">
               <Button variant="outline" size="sm">
                 {!isEmpty(resolvedValue) && resolvedValue !== PLACEHOLDER_IMAGE
@@ -206,7 +209,7 @@ const ImagePickerField = ({ value, onChange, id, onBlur, uiSchema }: WidgetProps
                   : t("Choose image")}
               </Button>
             </MediaManagerModal>
-            <div className="text-center text-[10px] italic text-muted-foreground">OR</div>
+            <div className="text-muted-foreground text-center text-[10px] italic">OR</div>
           </>
         )}
         {bindingInputEnabled ? (

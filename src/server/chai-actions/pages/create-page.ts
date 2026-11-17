@@ -9,7 +9,7 @@ import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
 import { ChaiBlock } from "~/types/common";
 import { ActionError } from "../action-error";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
-import { hasPermission } from "~/server/rbac/permissions";
+import { hasChaiPermission } from "~/server/rbac/permissions";
 import { ChaiBaseAction } from "../base-action";
 import { getDefaultGlobalJsonLdIds } from "./default-global-jsonlds";
 import { demoteExistingHomepage, findExistingHomepage } from "./demote-existing-homepage";
@@ -138,10 +138,7 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
     // homepage before the insert fails on the invalid foreign key.
     const isHomepageClaim = hasSlug && slug === "/";
     if (isHomepageClaim && (data.pageType !== "page" || data.parent != null || data.primaryPage != null)) {
-      throw new ActionError(
-        "Only a root-level page of type 'page' can be the homepage",
-        "INVALID_HOMEPAGE_PAGE_TYPE",
-      );
+      throw new ActionError("Only a root-level page of type 'page' can be the homepage", "INVALID_HOMEPAGE_PAGE_TYPE");
     }
 
     // Validate slug uniqueness if hasSlug is true. A homepage claim skips this:
@@ -264,8 +261,8 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
       // create-gated action never named — so it needs those permissions too.
       const permissions = this.context.userAccess?.permissions ?? null;
       if (
-        !hasPermission(permissions, CHAI_PERMISSIONS["pages:update"]) ||
-        !hasPermission(permissions, CHAI_PERMISSIONS["pages:unpublish"])
+        !hasChaiPermission(permissions, CHAI_PERMISSIONS["pages:update"]) ||
+        !hasChaiPermission(permissions, CHAI_PERMISSIONS["pages:unpublish"])
       ) {
         throw new ActionError(
           `Replacing the current homepage requires permissions: ${CHAI_PERMISSIONS["pages:update"]}, ${CHAI_PERMISSIONS["pages:unpublish"]}`,
@@ -277,9 +274,7 @@ export class CreatePageAction extends ChaiBaseAction<CreatePageActionData, Creat
     }
 
     // Insert the new page using safeQuery
-    const { data: result, error } = await safeQuery(() =>
-      db.insert(schema.appPages).values(pageData).returning(),
-    );
+    const { data: result, error } = await safeQuery(() => db.insert(schema.appPages).values(pageData).returning());
 
     if (error) {
       throw new ActionError("Failed to create page", "ERROR_CREATING_PAGE", 500, error);

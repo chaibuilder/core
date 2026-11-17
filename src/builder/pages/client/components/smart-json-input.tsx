@@ -1,8 +1,11 @@
 import { AlertTriangle, Code, Eye, FileCode2 } from "lucide-react";
 import { startTransition, useEffect, useRef, useState } from "react";
 import { ErrorBoundary } from "react-error-boundary";
-import { NestedPathSelector } from "~/builder/core/components/nested-path-selector";
-import { BindingTextField, useBindingInputEnabled } from "~/builder/core/rjsf-widgets/binding-editor/binding-editor-widget";
+import { ChaiNestedPathSelector } from "~/builder/core/components/nested-path-selector";
+import {
+  BindingTextField,
+  useBindingInputEnabled,
+} from "~/builder/core/rjsf-widgets/binding-editor/binding-editor-widget";
 import {
   evaluatePlaceholders,
   JsonError,
@@ -192,7 +195,7 @@ export const SmartJsonInput: React.FC<SmartJsonInputProps> = ({
             <div className="flex items-center gap-1">
               {topRightComponent}
               {showFieldInsert && (
-                <NestedPathSelector
+                <ChaiNestedPathSelector
                   dataType="value"
                   data={pageData}
                   onSelect={(field) => handleFieldInsert(field, id)}
@@ -212,16 +215,16 @@ export const SmartJsonInput: React.FC<SmartJsonInputProps> = ({
                   // `z-10`: the binding editor's container is `relative` and comes later in
                   // the DOM, so without an explicit stacking order it paints over this button
                   // and swallows the click — Format looked dead in binding mode.
-                  className="absolute right-1 top-1 z-10 h-6 w-6 p-1"
+                  className="absolute top-1 right-1 z-10 h-6 w-6 p-1"
                   disabled={!value.trim() || disabled || jsonError !== null}>
                   <FileCode2 />
                 </Button>
               </Tooltip>
             )}
             {showOptionToCopyJsonLd ? (
-              <div className="flex h-40 items-center justify-center rounded-md bg-muted/10">
+              <div className="bg-muted/10 flex h-40 items-center justify-center rounded-md">
                 <div className="rounded-m flex max-w-[400px] flex-col items-center gap-3 p-4">
-                  <div className="max-w-xl text-center text-xs text-muted">
+                  <div className="text-muted max-w-xl text-center text-xs">
                     JSON-LD for is not added for selected language. JSON LD will be used from default language.
                   </div>
                   <Button type="button" variant="default" size="sm" onClick={copyJsonLDFromDefaultPage}>
@@ -259,7 +262,7 @@ export const SmartJsonInput: React.FC<SmartJsonInputProps> = ({
             )}
 
             {jsonError && (
-              <div className="mt-2 flex items-center gap-2 rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+              <div className="bg-destructive/10 text-destructive mt-2 flex items-center gap-2 rounded-md p-2 text-xs">
                 <AlertTriangle className="h-4 w-4" />
                 <div className="flex items-center gap-2 text-sm">
                   <span>{`${jsonError.message}`}</span>
@@ -278,7 +281,7 @@ export const SmartJsonInput: React.FC<SmartJsonInputProps> = ({
               rows={rows}
               value={previewJson}
               readOnly
-              className="cursor-default bg-muted/10 font-mono font-light text-foreground/70"
+              className="bg-muted/10 text-foreground/70 cursor-default font-mono font-light"
             />
           </TabsContent>
         </Tabs>

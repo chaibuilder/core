@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { replace, startsWith } from "lodash-es";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 
 export interface RevisionData {
@@ -15,30 +15,24 @@ export interface RevisionData {
 }
 
 export function useRevisionComparison(
-  version1: { label: string; uid: string;  item?: { createdAt?: Date | string } },
-  version2: { label: string; uid: string;  item?: { createdAt?: Date | string } },
+  version1: { label: string; uid: string; item?: { createdAt?: Date | string } },
+  version2: { label: string; uid: string; item?: { createdAt?: Date | string } },
 ) {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
 
   const shouldRefetch = [version1.uid, version2.uid].some(
-    (uid) => startsWith(uid, 'draft:') || startsWith(uid, 'live:')
-  )
+    (uid) => startsWith(uid, "draft:") || startsWith(uid, "live:"),
+  );
 
   // Draft revisions are updated in place (same uid, refreshed createdAt) on
   // every save, so the uid alone is not a stable cache key — include
   // createdAt to refetch when the underlying revision changes.
-  const v1CreatedAt = version1?.item?.createdAt ?? null
-  const v2CreatedAt = version2?.item?.createdAt ?? null
-  
+  const v1CreatedAt = version1?.item?.createdAt ?? null;
+  const v2CreatedAt = version2?.item?.createdAt ?? null;
+
   return useQuery({
-     queryKey: [
-      'revision-comparison',
-      version1.uid,
-      v1CreatedAt,
-      version2.uid,
-      v2CreatedAt,
-    ],
+    queryKey: ["revision-comparison", version1.uid, v1CreatedAt, version2.uid, v2CreatedAt],
     queryFn: async () => {
       if (!version1.uid || !version2.uid) {
         throw new Error("Both revision IDs are required for comparison");

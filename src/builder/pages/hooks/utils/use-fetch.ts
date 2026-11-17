@@ -1,6 +1,6 @@
 import { get, noop } from "lodash-es";
 import { useCallback } from "react";
-import { useApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
 import { fetchAPI } from "~/builder/pages/utils/fetch-api";
 import {
   ChaiHttpActionRequestError,
@@ -10,12 +10,12 @@ import {
 import {
   collectChaiFetchInterceptorHeaders,
   mergeChaiFetchHeaders,
-  notifyChaiFetchInterceptors,
+  runChaiFetchInterceptors,
 } from "~/builder/register-apis/register-chai-fetch-interceptor";
 
-export const useBuilderFetch = () => {
+export const useChaiActionFetch = () => {
   const fetch = useFetch();
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   return useCallback(
     async ({
       body,
@@ -40,7 +40,7 @@ export const useFetch = () => {
   const logout = usePagesProp("onLogout", noop);
   const getAccessToken = usePagesProp("getAccessToken", noop);
   const beforeRequest = usePagesProp("beforeRequest", noop);
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   return useCallback(
     async (
       url: string = apiUrl,
@@ -96,7 +96,7 @@ export const useFetch = () => {
         const bodyJson = await response.json();
 
         // Interceptors see every parsed body (success or failure) before the builder acts on it.
-        notifyChaiFetchInterceptors({ ...interceptorContext, status: response.status, body: bodyJson });
+        runChaiFetchInterceptors({ ...interceptorContext, status: response.status, body: bodyJson });
 
         if (response.status === 401 || (isChaiHttpActionFailure(bodyJson) && bodyJson.error.status === 401)) {
           console.log("401 Response", bodyJson);

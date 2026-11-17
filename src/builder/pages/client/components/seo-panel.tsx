@@ -10,15 +10,15 @@ import { useLanguages } from "~/builder/hooks/use-languages";
 import { useChaiPanelCloseGuard } from "~/builder/hooks/use-panel-close-guard";
 import { usePermissions } from "~/builder/hooks/use-permissions";
 import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
-import { NestedPathSelector } from "~/builder/core/components/nested-path-selector";
-import { ImagePicker } from "~/builder/pages/digital-asset-manager";
+import { ChaiNestedPathSelector } from "~/builder/core/components/nested-path-selector";
+import { ChaiImagePicker } from "~/builder/pages/digital-asset-manager";
 import { useUpdatePage } from "~/builder/pages/hooks/pages/mutations";
 import { useCurrentLanguagePage } from "~/builder/pages/hooks/pages/use-current-language-page";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
-import { useLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
-import { usePageAllData } from "~/builder/pages/hooks/pages/use-page-all-data";
-import { useBuilderPageData } from "~/builder/pages/hooks/pages/use-page-draft-blocks";
-import { useSiteGlobalData } from "~/builder/pages/hooks/pages/use-site-global-data";
+import { useChaiLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
+import { useChaiPageData } from "~/builder/pages/hooks/pages/use-page-all-data";
+import { useChaiPageBindingData } from "~/builder/pages/hooks/pages/use-page-draft-blocks";
+import { useChaiSiteGlobalData } from "~/builder/pages/hooks/pages/use-site-global-data";
 import { usePageType } from "~/builder/pages/hooks/project/use-page-types";
 import { usePagesProps } from "~/builder/pages/hooks/utils/use-pages-props";
 import { CHAI_SLOT_IDS, ChaiSlot } from "~/builder/register-apis";
@@ -35,7 +35,7 @@ import { KeyValueEditor } from "./key-value-editor";
 import { SeoLanguageSwitchDialog, SeoUnsavedChangesDialog } from "./seo-language-switch-dialog";
 import { SeoSearchPreview } from "./seo-search-preview";
 import { SmartJsonInput } from "./smart-json-input";
-import { LanguageSwitcher } from "./topbar-left";
+import { ChaiLanguageSwitcher } from "./topbar-left";
 
 // Add JSON validation function
 const isValidJSONData = (value: unknown) => {
@@ -92,12 +92,12 @@ const insertFieldAtCursor = (inputElement: HTMLInputElement | HTMLTextAreaElemen
 const SeoPanel = () => {
   const { t } = useTranslation();
   const { data: primaryPage } = usePrimaryPage();
-  const { data: pageData } = useBuilderPageData();
-  const { data: globalData } = useSiteGlobalData();
+  const { data: pageData } = useChaiPageBindingData();
+  const { data: globalData } = useChaiSiteGlobalData();
   const { data: languagePage, isFetching: isFetchingLanguagePage } = useCurrentLanguagePage();
-  const { data: languagePages } = useLanguagePages();
+  const { data: languagePages } = useChaiLanguagePages();
   const readOnly = useReadOnlyMode() !== null;
-  const { data: pageAllData, isFetching: isFetchingPageAllData } = usePageAllData();
+  const { data: pageAllData, isFetching: isFetchingPageAllData } = useChaiPageData();
   // A view-only page shows the SEO it renders: a linked page's is its upstream page's.
   const isFetching = readOnly ? isFetchingPageAllData : isFetchingLanguagePage;
 
@@ -561,7 +561,7 @@ const SeoPanel = () => {
             <div className="text-sm leading-none">{languagePage?.name}</div>
             <span className="text-muted-foreground text-xs leading-none font-light">{languagePage?.slug}</span>
           </span>
-          <LanguageSwitcher showAdd={false} />
+          <ChaiLanguageSwitcher showAdd={false} />
         </div>
       </div>
       <div className="flex-shrink-0 px-2">
@@ -604,7 +604,7 @@ const SeoPanel = () => {
                       context={{ field: "title", onApply: onApplySeoField("title") }}
                     />
                     {editSeo && (
-                      <NestedPathSelector
+                      <ChaiNestedPathSelector
                         dataType="value"
                         data={pageExternalData}
                         onSelect={(field) => handleFieldInsert(field, "title")}
@@ -627,7 +627,7 @@ const SeoPanel = () => {
                       context={{ field: "description", onApply: onApplySeoField("description") }}
                     />
                     {editSeo && (
-                      <NestedPathSelector
+                      <ChaiNestedPathSelector
                         data={pageExternalData}
                         onSelect={(field) => handleFieldInsert(field, "description")}
                       />
@@ -643,7 +643,7 @@ const SeoPanel = () => {
                     {t("Canonical URL")}
                   </Label>
                   {editSeo && (
-                    <NestedPathSelector
+                    <ChaiNestedPathSelector
                       dataType="value"
                       data={pageExternalData}
                       onSelect={(field) => handleFieldInsert(field, "canonicalUrl")}
@@ -718,7 +718,7 @@ const SeoPanel = () => {
                           context={{ field: "ogTitle", onApply: onApplySeoField("ogTitle") }}
                         />
                         {editSeo && (
-                          <NestedPathSelector
+                          <ChaiNestedPathSelector
                             dataType="value"
                             data={pageExternalData}
                             onSelect={(field) => handleFieldInsert(field, "ogTitle")}
@@ -741,7 +741,7 @@ const SeoPanel = () => {
                           context={{ field: "ogDescription", onApply: onApplySeoField("ogDescription") }}
                         />
                         {editSeo && (
-                          <NestedPathSelector
+                          <ChaiNestedPathSelector
                             dataType="value"
                             data={pageExternalData}
                             onSelect={(field) => handleFieldInsert(field, "ogDescription")}
@@ -758,7 +758,7 @@ const SeoPanel = () => {
                         {t("OG Image")}
                       </Label>
                       {editSeo && (
-                        <NestedPathSelector
+                        <ChaiNestedPathSelector
                           dataType="value"
                           data={pageExternalData}
                           onSelect={(field) => {
@@ -771,7 +771,7 @@ const SeoPanel = () => {
                         />
                       )}
                     </div>
-                    <ImagePicker
+                    <ChaiImagePicker
                       assetId={formValues.ogImageId}
                       assetUrl={formValues.ogImage}
                       onChange={(asset) => {

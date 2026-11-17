@@ -1,9 +1,9 @@
 import { ActionError } from "./action-error";
-import ChaiActionsRegistry, { BuilderActionsRegistry } from "./actions-registery";
+import ChaiActionsRegistry from "./actions-registery";
 import { ChaiBaseAction } from "./base-action";
-import { ChaiBaseAIAction } from "./base-ai-action";
+import { ChaiBaseAiAction } from "./base-ai-action";
 import type { ChaiAction, ChaiActionContext, ChaiUserAccess } from "./chai-action-interface";
-export { LANGUAGES } from "~/constants/LANGUAGES";
+export { CHAI_LANGUAGES } from "~/constants/LANGUAGES";
 export {
   type ChaiActionErrorPayload,
   type ChaiActionFailure,
@@ -13,18 +13,17 @@ export {
   isChaiActionSuccess,
   isStreamingChaiAction,
   STREAMING_CHAI_ACTIONS,
-  toActionError,
-  toActionErrorPayload,
+  toChaiActionError,
+  toChaiActionErrorPayload,
 } from "./action-result";
-export { dispatchChaiAction, tryChaiAction } from "./dispatch-action";
+export { runChaiAction, tryChaiAction } from "./dispatch-action";
 export { getActionAuthPolicy, type ChaiActionAuthPolicy } from "./action-policies";
-export { initChaiActionHandler, initChaiBuilderActionHandler } from "./chai-builder-actions-handler";
+export { createChaiActionHandler } from "./chai-builder-actions-handler";
 export {
   ActionError,
-  BuilderActionsRegistry,
   ChaiActionsRegistry,
   ChaiBaseAction,
-  ChaiBaseAIAction,
+  ChaiBaseAiAction,
   type ChaiAction,
   type ChaiActionContext,
   type ChaiUserAccess,

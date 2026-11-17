@@ -1,7 +1,7 @@
-import { useWebsiteSetting } from "./use-website-settings";
+import { useChaiSiteSettings } from "./use-website-settings";
 
 export const useUnpublishedWebsiteSettings = () => {
-  const { data, isLoading } = useWebsiteSetting();
+  const { data, isLoading } = useChaiSiteSettings();
   const changes = data?.appChanges;
 
   const hasUnpublishedTheme = changes?.includes("THEME");

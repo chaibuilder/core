@@ -1,8 +1,8 @@
 import type { ChaiActionContext } from "~/types/chai-action";
 
-export type TrashContext = ChaiActionContext & Record<string, any>;
+export type ChaiTrashContext = ChaiActionContext & Record<string, any>;
 
-export type TrashRecord = {
+export type ChaiTrashRecord = {
   id: string;
   entityType: string;
   entityId: string;
@@ -14,21 +14,21 @@ export type TrashRecord = {
   tags?: string[];
 };
 
-export type TrashableRecordData = Omit<TrashRecord, "id">;
+export type ChaiTrashableRecordArgs = Omit<ChaiTrashRecord, "id">;
 
-export type RestoreConflictResolution = {
+export type ChaiRestoreConflictResolution = {
   resolved: boolean;
   newSlug?: string;
 };
 
 // Action data shapes — declared here (not in the trash plugin's action files) so the
 // typed `getChaiBuilder` instance API can reference them without importing plugin code.
-export type TrashEntityData = {
+export type ChaiTrashEntityArgs = {
   entityType: string;
   ids: string[];
 };
 
-export type GetTrashedItemsData = {
+export type ChaiGetTrashedItemsArgs = {
   page?: number;
   limit?: number;
   search?: string;
@@ -37,15 +37,15 @@ export type GetTrashedItemsData = {
   sortOrder?: "asc" | "desc";
 };
 
-export type RestoreTrashedItemData = {
+export type ChaiRestoreTrashedItemArgs = {
   id: string;
 };
 
-export type DeletePermanentlyData = {
+export type ChaiDeleteTrashPermanentlyArgs = {
   id: string;
 };
 
-export type PermanentlyDeleteByDaysData = {
+export type ChaiDeleteTrashByDaysArgs = {
   days: number;
 };
 
@@ -53,9 +53,12 @@ export interface ChaiTrashableEntity {
   key: string;
   label: string;
   icon?: string;
-  moveToTrash: (id: string, context: TrashContext) => Promise<TrashableRecordData>;
-  restore: (record: TrashRecord, context: TrashContext) => Promise<string[] | void>;
-  deletePermanently: (record: TrashRecord, context: TrashContext) => Promise<boolean>;
-  hasRestoreConflict?: (record: TrashRecord, context: TrashContext) => Promise<boolean>;
-  resolveRestoreConflict?: (record: TrashRecord, context: TrashContext) => Promise<RestoreConflictResolution>;
+  moveToTrash: (id: string, context: ChaiTrashContext) => Promise<ChaiTrashableRecordArgs>;
+  restore: (record: ChaiTrashRecord, context: ChaiTrashContext) => Promise<string[] | void>;
+  deletePermanently: (record: ChaiTrashRecord, context: ChaiTrashContext) => Promise<boolean>;
+  hasRestoreConflict?: (record: ChaiTrashRecord, context: ChaiTrashContext) => Promise<boolean>;
+  resolveRestoreConflict?: (
+    record: ChaiTrashRecord,
+    context: ChaiTrashContext,
+  ) => Promise<ChaiRestoreConflictResolution>;
 }

@@ -2,7 +2,7 @@
  * Utility functions for handling page slugs
  */
 
-import { LANGUAGES } from "~/constants/LANGUAGES";
+import { CHAI_LANGUAGES } from "~/constants/LANGUAGES";
 
 /**
  * Converts free text (e.g. a page title) into a URL-safe slug segment.
@@ -77,18 +77,18 @@ export function parseSlugForEdit(
   let prefix = true;
   if (primaryPageObject.slug === "/") {
     const last = splittedSlugs.pop() || "";
-    if (LANGUAGES[last]) {
+    if (CHAI_LANGUAGES[last]) {
       prefix = true;
     } else {
       initSlug = last;
       const langCode = splittedSlugs.pop() || "";
-      prefix = !!LANGUAGES[langCode];
+      prefix = !!CHAI_LANGUAGES[langCode];
     }
   } else if (!primaryPageObject.parent) {
     if (splittedSlugs.length) {
       initSlug = splittedSlugs.pop() || "";
       const langCode = splittedSlugs.pop() || "";
-      prefix = !!LANGUAGES[langCode];
+      prefix = !!CHAI_LANGUAGES[langCode];
     }
   } else {
     if (splittedSlugs.length) {

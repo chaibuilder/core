@@ -28,7 +28,7 @@ export const CHAI_SIDEBAR_PANEL_ORDER = {
 } as const;
 
 /** Applied when a panel is registered without an `order`. */
-export const DEFAULT_SIDEBAR_PANEL_ORDER = 500;
+export const CHAI_SIDEBAR_PANEL_DEFAULT_ORDER = 500;
 
 /**
  * Panels whose position is not negotiable. The order here overrides whatever the
@@ -36,7 +36,7 @@ export const DEFAULT_SIDEBAR_PANEL_ORDER = 500;
  * displace them: AI / Add Blocks / Outline stay pinned to the top of the sidebar,
  * logout stays pinned to the very bottom.
  */
-export const FIXED_SIDEBAR_PANEL_ORDER: Record<string, number> = {
+export const CHAI_SIDEBAR_PANEL_PINNED_ORDER: Record<string, number> = {
   "chai-chat-panel": CHAI_SIDEBAR_PANEL_ORDER.AI,
   "add-block": CHAI_SIDEBAR_PANEL_ORDER.ADD_BLOCKS,
   outline: CHAI_SIDEBAR_PANEL_ORDER.OUTLINE,

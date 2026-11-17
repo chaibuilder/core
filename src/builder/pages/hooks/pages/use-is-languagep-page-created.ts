@@ -4,14 +4,14 @@ import { find } from "lodash-es";
 import { useMemo } from "react";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
-import { useLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
-import { useWebsiteSetting } from "~/builder/pages/hooks/project/use-website-settings";
+import { useChaiLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiSiteSettings } from "~/builder/pages/hooks/project/use-website-settings";
 
 export const useIsLanguagePageCreated = (lang: string) => {
   const { fallbackLang } = useLanguages();
-  const { data: websiteSettings } = useWebsiteSetting();
-  const { data: languagePages, isFetching: isFetchingLanguagePages } = useLanguagePages();
+  const { data: websiteSettings } = useChaiSiteSettings();
+  const { data: languagePages, isFetching: isFetchingLanguagePages } = useChaiLanguagePages();
 
   const languageOptions = useMemo(() => {
     const langPages = { [fallbackLang]: true };
@@ -22,7 +22,7 @@ export const useIsLanguagePageCreated = (lang: string) => {
     return langPages;
   }, [fallbackLang, languagePages, websiteSettings]);
 
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const { data: currentPage } = usePrimaryPage();
 
   const isPartial = useMemo(() => {

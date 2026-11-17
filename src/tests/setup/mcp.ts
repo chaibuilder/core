@@ -1,5 +1,5 @@
 import { runInFreshContext } from "~/server/chai-builder/state";
-import { setChaiContextResolver } from "~/server/chai-context-resolver";
+import { registerChaiContextResolver } from "~/server/chai-context-resolver";
 import { getActiveChaiBuilderConfig } from "~/server/defaults/config-registry";
 import { getChaiBuilder, resetChaiBuilderCoreForTests } from "~/server/get-chaibuilder";
 import { runWithChaiMcpRequest, runWithChaiMcpToolContext } from "~/server/mcp/request-context";
@@ -34,7 +34,7 @@ export async function withMcpRequest<T>(
   const context = testRequestContext({ permissions: ["*"], surface: "mcp", ...contextOverrides, draft: true });
 
   // The harness restores the edition's own resolver after every test.
-  setChaiContextResolver(async () => context);
+  registerChaiContextResolver(async () => context);
   resetSharedChaiRequestContextForTests();
   resetChaiBuilderCoreForTests();
   try {

@@ -19,7 +19,7 @@ interface ImagePickerProps {
   disabled?: boolean;
 }
 
-export const ImagePicker: React.FC<ImagePickerProps> = ({
+export const ChaiImagePicker: React.FC<ImagePickerProps> = ({
   assetId,
   assetUrl,
   onChange,
@@ -58,23 +58,23 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
       {assetUrl ? (
         <div className="relative overflow-hidden rounded-md border">
           {isDataBind ? (
-            <div className="flex h-12 items-center bg-muted/10 px-4">
-              <p className="text-xs text-foreground/80">{assetUrl}</p>
+            <div className="bg-muted/10 flex h-12 items-center px-4">
+              <p className="text-foreground/80 text-xs">{assetUrl}</p>
             </div>
           ) : (
             <ChaiImage
               onClick={handleOpenAssetManager}
               src={assetUrl}
               alt={t("Selected image")}
-              className="h-auto max-h-[100px] w-full bg-muted/10 object-contain"
+              className="bg-muted/10 h-auto max-h-[100px] w-full object-contain"
             />
           )}
-          <div className="absolute right-2 top-2 flex gap-2">
+          <div className="absolute top-2 right-2 flex gap-2">
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="bg-surface h-8 w-8 rounded-full text-foreground"
+              className="bg-surface text-foreground h-8 w-8 rounded-full"
               onClick={handleClearImage}
               disabled={disabled}>
               {isDataBind ? <X className="h-4 w-4" /> : <Trash2 className="h-4 w-4" />}
@@ -84,7 +84,7 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="bg-surface h-8 w-8 rounded-full text-foreground"
+                className="bg-surface text-foreground h-8 w-8 rounded-full"
                 onClick={handleOpenAssetManager}
                 disabled={disabled}>
                 <ImageIcon className="h-4 w-4" />
@@ -94,11 +94,11 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
         </div>
       ) : (
         <div
-          className={`flex cursor-pointer items-center justify-center rounded-md border border-dashed p-4 ${disabled ? "cursor-not-allowed opacity-50" : "duration-300 hover:border-foreground/20"}`}
+          className={`flex cursor-pointer items-center justify-center rounded-md border border-dashed p-4 ${disabled ? "cursor-not-allowed opacity-50" : "hover:border-foreground/20 duration-300"}`}
           onClick={handleOpenAssetManager}>
           <div className="flex items-center gap-2">
-            <ImageIcon className="h-5 w-5 text-muted-foreground" />
-            <p className="text-xs font-light text-muted-foreground">{placeholder}</p>
+            <ImageIcon className="text-muted-foreground h-5 w-5" />
+            <p className="text-muted-foreground text-xs font-light">{placeholder}</p>
           </div>
         </div>
       )}
@@ -111,7 +111,7 @@ export const ImagePicker: React.FC<ImagePickerProps> = ({
               type="button"
               variant="ghost"
               size="icon"
-              className="absolute right-4 top-2"
+              className="absolute top-2 right-4"
               onClick={handleCloseAssetManager}>
               <X className="h-4 w-4" />
             </Button>

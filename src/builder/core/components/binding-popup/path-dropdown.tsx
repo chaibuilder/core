@@ -6,7 +6,7 @@ import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { Button } from "~/components/ui/button";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "~/components/ui/command";
 import { COLLECTION_PREFIX } from "~/constants/STRINGS";
-import type { ChaiCollection } from "~/types/collections";
+import type { ChaiCollection } from "~/types/deprecated";
 import { BindingOptionRow, type BindingOptionIcon } from "./binding-option-row";
 import {
   compareBindingFieldNames,

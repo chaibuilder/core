@@ -1,6 +1,6 @@
 import { AsyncLocalStorage } from "async_hooks";
 import { cache } from "react";
-import { getChaiContextResolver, staticDefaultChaiContext } from "~/server/chai-context-resolver";
+import { getRegisteredChaiContextResolver, createStaticChaiContext } from "~/server/chai-context-resolver";
 import type {
   ChaiBuilderRouteProps,
   ChaiContextResolverArgs,
@@ -48,7 +48,7 @@ export function resetSharedChaiRequestContextForTests(): void {
  * MCP tools, and any non-request environment.
  */
 export async function resolveDefaultChaiContext(overrides?: Partial<ChaiRequestContext>): Promise<ChaiRequestContext> {
-  return staticDefaultChaiContext(overrides);
+  return createStaticChaiContext(overrides);
 }
 
 /**
@@ -56,8 +56,8 @@ export async function resolveDefaultChaiContext(overrides?: Partial<ChaiRequestC
  * default. Falls back to the static default when no resolver is registered.
  */
 export async function resolveChaiContextViaResolver(args: ChaiContextResolverArgs): Promise<ChaiRequestContext> {
-  const resolver = getChaiContextResolver();
-  const base = staticDefaultChaiContext();
+  const resolver = getRegisteredChaiContextResolver();
+  const base = createStaticChaiContext();
   if (!resolver) {
     return withRequestContext(base, args.request);
   }
@@ -157,11 +157,11 @@ export async function resolveSharedChaiContext(
   // The nested call gets the static default (unauthenticated) context instead; it is not
   // cached, so the outer resolve still stores the real context when it completes.
   if (resolvingGuard.getStore()) {
-    return staticDefaultChaiContext();
+    return createStaticChaiContext();
   }
 
   if (routeProps !== undefined) {
-    if (!getChaiContextResolver()) {
+    if (!getRegisteredChaiContextResolver()) {
       throw new Error(
         "ChaiBuilder: route props require a context resolver. Create the server handle with `createChaiBuilder(config, { context })` and call the `getChaiBuilder` it returns, or call `getChaiBuilder(config)` without route props.",
       );
@@ -175,9 +175,9 @@ export async function resolveSharedChaiContext(
     return state.context;
   }
 
-  const ctx = getChaiContextResolver()
+  const ctx = getRegisteredChaiContextResolver()
     ? await resolvingGuard.run(true, () => resolveChaiContextViaResolver({}))
-    : staticDefaultChaiContext();
+    : createStaticChaiContext();
   state.context = ctx;
   return ctx;
 }

@@ -4,7 +4,7 @@
 import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useCanAddPartial, useCheckPartialCanAdd } from "~/builder/hooks/partial-blocks/use-partial-can-add";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { mockChaiAction } from "~/tests/builder/msw";
 import { createTestQueryClient, renderHookInBuilder } from "~/tests/builder/render-in-builder";
@@ -31,7 +31,7 @@ const renderWithGraph = async <T>(setup: GraphSetup, hook: () => T) => {
   serveGraph(setup);
   const queryClient = createTestQueryClient();
   queryClient.setQueryData([ACTIONS.GET_PAGE_TYPES], setup.pageTypes ?? []);
-  const rendered = renderHookInBuilder(() => ({ value: hook(), pages: useWebsitePrimaryPages() }), {
+  const rendered = renderHookInBuilder(() => ({ value: hook(), pages: useChaiPrimaryPages() }), {
     builderProps: { pageId: setup.pageId },
     queryClient,
   });

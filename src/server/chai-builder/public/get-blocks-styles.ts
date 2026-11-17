@@ -1,7 +1,7 @@
 import twForms from "@tailwindcss/forms";
 import twTypography from "@tailwindcss/typography";
 import type { ChaiBlock } from "~/types";
-import { getChaiBuilderTheme } from "~/utils";
+import { getChaiTailwindTheme } from "~/utils";
 // Compat entry (not ~/tailwind): shared compile path used by the server styles pipeline for
 // v4 consumers of the published package.
 import { compileTailwindCss } from "~/utils/tailwind-css-compat";
@@ -11,7 +11,7 @@ const getPageTailwindConfig = () => ({
   darkMode: "class",
   theme: {
     extend: {
-      ...getChaiBuilderTheme(),
+      ...getChaiTailwindTheme(),
       keyframes: {
         "accordion-down": {
           from: {

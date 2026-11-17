@@ -1,12 +1,12 @@
 import { get } from "lodash-es";
 import { CHAI_BUILT_IN_DESIGN_TOKENS } from "~/constants/BUILTIN_TOKENS";
-import { getFontStyles } from "~/registry";
+import { getChaiFontStyles } from "~/registry";
 import { getChaiThemeCssVariables } from "~/builder/core/components/canvas/static/chai-theme-helpers";
 import { getChaiBuilder } from "~/server/get-chaibuilder";
 import { getActiveChaiBuilderConfig } from "~/server/defaults/config-registry";
 import { ChaiDesignTokens, ChaiTheme } from "~/types";
 import type { ChaiFullPage } from "~/types/pages";
-import { applyDesignTokens } from "~/utils";
+import { applyChaiDesignTokens } from "~/utils";
 import { getSiteContentWidthCss } from "~/utils/site-layout-css";
 import { JSONLD } from "./json-ld";
 
@@ -27,7 +27,7 @@ const hashStyleKey = (css: string): string => {
   return `${djb2.toString(36)}-${sdbm.toString(36)}`;
 };
 
-export const ChaiPageCSS = async (props: { page: ChaiFullPage }) => {
+export const ChaiPageCss = async (props: { page: ChaiFullPage }) => {
   const { page } = props;
   const chaiBuilder = await getChaiBuilder(getActiveChaiBuilderConfig());
   const withPhase = chaiBuilder.withRenderPhase;
@@ -42,7 +42,7 @@ export const ChaiPageCSS = async (props: { page: ChaiFullPage }) => {
     getChaiThemeCssVariables({ theme }),
   );
   const pageBlocks = await withPhase("ChaiPageCSS.applyDesignTokens", async () =>
-    applyDesignTokens(page.blocks ?? [], designTokens),
+    applyChaiDesignTokens(page.blocks ?? [], designTokens),
   );
   const pageStyles = page
     ? await withPhase("ChaiPageCSS.getPageStyles", () => chaiBuilder.getPageStyles(page.id, pageBlocks, page.upstream))
@@ -51,7 +51,7 @@ export const ChaiPageCSS = async (props: { page: ChaiFullPage }) => {
   const bodyFont = get(theme, "fontFamily.body", "Arial");
   const headingFont = get(theme, "fontFamily.heading", "Arial");
   const { fontStyles, preloads } = await withPhase("ChaiPageCSS.getFontStyles", () =>
-    getFontStyles(headingFont, bodyFont),
+    getChaiFontStyles(headingFont, bodyFont),
   );
 
   return (
@@ -80,7 +80,7 @@ export const ChaiPageCSS = async (props: { page: ChaiFullPage }) => {
 /**
  * Site-wide theme tokens + fonts, without any page styles.
  *
- * Same head tags as `ChaiPageCSS` minus `#page-styles`, for routes that render
+ * Same head tags as `ChaiPageCss` minus `#page-styles`, for routes that render
  * their own markup instead of builder blocks and so have no `page` to style.
  * Tailwind utilities for such routes come from the app's own compiled CSS.
  */
@@ -96,7 +96,7 @@ export const ChaiSiteTheme = async () => {
   const bodyFont = get(theme, "fontFamily.body", "Arial");
   const headingFont = get(theme, "fontFamily.heading", "Arial");
   const { fontStyles, preloads } = await withPhase("ChaiSiteTheme.getFontStyles", () =>
-    getFontStyles(headingFont, bodyFont),
+    getChaiFontStyles(headingFont, bodyFont),
   );
 
   return (
@@ -121,7 +121,7 @@ export const ChaiSiteTheme = async () => {
   );
 };
 
-export const ChaiPageJSONLD = async (props: { page: ChaiFullPage; pageData?: Record<string, any> }) => {
+export const ChaiPageJsonLd = async (props: { page: ChaiFullPage; pageData?: Record<string, any> }) => {
   const { page, pageData = {} } = props;
   return <JSONLD jsonLD={page?.seo?.jsonLD} pageData={pageData} />;
 };

@@ -28,14 +28,14 @@ export type ChaiMediaManagerTab = {
 };
 
 // Export for testing purposes
-export const MEDIA_MANAGER_TABS: Record<string, ChaiMediaManagerTab> = {};
+export const CHAI_MEDIA_MANAGER_TABS: Record<string, ChaiMediaManagerTab> = {};
 
 export const registerChaiMediaManagerTab = (id: string, tab: Omit<ChaiMediaManagerTab, "id">) => {
   // Array path: a dotted id (e.g. "my.plugin") must be a literal key, not a deep path.
-  if (has(MEDIA_MANAGER_TABS, [id])) {
+  if (has(CHAI_MEDIA_MANAGER_TABS, [id])) {
     console.warn(`Media manager tab with id ${id} already registered`);
   }
-  set(MEDIA_MANAGER_TABS, [id], { id, ...tab });
+  set(CHAI_MEDIA_MANAGER_TABS, [id], { id, ...tab });
 };
 
 export const useChaiMediaManagerTabs = (
@@ -43,7 +43,7 @@ export const useChaiMediaManagerTabs = (
   features: Record<string, any>,
 ): ChaiMediaManagerTab[] => {
   return useMemo(
-    () => values(MEDIA_MANAGER_TABS).filter((tab) => tab.enabled?.(mediaManagerConfig, features) !== false),
+    () => values(CHAI_MEDIA_MANAGER_TABS).filter((tab) => tab.enabled?.(mediaManagerConfig, features) !== false),
     [mediaManagerConfig, features],
   );
 };

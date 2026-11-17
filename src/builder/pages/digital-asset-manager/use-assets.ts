@@ -1,6 +1,6 @@
 import { useQuery, UseQueryResult } from "@tanstack/react-query";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import type { ChaiAssetCategory } from "~/constants/ASSET_TYPES";
 
@@ -42,7 +42,7 @@ export interface AssetsQueryParams {
 }
 
 export const useAssets = (params: AssetsQueryParams = {}): UseQueryResult<AssetsResponse> => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
 
   const { search, page = 1, limit = 30, type } = params;
@@ -69,7 +69,7 @@ export const useAssets = (params: AssetsQueryParams = {}): UseQueryResult<Assets
 };
 
 export const useAsset = (id: string): UseQueryResult<Asset | null> => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
 
   return useQuery({

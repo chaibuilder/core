@@ -9,7 +9,7 @@ import { ChaiBlock } from "~/types/common";
  * and cycles are left unexpanded so hand-authored pages can never loop
  * infinitely. Unknown ids are also left unexpanded.
  */
-export function getMergedPartialBlocks(
+export function getChaiMergedPartialBlocks(
   blocks: ChaiBlock[],
   partials: Record<string, ChaiBlock[]>,
   visited: Set<string> = new Set(),
@@ -53,7 +53,7 @@ export function getMergedPartialBlocks(
     const newVisited = new Set(visited);
     newVisited.add(partialBlockId);
     if (hasWrapper) result.push(block);
-    result.push(...getMergedPartialBlocks(partialBlocks, partials, newVisited, depth + 1));
+    result.push(...getChaiMergedPartialBlocks(partialBlocks, partials, newVisited, depth + 1));
   }
 
   return result;

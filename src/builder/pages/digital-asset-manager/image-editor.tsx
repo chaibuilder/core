@@ -4,7 +4,7 @@ import React, { memo, useCallback, useEffect, useMemo, useState } from "react";
 import FilerobotImageEditor from "react-filerobot-image-editor";
 import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent } from "~/components/ui/dialog";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { FullscreenLoader } from "../../../components/ui/loader";
 import "./image-editor.css";
 
@@ -26,7 +26,7 @@ type AvailableTabs = "Adjust" | "Annotate" | "Watermark" | "Filters" | "Finetune
 const ImageEditor: React.FC<ImageEditorProps> = memo(
   ({ imageUrl, onSave, onClose, defaultSavedImageName, isEditing = false }) => {
     const { t } = useTranslation();
-    const apiUrl = useApiUrl();
+    const apiUrl = useChaiApiUrl();
     const [isLoading, setIsLoading] = useState(false);
     const [isEditorOpen, setIsEditorOpen] = useState(true);
     const [isImageLoaded, setIsImageLoaded] = useState(false);

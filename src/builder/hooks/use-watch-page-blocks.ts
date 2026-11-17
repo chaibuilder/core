@@ -5,7 +5,7 @@ import { useBroadcastChannel } from "~/builder/hooks/use-broadcast-channel";
 import { useBuilderReset } from "~/builder/hooks/use-builder-reset";
 import { useCheckStructure } from "~/builder/hooks/use-check-structure";
 import { isPageLoadedAtom } from "~/builder/hooks/use-is-page-loaded";
-import { syncBlocksWithDefaultProps } from "~/registry";
+import { syncChaiBlocksWithDefaultProps } from "~/registry";
 import { ChaiBlock } from "~/types/common";
 
 /**
@@ -25,7 +25,7 @@ export const useWatchPageBlocks = (blocks?: ChaiBlock[]) => {
     // consumers (e.g. use-block-selection-query-sync) reset per-page guards on that edge.
     // The cleanup cancels a superseded apply when the identity changes again quickly.
     const timer = setTimeout(() => {
-      const withDefaults = syncBlocksWithDefaultProps(blocks || []);
+      const withDefaults = syncChaiBlocksWithDefaultProps(blocks || []);
       setAllBlocks(withDefaults);
       if (withDefaults && withDefaults.length > 0) {
         postMessage({ type: "blocks-updated", blocks: withDefaults });

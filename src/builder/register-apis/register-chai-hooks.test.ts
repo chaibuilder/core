@@ -1,10 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CHAI_HOOKS } from "../../constants/CHAI_HOOKS";
-import { clearHooks, executeChaiHooks, getRegisteredHooks, registerChaiHook } from "./register-chai-hooks";
+import { unregisterChaiHooks, runChaiHooks, getRegisteredChaiHooks, registerChaiHook } from "./register-chai-hooks";
 
 describe("register-chai-hooks", () => {
   beforeEach(() => {
-    clearHooks();
+    unregisterChaiHooks();
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -23,7 +23,7 @@ describe("register-chai-hooks", () => {
     it("should register a hook function", () => {
       const hookFn = vi.fn((data) => data);
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hookFn);
-      const hooks = getRegisteredHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE);
+      const hooks = getRegisteredChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE);
       expect(hooks).toHaveLength(1);
       expect(hooks[0]).toBe(hookFn);
     });
@@ -35,7 +35,7 @@ describe("register-chai-hooks", () => {
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hook1);
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hook2);
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hook3);
-      const hooks = getRegisteredHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE);
+      const hooks = getRegisteredChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE);
       expect(hooks).toHaveLength(3);
       expect(hooks[0]).toBe(hook1);
       expect(hooks[1]).toBe(hook2);
@@ -47,14 +47,14 @@ describe("register-chai-hooks", () => {
       const afterHook = vi.fn((data) => data);
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, beforeHook);
       registerChaiHook(CHAI_HOOKS.AFTER_SAVE_PAGE, afterHook);
-      expect(getRegisteredHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE)).toHaveLength(1);
-      expect(getRegisteredHooks(CHAI_HOOKS.AFTER_SAVE_PAGE)).toHaveLength(1);
+      expect(getRegisteredChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE)).toHaveLength(1);
+      expect(getRegisteredChaiHooks(CHAI_HOOKS.AFTER_SAVE_PAGE)).toHaveLength(1);
     });
 
     it("should support custom hook names", () => {
       const hookFn = vi.fn((data) => data);
       registerChaiHook("custom:hook", hookFn);
-      const hooks = getRegisteredHooks("custom:hook");
+      const hooks = getRegisteredChaiHooks("custom:hook");
       expect(hooks).toHaveLength(1);
       expect(hooks[0]).toBe(hookFn);
     });
@@ -63,7 +63,7 @@ describe("register-chai-hooks", () => {
   describe("executeChaiHooks", () => {
     it("should return original data when no hooks registered", async () => {
       const data = { value: 42 };
-      const result = await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
+      const result = await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
       expect(result).toEqual(data);
     });
 
@@ -71,7 +71,7 @@ describe("register-chai-hooks", () => {
       const hookFn = vi.fn((data) => ({ ...data, modified: true }));
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hookFn);
       const data = { value: 42 };
-      const result = await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
+      const result = await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
       expect(hookFn).toHaveBeenCalledWith(data, undefined);
       expect(result).toEqual({ value: 42, modified: true });
     });
@@ -85,7 +85,7 @@ describe("register-chai-hooks", () => {
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hook3);
 
       const data = { value: 42 };
-      const result = await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
+      const result = await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
 
       expect(hook1).toHaveBeenCalledWith(data, undefined);
       expect(hook2).toHaveBeenCalledWith({ value: 42, step1: true }, undefined);
@@ -101,7 +101,7 @@ describe("register-chai-hooks", () => {
 
       const data = { value: 42 };
       const context = { pageId: "page-123", operation: "update" as const };
-      await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data, context);
+      await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data, context);
 
       expect(hook1).toHaveBeenCalledWith(data, context);
       expect(hook2).toHaveBeenCalledWith(data, context);
@@ -115,7 +115,7 @@ describe("register-chai-hooks", () => {
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, asyncHook);
 
       const data = { value: 42 };
-      const result = await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
+      const result = await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
 
       expect(asyncHook).toHaveBeenCalled();
       expect(result).toEqual({ value: 42, async: true });
@@ -133,7 +133,7 @@ describe("register-chai-hooks", () => {
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hook3);
 
       const data = { value: 42 };
-      const result = await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
+      const result = await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
 
       expect(hook1).toHaveBeenCalled();
       expect(errorHook).toHaveBeenCalled();
@@ -155,7 +155,7 @@ describe("register-chai-hooks", () => {
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hook3);
 
       const data = { value: 42 };
-      const result = await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
+      const result = await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, data);
 
       expect(console.error).toHaveBeenCalled();
       expect(result).toEqual({ value: 42, step1: true, step3: true });
@@ -166,7 +166,7 @@ describe("register-chai-hooks", () => {
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hook1);
 
       const blocks = [{ id: "block-1" }, { id: "block-2" }];
-      const result = await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, blocks);
+      const result = await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, blocks);
 
       expect(result).toHaveLength(3);
       expect(result[2]).toEqual({ id: "new-block" });
@@ -180,10 +180,10 @@ describe("register-chai-hooks", () => {
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hook1);
       registerChaiHook(CHAI_HOOKS.AFTER_SAVE_PAGE, hook2);
 
-      clearHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE);
+      unregisterChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE);
 
-      expect(getRegisteredHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE)).toHaveLength(0);
-      expect(getRegisteredHooks(CHAI_HOOKS.AFTER_SAVE_PAGE)).toHaveLength(1);
+      expect(getRegisteredChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE)).toHaveLength(0);
+      expect(getRegisteredChaiHooks(CHAI_HOOKS.AFTER_SAVE_PAGE)).toHaveLength(1);
     });
 
     it("should clear all hooks when no hook name provided", () => {
@@ -192,10 +192,10 @@ describe("register-chai-hooks", () => {
       registerChaiHook(CHAI_HOOKS.BEFORE_SAVE_PAGE, hook1);
       registerChaiHook(CHAI_HOOKS.AFTER_SAVE_PAGE, hook2);
 
-      clearHooks();
+      unregisterChaiHooks();
 
-      expect(getRegisteredHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE)).toHaveLength(0);
-      expect(getRegisteredHooks(CHAI_HOOKS.AFTER_SAVE_PAGE)).toHaveLength(0);
+      expect(getRegisteredChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE)).toHaveLength(0);
+      expect(getRegisteredChaiHooks(CHAI_HOOKS.AFTER_SAVE_PAGE)).toHaveLength(0);
     });
   });
 });

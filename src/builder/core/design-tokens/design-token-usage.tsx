@@ -10,7 +10,7 @@ import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoabl
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useLanguages } from "~/builder/hooks/use-languages";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "~/components/ui/tabs";
 import { ChaiBlock } from "~/types/common";
@@ -49,7 +49,10 @@ export const collectTokenUsageOnPage = (blocks: ChaiBlock[], tokenId: string): B
         if (typeof value !== "string") return false;
         if (!value.startsWith(STYLES_PREFIX)) return false;
         // exact class match: `dt#btn` must not match `dt#btn-primary`
-        return value.slice(STYLES_PREFIX.length).split(/[\s,]+/).includes(tokenId);
+        return value
+          .slice(STYLES_PREFIX.length)
+          .split(/[\s,]+/)
+          .includes(tokenId);
       });
     })
     .map((block) => ({
@@ -149,7 +152,7 @@ const DesignTokenUsage = ({ tokenId, tokenName: _tokenName, children: _children 
   );
   const gotoPage = useBuilderProp("gotoPage", noop);
   const { selectedLang, fallbackLang } = useLanguages();
-  const { savePageAsync } = useSavePage();
+  const { savePageAsync } = useChaiSavePage();
   const handleSelectPage = async (pageId: string) => {
     if (!pageId) return;
     await savePageAsync(true);
@@ -165,17 +168,19 @@ const DesignTokenUsage = ({ tokenId, tokenName: _tokenName, children: _children 
     <Tabs defaultValue="this-page" className="flex min-h-0 flex-1 flex-col gap-1">
       {/* heading row; the filter input sits right-aligned */}
       <div className="flex items-center justify-between gap-2">
-        <p id={headingId} className="text-[11px] uppercase tracking-wide text-muted-foreground">{t("Blocks affected on")}</p>
+        <p id={headingId} className="text-muted-foreground text-[11px] tracking-wide uppercase">
+          {t("Blocks affected on")}
+        </p>
         {/* flex wrapper (no 24px line box) + h-5 + -my-0.5: the row stays as tall as the heading text */}
         <div className="relative -my-0.5 flex shrink-0">
-          <MagnifyingGlassIcon className="pointer-events-none absolute left-1.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+          <MagnifyingGlassIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-1.5 h-3 w-3 -translate-y-1/2" />
           <input
             type="text"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder={t("Filter")}
             aria-label={t("Filter")}
-            className="h-5 w-28 rounded border border-input bg-transparent py-0 pl-6 pr-1.5 text-xs outline-none focus-visible:ring-1"
+            className="border-input h-5 w-28 rounded border bg-transparent py-0 pr-1.5 pl-6 text-xs outline-none focus-visible:ring-1"
           />
         </div>
       </div>

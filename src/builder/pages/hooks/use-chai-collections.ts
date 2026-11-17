@@ -3,11 +3,11 @@ import { useMemo, useRef } from "react";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { resolveBinding } from "~/render/binding-engine";
 import type { ChaiBlock } from "~/types/common";
-import { useCurrentActivePage, usePrimaryPage } from "./pages/use-current-page";
-import { useBuilderPageData } from "./pages/use-page-draft-blocks";
-import { useSiteGlobalData } from "./pages/use-site-global-data";
-import { useApiUrl } from "./project/use-builder-prop";
-import { useWebsiteSetting } from "./project/use-website-settings";
+import { useChaiActivePage, usePrimaryPage } from "./pages/use-current-page";
+import { useChaiPageBindingData } from "./pages/use-page-draft-blocks";
+import { useChaiSiteGlobalData } from "./pages/use-site-global-data";
+import { useChaiApiUrl } from "./project/use-builder-prop";
+import { useChaiSiteSettings } from "./project/use-website-settings";
 import { useFetch } from "./utils/use-fetch";
 
 const FILTER_BINDING_PATTERN = /\{\{.*\}\}/;
@@ -37,7 +37,7 @@ const resolveFilterBindings = (
 };
 
 export const useChaiCollections = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   return useQuery({
     queryKey: [ACTIONS.GET_COLLECTIONS],
@@ -49,7 +49,7 @@ export const useChaiCollections = () => {
 };
 
 export const useChaiRepeaterData = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   return useQuery({
     queryKey: [ACTIONS.GET_REPEATER_DATA],
@@ -62,11 +62,11 @@ export const useChaiRepeaterData = () => {
 
 export const useGetBlockAysncProps = () => {
   const { data: currentPage } = usePrimaryPage();
-  const { data: activePage } = useCurrentActivePage();
-  const { data: websiteConfig } = useWebsiteSetting();
-  const { data: builderPageData } = useBuilderPageData();
-  const { data: globalData } = useSiteGlobalData();
-  const apiUrl = useApiUrl();
+  const { data: activePage } = useChaiActivePage();
+  const { data: websiteConfig } = useChaiSiteSettings();
+  const { data: builderPageData } = useChaiPageBindingData();
+  const { data: globalData } = useChaiSiteGlobalData();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const fallbackLang = useMemo(() => websiteConfig?.fallbackLang || "en", [websiteConfig?.fallbackLang]);
 

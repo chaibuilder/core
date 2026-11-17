@@ -13,9 +13,9 @@
  * - `file`   — the file itself
  */
 import { ActionError } from "~/server/chai-actions/action-error";
-import type { HttpChaiActionBody } from "~/server/chai-builder/handle-http-action";
+import type { ChaiHttpActionBody } from "~/server/chai-builder/handle-http-action";
 
-export const isMultipartActionRequest = (req: Request): boolean =>
+export const isChaiMultipartActionRequest = (req: Request): boolean =>
   (req.headers.get("content-type") ?? "").toLowerCase().startsWith("multipart/form-data");
 
 /**
@@ -23,7 +23,7 @@ export const isMultipartActionRequest = (req: Request): boolean =>
  * `data.file` comes out as bytes, and `data.mimeType` carries what the browser
  * reported — a hint the action layer validates rather than trusts.
  */
-export const parseMultipartActionBody = async (req: Request): Promise<HttpChaiActionBody> => {
+export const parseChaiMultipartActionBody = async (req: Request): Promise<ChaiHttpActionBody> => {
   let form: FormData;
   try {
     form = await req.formData();

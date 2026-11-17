@@ -26,7 +26,7 @@ import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
 import { useUpdateBlocksProps, useUpdateBlocksPropsRealtime } from "~/builder/hooks/use-update-blocks-props";
 import { useWrapperBlock } from "~/builder/hooks/use-wrapper-block";
 import { COLLECTION_PREFIX } from "~/constants/STRINGS";
-import { getBlockFormSchemas, getChaiBlockVariantProps, getRegisteredChaiBlock } from "~/registry";
+import { getChaiBlockFormSchemas, getChaiBlockVariantProps, getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlockConfig } from "~/types/blocks";
 import { ChaiBlock } from "~/types/common";
 import { getBlockHeading } from "./get-block-heading";
@@ -144,7 +144,7 @@ export default function BlockSettings() {
       return { schema: {}, uiSchema: {}, uiSchemaVariant: "empty" };
     }
     try {
-      const { schema, uiSchema } = getBlockFormSchemas(type) as {
+      const { schema, uiSchema } = getChaiBlockFormSchemas(type) as {
         schema: any;
         uiSchema: any;
       };
@@ -201,7 +201,7 @@ export default function BlockSettings() {
       return { wrapperSchema: {}, wrapperUiSchema: {} };
     }
     const type = wrapperBlock?._type;
-    const { schema: wrapperSchema = {}, uiSchema: wrapperUiSchema = {} } = getBlockFormSchemas(type) as {
+    const { schema: wrapperSchema = {}, uiSchema: wrapperUiSchema = {} } = getChaiBlockFormSchemas(type) as {
       schema: any;
       uiSchema: any;
     };
@@ -211,7 +211,7 @@ export default function BlockSettings() {
   return (
     <div className="no-scrollbar px-px">
       {selectedBlock?._type ? (
-        <div className="sticky top-0 z-10 -mx-px flex min-h-7 items-center justify-between gap-1 border-b border-border bg-surface">
+        <div className="border-border bg-surface sticky top-0 z-10 -mx-px flex min-h-7 items-center justify-between gap-1 border-b">
           <div className="truncate text-xs font-medium">{heading}</div>
           <SettingsGroupsToggle blockType={selectedBlock._type} />
         </div>

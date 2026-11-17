@@ -2,8 +2,8 @@ import { isEmpty } from "lodash-es";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { ChaiPage } from "~/builder/pages/utils/page-organization";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion";
 
@@ -13,8 +13,8 @@ const usesPartial = (page: ChaiPage, partialId: string) =>
 
 export const PartialUsageList = ({ partialBlockId }: { partialBlockId: string }) => {
   const { t } = useTranslation();
-  const { data: pages, isPlaceholderData } = useWebsitePrimaryPages();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pages, isPlaceholderData } = useChaiPrimaryPages();
+  const { data: pageTypes } = useChaiPageTypes();
   const currentPageId = useBuilderProp("pageId", "");
 
   const usedOn = useMemo(
@@ -32,10 +32,11 @@ export const PartialUsageList = ({ partialBlockId }: { partialBlockId: string })
     [pageTypes],
   );
   // Slugless pages (other partials, layouts) show their type name in place of a path.
-  const describe = (page: ChaiPage) => (isEmpty(page.slug) ? (typeNames.get(page.pageType) ?? page.pageType) : page.slug);
+  const describe = (page: ChaiPage) =>
+    isEmpty(page.slug) ? (typeNames.get(page.pageType) ?? page.pageType) : page.slug;
 
   if (isPlaceholderData) {
-    return <p className="text-xs text-muted-foreground">{t("Loading pages...")}</p>;
+    return <p className="text-muted-foreground text-xs">{t("Loading pages...")}</p>;
   }
 
   return (
@@ -58,13 +59,12 @@ export const PartialUsageList = ({ partialBlockId }: { partialBlockId: string })
                 <li
                   key={page.id}
                   className="flex items-center justify-between gap-2 px-2 py-1.5"
-                  aria-label={`${pageNameWithCurrent} — ${pageDescription}`}
-                >
+                  aria-label={`${pageNameWithCurrent} — ${pageDescription}`}>
                   <span className="min-w-0 flex-1 truncate" title={pageNameWithCurrent}>
                     {pageName}
                     {isCurrent && <span className="text-muted-foreground"> {t("(this page)")}</span>}
                   </span>
-                  <span className="min-w-0 truncate text-muted-foreground" title={pageDescription}>
+                  <span className="text-muted-foreground min-w-0 truncate" title={pageDescription}>
                     {pageDescription}
                   </span>
                 </li>

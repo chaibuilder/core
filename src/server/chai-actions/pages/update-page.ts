@@ -3,7 +3,7 @@ import { isEmpty, keys, pick } from "lodash-es";
 import { z } from "zod";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
-import { hasPermission } from "~/server/rbac/permissions";
+import { hasChaiPermission } from "~/server/rbac/permissions";
 import { resolveEditSource } from "~/server/chai-actions/utils/edit-source";
 import { PageTreeBuilder } from "~/server/chai-actions/utils/page-tree-builder";
 import { isFeatureEnabled } from "~/server/defaults/config-registry";
@@ -183,7 +183,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
         if (await findExistingHomepage(this.appId, data.id)) {
           // Demotion unpublishes the current homepage's live rows — unpublishing is
           // deliberately gated on its own permission (TAKE_OFFLINE), so require it here too.
-          if (!hasPermission(this.context?.userAccess?.permissions ?? null, CHAI_PERMISSIONS["pages:unpublish"])) {
+          if (!hasChaiPermission(this.context?.userAccess?.permissions ?? null, CHAI_PERMISSIONS["pages:unpublish"])) {
             throw new ActionError(
               `Replacing the current homepage requires permission: ${CHAI_PERMISSIONS["pages:unpublish"]}`,
               "FORBIDDEN",
@@ -396,7 +396,7 @@ export class UpdatePageAction extends ChaiBaseAction<UpdatePageActionData, Updat
     // would alter callers this feature never touched.
     if (nextPageType !== "_folder" && currentPageType !== "_folder") return;
 
-    if (!hasPermission(this.context?.userAccess?.permissions ?? null, CHAI_PERMISSIONS["pages:change_type"])) {
+    if (!hasChaiPermission(this.context?.userAccess?.permissions ?? null, CHAI_PERMISSIONS["pages:change_type"])) {
       throw new ActionError(`Missing permission: ${CHAI_PERMISSIONS["pages:change_type"]}`, "FORBIDDEN", 403);
     }
 

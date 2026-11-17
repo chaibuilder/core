@@ -9,10 +9,7 @@ import type { ChaiRolesAndPermissions } from "./resolve-permissions";
  * those sources own their grants (adopting a plugin there is a config edit or
  * a migration, like 20260715_150000_redirects_permissions).
  */
-function applyDefaultRoleGrants(
-  base: ChaiRolesAndPermissions,
-  grants: ChaiDefaultRoleGrants,
-): ChaiRolesAndPermissions {
+function applyDefaultRoleGrants(base: ChaiRolesAndPermissions, grants: ChaiDefaultRoleGrants): ChaiRolesAndPermissions {
   const entries = Object.entries(grants);
   if (entries.length === 0) return base;
 
@@ -43,7 +40,7 @@ let warnedMissingRolesEngine = false;
  * returning `null` ("nothing stored") falls back to the defaults, preventing
  * lockout on fresh installs.
  */
-export async function getGlobalRoles(): Promise<ChaiRolesAndPermissions> {
+export async function getChaiGlobalRoles(): Promise<ChaiRolesAndPermissions> {
   const configRoles = getConfigRoles();
 
   if (!configRoles) return defaultsWithGrants();

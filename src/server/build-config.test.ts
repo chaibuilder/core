@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { getRegisteredChaiBlock } from "~/registry/v2/runtime/core";
 import { buildChaiBuilderConfig, getChaiBuilderConfigOnInit } from "~/server/build-config";
 import { getChaiAction } from "~/server/chai-actions/actions-registery";
-import { getDb, resetDbForTests } from "~/server/chai-actions/db";
+import { getChaiDb, resetChaiDbForTests } from "~/server/chai-actions/db";
 import { ChaiBaseAction } from "~/server/chai-actions/export";
 import { resolveChaiBuilderConfig } from "~/server/defaults";
 import { BUILTIN_CHAI_ACTIONS } from "~/server/defaults/builtin-chai-actions";
@@ -28,9 +28,9 @@ describe("buildChaiBuilderConfig", () => {
 
   it("initializes Chai db singleton from config", () => {
     const setup = stubChaiDbSetup();
-    resetDbForTests();
+    resetChaiDbForTests();
     buildChaiBuilderConfig({ db: setup });
-    expect(getDb()).toBe(setup.drizzle);
+    expect(getChaiDb()).toBe(setup.drizzle);
   });
 
   it("requires db in resolve step", () => {

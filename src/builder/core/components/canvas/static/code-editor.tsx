@@ -9,7 +9,7 @@ import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useUpdateBlocksProps, useUpdateBlocksPropsRealtime } from "~/builder/hooks/use-update-blocks-props";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
 import { Textarea } from "~/components/ui/textarea";
-import { LANGUAGES } from "~/constants/LANGUAGES";
+import { CHAI_LANGUAGES } from "~/constants/LANGUAGES";
 
 /**
  * Try to fix the HTML code
@@ -30,7 +30,7 @@ export default function CodeEditor() {
   const updateBlockProps = useUpdateBlocksProps();
   const updateRealTime = useUpdateBlocksPropsRealtime();
   const { selectedLang } = useLanguages();
-  const currentLanguage = useMemo(() => get(LANGUAGES, selectedLang, selectedLang), [selectedLang]);
+  const currentLanguage = useMemo(() => get(CHAI_LANGUAGES, selectedLang, selectedLang), [selectedLang]);
   const saveCodeContentRealTime = useThrottledCallback(
     (value: string) => {
       if (!codeEditor) return;
@@ -63,18 +63,18 @@ export default function CodeEditor() {
   return (
     <Dialog open={true} onOpenChange={handleClose}>
       <DialogContent className="flex max-w-5xl flex-col gap-0 space-y-0 p-0">
-        <DialogHeader className="shrink-0 border-b border-border px-4 py-2">
+        <DialogHeader className="border-border shrink-0 border-b px-4 py-2">
           <DialogTitle className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-semibold">{t("HTML Code Editor")}</h3>
-              <div className="flex items-center space-x-2 text-xs font-light text-muted-foreground">
-                {currentLanguage && <span className="rounded bg-muted px-1.5 py-0.5">{currentLanguage}</span>}
+              <div className="text-muted-foreground flex items-center space-x-2 text-xs font-light">
+                {currentLanguage && <span className="bg-muted rounded px-1.5 py-0.5">{currentLanguage}</span>}
                 <span>{t("Scripts will be only executed in preview and live mode.")}</span>
               </div>
             </div>
           </DialogTitle>
         </DialogHeader>
-        <div className="flex-1 overflow-hidden p-0 text-foreground">
+        <div className="text-foreground flex-1 overflow-hidden p-0">
           <Textarea
             value={codeEditor ? formatHtml(code) : ""}
             onChange={(e) => {

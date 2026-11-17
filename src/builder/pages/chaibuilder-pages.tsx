@@ -17,10 +17,10 @@ import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
 import { isLinkedPage } from "~/builder/pages/hooks/pages/use-upstream-pages";
 import { UpstreamCloneButton } from "~/builder/pages/client/components/upstream-linked-notice";
 import { useExtractPageBlocks } from "~/builder/pages/hooks/pages/use-extract-page-blocks";
-import { usePageAllData } from "~/builder/pages/hooks/pages/use-page-all-data";
+import { useChaiPageData } from "~/builder/pages/hooks/pages/use-page-all-data";
 import { useUpdateWebsiteFields } from "~/builder/pages/hooks/project/mutations";
 import { useSearchPageTypePages } from "~/builder/pages/hooks/project/use-page-types";
-import { useCheckUserAccess } from "~/builder/pages/hooks/user/use-check-access";
+import { useChaiUserPermissions } from "~/builder/pages/hooks/user/use-check-access";
 import { usePagesSavePage } from "~/builder/pages/hooks/utils/use-chai-api";
 import { serverConfigAtom, usePagesProps } from "~/builder/pages/hooks/utils/use-pages-props";
 import { usePartialBlocksFn } from "~/builder/pages/hooks/utils/use-partial-blocks";
@@ -35,13 +35,13 @@ import { ChaiBlock, ChaiWebsiteBuilderProps } from "~/types/common";
 import { loadWebBlocks } from "~/web-blocks";
 import { BlurContainer, FullscreenLoader } from "../../components/ui/loader";
 import { previewUrlAtom } from "./atom/preview-url";
-import { PAGE_STATUS, usePageLockStatus } from "./client/realtime";
+import { PAGE_STATUS, useChaiPageLockStatus } from "./client/realtime";
 import { registerPagesFeatureFlags } from "./feature-flags";
 import { useBuilderPageProps } from "./hooks/pages/use-builder-page-props";
-import { useBuilderPageData } from "./hooks/pages/use-page-draft-blocks";
-import { useSiteGlobalData } from "./hooks/pages/use-site-global-data";
+import { useChaiPageBindingData } from "./hooks/pages/use-page-draft-blocks";
+import { useChaiSiteGlobalData } from "./hooks/pages/use-site-global-data";
 import { useGetBlockAysncProps } from "./hooks/use-chai-collections";
-import { useGotoPage } from "./hooks/use-goto-page";
+import { useChaiGotoPage } from "./hooks/use-goto-page";
 import { useSiteWideUsage } from "./hooks/use-site-wide-usage";
 import { useWebsiteData } from "./hooks/use-website-data";
 import { buildPageBindingData } from "~/utils/page-binding-data";
@@ -76,7 +76,7 @@ const EMPTY_BLOCKS: ChaiBlock[] = [];
  * @returns CHAIBUILDER PAGES COMPONENT
  */
 const BuilderWithAccessCheck = (props: ChaiWebsiteBuilderProps) => {
-  const { isLoading } = useCheckUserAccess();
+  const { isLoading } = useChaiUserPermissions();
 
   if (isLoading) return <FullscreenLoader />;
 
@@ -127,25 +127,25 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
   const { data: siteWideUsage } = useSiteWideUsage();
   const { collections, repeaterData, pageTypes, libraries, websiteSettings: websiteConfig } = websiteData as any;
   const fallbackLang = useMemo(() => websiteConfig?.fallbackLang || "en", [websiteConfig]);
-  const { data: accessData, isFetching: isFetchingAccessData } = useCheckUserAccess();
+  const { data: accessData, isFetching: isFetchingAccessData } = useChaiUserPermissions();
   const roleAndPermissions = accessData || DEFAULT_ROLES_AND_PERMISSIONS;
   // * PAGE DATA
   const [searchParams] = useSearchParams();
   const page = searchParams.get("page");
   const { data: currentPage } = usePrimaryPage();
-  const { data: pageData, isFetching: isFetchingPageAllData } = usePageAllData();
-  const { data: globalData } = useSiteGlobalData();
-  const { data: builderPageData } = useBuilderPageData();
+  const { data: pageData, isFetching: isFetchingPageAllData } = useChaiPageData();
+  const { data: globalData } = useChaiSiteGlobalData();
+  const { data: builderPageData } = useChaiPageBindingData();
   const pageProps = useBuilderPageProps();
   const { blocks } = useExtractPageBlocks(pageData?.draftPage?.blocks ?? []);
-  const { pageStatus } = usePageLockStatus();
+  const { pageStatus } = useChaiPageLockStatus();
   const { mutateAsync: getBlockAsyncProps } = useGetBlockAysncProps();
   // * ACTIONS
   const { onSave } = usePagesSavePage();
   const { getPartialBlocks, getPartialBlockBlocks } = usePartialBlocksFn();
   const { searchPages } = useSearchPageTypePages();
   const { mutateAsync: updateSettings } = useUpdateWebsiteFields();
-  const gotoPage = useGotoPage();
+  const gotoPage = useChaiGotoPage();
 
   // * STATES
   const [tabHidden, setTabHidden] = useState(false);

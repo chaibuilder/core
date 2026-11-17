@@ -5,8 +5,8 @@ import { runInContext } from "~/server/chai-builder/state";
 import { resetActiveChaiBuilderConfigForTests } from "~/server/defaults/config-registry";
 import { registerChaiPermissions, resetChaiPermissionsForTests } from "~/server/plugin-api/permission-registry";
 import { ChaiBaseAction } from "./base-action";
-import { ChaiBaseAIAction } from "./base-ai-action";
-import { dispatchChaiAction, tryChaiAction } from "./dispatch-action";
+import { ChaiBaseAiAction } from "./base-ai-action";
+import { runChaiAction, tryChaiAction } from "./dispatch-action";
 
 /** A member of the app, as the context resolver would report them. */
 const member = (permissions: string[], role = "editor") => ({
@@ -36,19 +36,19 @@ describe("dispatchChaiAction", () => {
   });
 
   it("throws when userId is missing for authenticated actions", async () => {
-    await expect(runInContext({ appId: "test-app" }, () => dispatchChaiAction("GET_DRAFT_PAGE", {}))).rejects.toThrow(
+    await expect(runInContext({ appId: "test-app" }, () => runChaiAction("GET_DRAFT_PAGE", {}))).rejects.toThrow(
       /initWithUser/,
     );
   });
 
   it("dispatches authenticated actions for a member", async () => {
-    const result = await runInContext(member(["*"], "admin"), () => dispatchChaiAction("CHECK_USER_ACCESS", {}));
+    const result = await runInContext(member(["*"], "admin"), () => runChaiAction("CHECK_USER_ACCESS", {}));
 
     expect(result).toMatchObject({ access: true, role: "admin" });
   });
 
   it("throws ACTION_NOT_FOUND for unknown actions", async () => {
-    await expect(runInContext(member(["*"]), () => dispatchChaiAction("UNKNOWN_ACTION", {}))).rejects.toMatchObject({
+    await expect(runInContext(member(["*"]), () => runChaiAction("UNKNOWN_ACTION", {}))).rejects.toMatchObject({
       code: "ACTION_NOT_FOUND",
     });
   });
@@ -57,19 +57,19 @@ describe("dispatchChaiAction", () => {
   // as a member, and there is nobody left to ask.
   it("rejects an authenticated user the resolver granted no permissions", async () => {
     await expect(
-      runInContext({ appId: "test-app", userId: "user-1" }, () => dispatchChaiAction("CREATE_PAGE", {})),
+      runInContext({ appId: "test-app", userId: "user-1" }, () => runChaiAction("CREATE_PAGE", {})),
     ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("reports the resolver's decision through CHECK_USER_ACCESS", async () => {
-    const result = await runInContext(member(["pages:read"]), () => dispatchChaiAction("CHECK_USER_ACCESS", {}));
+    const result = await runInContext(member(["pages:read"]), () => runChaiAction("CHECK_USER_ACCESS", {}));
 
     expect(result).toEqual({ access: true, role: "editor", permissions: ["pages:read"], userId: "user-1" });
   });
 
   it("defaults the role label when the resolver supplies permissions without one", async () => {
     const result = (await runInContext({ appId: "test-app", userId: "user-1", permissions: [] }, () =>
-      dispatchChaiAction("CHECK_USER_ACCESS", {}),
+      runChaiAction("CHECK_USER_ACCESS", {}),
     )) as { role: string };
 
     expect(result.role).toBe("custom");
@@ -78,7 +78,7 @@ describe("dispatchChaiAction", () => {
   it("runs a gated action the user is granted", async () => {
     registerGatedAction("GATED_READ", "pages:read");
 
-    const result = await runInContext(member(["pages:read"]), () => dispatchChaiAction("GATED_READ", {}));
+    const result = await runInContext(member(["pages:read"]), () => runChaiAction("GATED_READ", {}));
 
     expect(result).toEqual({ ok: true });
   });
@@ -86,25 +86,26 @@ describe("dispatchChaiAction", () => {
   it("denies a gated action the user is not granted", async () => {
     registerGatedAction("GATED_UPDATE", "pages:update");
 
-    await expect(
-      runInContext(member(["pages:read"]), () => dispatchChaiAction("GATED_UPDATE", {})),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(runInContext(member(["pages:read"]), () => runChaiAction("GATED_UPDATE", {}))).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 
   // Array form: every listed key must be held (the SEO gate on UPDATE_PAGE).
   it("requires every key of a list-form permission", async () => {
     registerGatedAction("GATED_LIST", ["pages:update", "pages:edit_seo"]);
 
-    await expect(
-      runInContext(member(["pages:update"]), () => dispatchChaiAction("GATED_LIST", {})),
-    ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Missing permission: pages:edit_seo" });
+    await expect(runInContext(member(["pages:update"]), () => runChaiAction("GATED_LIST", {}))).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: "Missing permission: pages:edit_seo",
+    });
   });
 
   it("runs a list-form action when every key is held", async () => {
     registerGatedAction("GATED_LIST_OK", ["pages:update", "pages:edit_seo"]);
 
     const result = await runInContext(member(["pages:update", "pages:edit_seo"]), () =>
-      dispatchChaiAction("GATED_LIST_OK", {}),
+      runChaiAction("GATED_LIST_OK", {}),
     );
 
     expect(result).toEqual({ ok: true });
@@ -122,11 +123,11 @@ describe("dispatchChaiAction", () => {
     }
     buildChaiBuilderConfig({ db: stubChaiDbConfig(), actions: { GATED_DERIVED: new DerivedAction() } });
 
+    await expect(runInContext(member(["pages:update"]), () => runChaiAction("GATED_DERIVED", {}))).resolves.toEqual({
+      ok: true,
+    });
     await expect(
-      runInContext(member(["pages:update"]), () => dispatchChaiAction("GATED_DERIVED", {})),
-    ).resolves.toEqual({ ok: true });
-    await expect(
-      runInContext(member(["pages:update"]), () => dispatchChaiAction("GATED_DERIVED", { seo: {} })),
+      runInContext(member(["pages:update"]), () => runChaiAction("GATED_DERIVED", { seo: {} })),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
@@ -143,9 +144,9 @@ describe("dispatchChaiAction", () => {
     });
     registerGatedAction("GATED_UPDATE", "pages:update");
 
-    await expect(
-      runInContext(member(["pages:read"]), () => dispatchChaiAction("GATED_UPDATE", {})),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(runInContext(member(["pages:read"]), () => runChaiAction("GATED_UPDATE", {}))).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
   });
 });
 
@@ -160,7 +161,7 @@ describe("dispatchChaiAction — delegated permissions", () => {
 
     await expect(
       runInContext({ ...member(["*"], "admin"), delegatedPermissions: ["pages:read"] }, () =>
-        dispatchChaiAction("GATED_UPDATE", {}),
+        runChaiAction("GATED_UPDATE", {}),
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
@@ -169,7 +170,7 @@ describe("dispatchChaiAction — delegated permissions", () => {
     registerGatedAction("GATED_READ", "pages:read");
 
     const result = await runInContext({ ...member(["*"], "admin"), delegatedPermissions: ["pages:read"] }, () =>
-      dispatchChaiAction("GATED_READ", {}),
+      runChaiAction("GATED_READ", {}),
     );
 
     expect(result).toEqual({ ok: true });
@@ -180,7 +181,7 @@ describe("dispatchChaiAction — delegated permissions", () => {
 
     await expect(
       runInContext({ ...member(["*"], "admin"), delegatedScopes: ["pages:read"] }, () =>
-        dispatchChaiAction("GATED_UPDATE", {}),
+        runChaiAction("GATED_UPDATE", {}),
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
@@ -190,7 +191,7 @@ describe("dispatchChaiAction — delegated permissions", () => {
 
     const result = await runInContext(
       { ...member(["*", "custom:thing"], "admin"), delegatedPermissions: ["custom:thing"] },
-      () => dispatchChaiAction("GATED_CUSTOM", {}),
+      () => runChaiAction("GATED_CUSTOM", {}),
     );
 
     expect(result).toEqual({ ok: true });
@@ -212,7 +213,7 @@ describe("dispatchChaiAction — delegated permissions", () => {
     registerChaiPermissions("test:widgets", ["widgets:read", "widgets:update"]);
     try {
       const result = await runInContext({ ...member(["*"], "admin"), delegatedPermissions: ["widgets:*"] }, () =>
-        dispatchChaiAction("GATED_WIDGET", {}),
+        runChaiAction("GATED_WIDGET", {}),
       );
 
       expect(result).toEqual({ ok: true });
@@ -225,13 +226,13 @@ describe("dispatchChaiAction — delegated permissions", () => {
     registerGatedAction("GATED_READ", "pages:read");
 
     await expect(
-      runInContext({ ...member(["*"], "admin"), delegatedPermissions: [] }, () => dispatchChaiAction("GATED_READ", {})),
+      runInContext({ ...member(["*"], "admin"), delegatedPermissions: [] }, () => runChaiAction("GATED_READ", {})),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("reports the clamped permission set to the builder UI", async () => {
     const result = (await runInContext({ ...member(["*"], "admin"), delegatedPermissions: ["pages:read"] }, () =>
-      dispatchChaiAction("CHECK_USER_ACCESS", {}),
+      runChaiAction("CHECK_USER_ACCESS", {}),
     )) as { permissions: string[] };
 
     expect(result.permissions).toEqual(["pages:read"]);
@@ -285,7 +286,7 @@ describe("dispatchChaiAction — surface", () => {
     registerEchoAction("ECHO_SURFACE");
 
     const result = await runInContext({ ...member(["*"], "admin"), surface: "settings" }, () =>
-      dispatchChaiAction("ECHO_SURFACE", {}),
+      runChaiAction("ECHO_SURFACE", {}),
     );
 
     expect(result).toEqual({ surface: "settings" });
@@ -294,7 +295,7 @@ describe("dispatchChaiAction — surface", () => {
   it("leaves the surface null when the resolver did not state one", async () => {
     registerEchoAction("ECHO_SURFACE");
 
-    const result = await runInContext(member(["*"], "admin"), () => dispatchChaiAction("ECHO_SURFACE", {}));
+    const result = await runInContext(member(["*"], "admin"), () => runChaiAction("ECHO_SURFACE", {}));
 
     expect(result).toEqual({ surface: null });
   });
@@ -333,10 +334,10 @@ describe("dispatchChaiAction — concurrent requests", () => {
     buildChaiBuilderConfig({ db: stubChaiDbConfig(), actions: { SLOW: action } });
 
     const first = runInContext({ ...member(["pages:read"]), userId: "user-a" }, () =>
-      dispatchChaiAction("SLOW", { input: "a", wait: true }),
+      runChaiAction("SLOW", { input: "a", wait: true }),
     );
     const second = await runInContext({ ...member(["pages:read", "pages:unpublish"]), userId: "user-b" }, () =>
-      dispatchChaiAction("SLOW", { input: "b" }),
+      runChaiAction("SLOW", { input: "b" }),
     );
     release();
 
@@ -361,7 +362,7 @@ describe("dispatchChaiAction — concurrent requests", () => {
     action.requiredPermission = "pages:update";
     buildChaiBuilderConfig({ db: stubChaiDbConfig(), actions: { PLAIN: action } });
 
-    await expect(runInContext(member(["pages:read"]), () => dispatchChaiAction("PLAIN", {}))).rejects.toMatchObject({
+    await expect(runInContext(member(["pages:read"]), () => runChaiAction("PLAIN", {}))).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
   });
@@ -369,7 +370,7 @@ describe("dispatchChaiAction — concurrent requests", () => {
   // `features.ai: false` turns builder AI off: a model-calling action must not run even for
   // a caller who holds `ai:*` and sends the request directly.
   it("refuses AI actions when features.ai is off, and runs them by default", async () => {
-    class ModelCallAction extends ChaiBaseAIAction<unknown, { ok: true }> {
+    class ModelCallAction extends ChaiBaseAiAction<unknown, { ok: true }> {
       async execute() {
         return { ok: true } as const;
       }
@@ -378,12 +379,12 @@ describe("dispatchChaiAction — concurrent requests", () => {
     action.requiredPermission = "ai:use";
 
     buildChaiBuilderConfig({ db: stubChaiDbConfig(), actions: { MODEL_CALL: action } });
-    await expect(runInContext(member(["ai:*"]), () => dispatchChaiAction("MODEL_CALL", {}))).resolves.toEqual({
+    await expect(runInContext(member(["ai:*"]), () => runChaiAction("MODEL_CALL", {}))).resolves.toEqual({
       ok: true,
     });
 
     buildChaiBuilderConfig({ db: stubChaiDbConfig(), features: { ai: false }, actions: { MODEL_CALL: action } });
-    await expect(runInContext(member(["ai:*"]), () => dispatchChaiAction("MODEL_CALL", {}))).rejects.toMatchObject({
+    await expect(runInContext(member(["ai:*"]), () => runChaiAction("MODEL_CALL", {}))).rejects.toMatchObject({
       code: "AI_DISABLED",
       status: 403,
     });

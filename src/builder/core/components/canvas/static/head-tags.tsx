@@ -13,7 +13,7 @@ import { useDarkMode } from "~/builder/hooks/use-dark-mode";
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useSelectedStylingBlocks } from "~/builder/hooks/use-selected-styling-blocks";
 import { useTheme, useThemeOptions } from "~/builder/hooks/use-theme";
-import { resolveFont } from "~/registry/fonts";
+import { resolveChaiFont } from "~/registry/fonts";
 import { ChaiFont, ChaiFontBySrc, ChaiFontByUrl, ChaiTheme } from "~/types";
 import type { ChaiThemeOptions } from "~/types/chaibuilder-editor-props";
 import { getSiteContentWidthCss } from "~/utils/site-layout-css";
@@ -82,7 +82,7 @@ const useThemeFonts = () => {
       body: get(chaiTheme, "fontFamily.body"),
     };
     return uniq(compact([heading, body]))
-      .map(resolveFont)
+      .map(resolveChaiFont)
       .filter(Boolean) as ChaiFont[];
   }, [chaiTheme]);
 

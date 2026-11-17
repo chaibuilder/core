@@ -3,11 +3,11 @@
  * instance API can reference them without importing plugin code.
  */
 
-export type GetPageRevisionsActionData = {
+export type ChaiGetPageRevisionsArgs = {
   pageId: string;
 };
 
-export type GetRevisionPageActionData = {
+export type ChaiGetRevisionPageArgs = {
   id: string;
   type: "draft" | "live" | "revision";
   lang?: string;
@@ -20,9 +20,9 @@ export type GetRevisionPageActionData = {
  * which lives at `seo.jsonLD`; the `seo` slice restores the whole seo object
  * (JSON-LD included), while `jsonld` restores just that one key.
  */
-export type RestorePagePart = "blocks" | "seo" | "tracking" | "jsonld";
+export type ChaiRestorePagePart = "blocks" | "seo" | "tracking" | "jsonld";
 
-export type RestorePageActionData = {
+export type ChaiRestorePageArgs = {
   revisionId: string;
   discardCurrent: boolean;
   pageId?: string;
@@ -31,9 +31,9 @@ export type RestorePageActionData = {
    * today's behavior and the "bring back the old look" mental model, so a
    * rollback never silently undoes SEO work done since.
    */
-  parts?: RestorePagePart[];
+  parts?: ChaiRestorePagePart[];
 };
 
-export type DeletePageRevisionActionData = {
+export type ChaiDeletePageRevisionArgs = {
   revisionId: string;
 };

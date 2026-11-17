@@ -11,7 +11,7 @@ import { useSaveWebsiteData } from "~/builder/hooks/use-save-website-data";
 import { markDesignTokensSaved } from "~/builder/hooks/use-unsaved-theme";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { usePublishPages } from "~/builder/pages/hooks/pages/mutations";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useUnpublishedWebsiteSettings } from "~/builder/pages/hooks/project/use-unpublished-website-settings";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import { throwConfetti } from "~/builder/pages/utils/confetti";
@@ -28,7 +28,7 @@ import {
 } from "~/components/ui/alert-dialog";
 import { Button } from "~/components/ui/button";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
-import type { ChaiWebsiteSetting } from "~/types/actions";
+import type { ChaiSiteSettings } from "~/types/actions";
 import type { ChaiDesignTokens } from "~/types/types";
 import { diffDesignTokens, type DesignTokenChange, type DesignTokensDiff } from "~/utils/diff-design-tokens";
 
@@ -36,7 +36,7 @@ import { diffDesignTokens, type DesignTokenChange, type DesignTokensDiff } from 
 export const PUBLISHED_WEBSITE_SETTINGS_KEY = [ACTIONS.GET_WEBSITE_DRAFT_SETTINGS, "published"];
 
 const usePublishedDesignTokens = (enabled: boolean) => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   return useQuery({
     queryKey: PUBLISHED_WEBSITE_SETTINGS_KEY,
@@ -44,7 +44,7 @@ const usePublishedDesignTokens = (enabled: boolean) => {
       (await fetchAPI(apiUrl, {
         action: ACTIONS.GET_WEBSITE_DRAFT_SETTINGS,
         data: { draft: false },
-      })) as ChaiWebsiteSetting,
+      })) as ChaiSiteSettings,
     select: (settings) => (settings?.designTokens ?? {}) as ChaiDesignTokens,
     enabled,
   });
@@ -67,7 +67,7 @@ const ChangeGroup = ({
     <div className="flex flex-wrap items-center gap-1 text-[11px]">
       <span className={className}>{label}</span>
       {listed.map((change) => (
-        <span key={change.id} className="rounded-sm bg-muted/40 px-1 font-mono text-[10px] text-foreground">
+        <span key={change.id} className="bg-muted/40 text-foreground rounded-sm px-1 font-mono text-[10px]">
           {change.name}
         </span>
       ))}
@@ -136,7 +136,7 @@ export const PublishDesignTokensButton = () => {
   return (
     <div className="space-y-2">
       <div className="space-y-1">
-        <p className="text-xs font-medium text-foreground">{t("Unpublished changes")}</p>
+        <p className="text-foreground text-xs font-medium">{t("Unpublished changes")}</p>
         {diff && <ChangesSummary diff={diff} />}
       </div>
       {canPublish && (

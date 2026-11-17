@@ -16,3 +16,6 @@ export {
   type ChaiMcpRouteHandlerOptions,
   type ChaiMcpServerInfo,
 } from "./handle-request";
+
+// Deprecated names, kept for compatibility. See ./deprecated.ts.
+export * from "./deprecated";

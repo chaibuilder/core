@@ -1,22 +1,22 @@
-import { resetDbForTests } from "~/server/chai-actions/db";
+import { resetChaiDbForTests } from "~/server/chai-actions/db";
 import { normalizeHandlerRedirect } from "~/server/utils/redirect-path";
 import type { ChaiPageType } from "~/types/actions";
 import type {
   ChaiBlockDataProvider,
-  ChaiCollectionEntry,
   ChaiDynamicTemplateCandidate,
   ChaiPageNotFoundArgs,
   ChaiPageTypeEntry,
   ChaiRepeaterDataEntry,
   ChaiTrashEntry,
 } from "~/types/chaibuilder-config";
+import type { ChaiCollectionEntry } from "~/types/deprecated";
 import { CORE_DEFAULT_CHAI_BUILDER_SERVER_CONFIG } from "./core-default-server-config";
 import type {
   ChaiDefaultRoleGrants,
   ChaiMediaManagerConfig,
   ChaiRolesConfig,
   ChaiServerFeatures,
-  ResolvedChaiAIGlobalConfig,
+  ResolvedChaiAiGlobalConfig,
   ResolvedChaiBuilderServerConfig,
 } from "./types";
 
@@ -232,7 +232,7 @@ export function getConfigDefaultRoleGrants(): ChaiDefaultRoleGrants {
   return activeConfig.defaultRoleGrants;
 }
 
-export function getConfigAI(): ResolvedChaiAIGlobalConfig {
+export function getConfigAI(): ResolvedChaiAiGlobalConfig {
   return activeConfig.ai;
 }
 
@@ -274,7 +274,7 @@ export function updateActiveActions(actions: ResolvedChaiBuilderServerConfig["ac
   };
 }
 
-export function updateActiveAiConfig(ai: ResolvedChaiAIGlobalConfig): void {
+export function updateActiveAiConfig(ai: ResolvedChaiAiGlobalConfig): void {
   activeConfig = { ...activeConfig, ai };
 }
 
@@ -301,7 +301,7 @@ export function updateActiveBlockDataProviders(
 
 /** @internal Reset active config in unit tests. */
 export function resetActiveChaiBuilderConfigForTests(overrides: Partial<ResolvedChaiBuilderServerConfig> = {}): void {
-  resetDbForTests();
+  resetChaiDbForTests();
   activeConfig = {
     ...CORE_DEFAULT_CHAI_BUILDER_SERVER_CONFIG,
     actions: builtinActions,

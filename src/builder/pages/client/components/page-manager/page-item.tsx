@@ -1,5 +1,17 @@
 import { find, get, isEmpty } from "lodash-es";
-import { Bot, ChevronRight, Copy, File, Hash, Link2, Lock, MoreHorizontal, Pencil, Plus, StarsIcon } from "lucide-react";
+import {
+  Bot,
+  ChevronRight,
+  Copy,
+  File,
+  Hash,
+  Link2,
+  Lock,
+  MoreHorizontal,
+  Pencil,
+  Plus,
+  StarsIcon,
+} from "lucide-react";
 import { useMemo } from "react";
 import { PageActionsDropdown } from "~/builder/pages/client/components/page-action-dropdown";
 import {
@@ -8,13 +20,13 @@ import {
   formatSince,
   isChaiAiPageEditActive,
   useAiPageEdits,
-  usePageToUser,
+  useChaiPageLocks,
   useUserId,
 } from "~/builder/pages/client/realtime";
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
 import { useFeatureLabel } from "~/builder/hooks/use-feature-label";
 import { isLinkedPage, useUpstreamPagesEnabled } from "~/builder/pages/hooks/pages/use-upstream-pages";
-import { useFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
+import { useChaiFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
 import { useChaiUserInfo } from "~/builder/pages/hooks/utils/use-chai-user-info";
 import { usePageExpandManager } from "~/builder/pages/hooks/utils/use-page-expand-manager";
 import { ChaiPage } from "~/builder/pages/utils/page-organization";
@@ -33,7 +45,7 @@ const ExpandCollapse = ({ page }: { page: ChaiPage }) => {
     <Button
       size="icon-sm"
       variant="ghost"
-      className={`h-6 w-6 hover:bg-secondary ${!page?.children?.length ? "opacity-0" : ""}`}
+      className={`hover:bg-secondary h-6 w-6 ${!page?.children?.length ? "opacity-0" : ""}`}
       onClick={(e) => {
         e.stopPropagation();
         toggleExpanded();
@@ -55,13 +67,13 @@ const PageIcon = ({ page, pageType }: { page: ChaiPage; pageType: any }) => {
         <StarsIcon size={12} className="text-yellow-400" />
       ) : pageType?.icon ? (
         <div
-          className="flex h-4 max-h-4 w-4 max-w-4 items-center justify-center stroke-[1] text-muted-foreground"
+          className="text-muted-foreground flex h-4 max-h-4 w-4 max-w-4 items-center justify-center stroke-[1]"
           dangerouslySetInnerHTML={{ __html: pageType.icon }}
         />
       ) : !pageType?.hasSlug ? (
-        <Hash size={12} className="stroke-[1] text-muted-foreground" />
+        <Hash size={12} className="text-muted-foreground stroke-[1]" />
       ) : (
-        <File size={12} className="stroke-[1] text-muted-foreground" />
+        <File size={12} className="text-muted-foreground stroke-[1]" />
       )}
     </div>
   );
@@ -90,7 +102,7 @@ const AiEditBadge = ({ lease }: { lease: ChaiAiPageEditLease }) => {
   const { data } = useChaiUserInfo(lease.userId);
   const who = data?.name || data?.email || "a team member";
   return (
-    <span className="duration absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-x-1 text-xs text-violet-600 dark:text-violet-400">
+    <span className="duration absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-x-1 text-xs text-violet-600 dark:text-violet-400">
       <Tooltip content={describeAiPageEdit(lease, who)}>
         <span className="flex items-center gap-x-1 font-bold" data-testid="page-ai-edit-lock">
           <Bot className="h-3 w-3" />
@@ -127,13 +139,13 @@ const PageItem = ({
   showUntranslatedPages: boolean;
 }) => {
   const userId = useUserId();
-  const { pageToUser } = usePageToUser();
+  const { pageToUser } = useChaiPageLocks();
   const pageOwnerId = get(pageToUser, [page?.id, "userId"]);
   const { data: pageOwnerData } = useChaiUserInfo(pageOwnerId);
   const pageOwner = pageOwnerData && userId !== pageOwnerId ? pageOwnerData?.name : null;
   const { toggleExpanded } = usePageExpandManager(page?.id);
 
-  const fallbackLang = useFallbackLang();
+  const fallbackLang = useChaiFallbackLang();
   const isSelected = currentPage === page.id;
   const pageType = useMemo(() => find(pageTypes, { key: page.pageType }), [pageTypes, page.pageType]);
   // Folders have no content — clicking them expands/collapses instead of opening the editor
@@ -194,9 +206,7 @@ const PageItem = ({
       <PageLinkContextMenu pageId={page.id}>
         <div
           onClick={() =>
-            page.isPartialGroup || isFolder
-              ? toggleExpanded()
-              : hasLangPage && onClickAction("select", page?.id)
+            page.isPartialGroup || isFolder ? toggleExpanded() : hasLangPage && onClickAction("select", page?.id)
           }
           className={containerClass}>
           {(pageType?.hasSlug !== false || page.isPartialGroup) && <ExpandCollapse page={page} />}
@@ -204,14 +214,14 @@ const PageItem = ({
           {!page.isPartialGroup && <PageIcon page={page} pageType={pageType} />}
 
           <Tooltip content={pageName} side="top" showTooltip={pageName.length > 35}>
-            <span className="max-w-[40%] truncate font-medium text-foreground">{pageName}</span>
+            <span className="text-foreground max-w-[40%] truncate font-medium">{pageName}</span>
           </Tooltip>
           {(pageSlug || page.dynamic) && (
             <Tooltip content={fullSlug} side="top" showTooltip>
-              <span className="max-w-[40%] truncate font-mono text-xs text-muted-foreground">
+              <span className="text-muted-foreground max-w-[40%] truncate font-mono text-xs">
                 {pageSlug}
                 {page.dynamic && pageType?.dynamicSlug && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-muted-foreground text-xs">
                     /{pageType?.dynamicSlug}
                     {page.dynamicSlugCustom}
                   </span>
@@ -228,8 +238,10 @@ const PageItem = ({
               }
               side="top">
               <span
-                className={`inline-flex shrink-0 items-center gap-0.5 rounded-sm border px-1 py-px text-[10px] font-medium leading-none ${
-                  isLinked ? "border-primary/30 bg-primary/10 text-primary" : "border-border bg-muted text-muted-foreground"
+                className={`inline-flex shrink-0 items-center gap-0.5 rounded-sm border px-1 py-px text-[10px] leading-none font-medium ${
+                  isLinked
+                    ? "border-primary/30 bg-primary/10 text-primary"
+                    : "border-border bg-muted text-muted-foreground"
                 }`}>
                 {isLinked ? <Link2 size={10} className="stroke-[2.5]" /> : <Copy size={10} className="stroke-[2.5]" />}
                 {isLinked ? upstreamLabel : "Duplicated"}
@@ -256,7 +268,7 @@ const PageItem = ({
           {!page.isPartialGroup && aiEdit ? (
             <AiEditBadge lease={aiEdit} />
           ) : !page.isPartialGroup && hasLangPage && !pageOwner ? (
-            <div className="duration absolute right-0.5 top-[3px]">
+            <div className="duration absolute top-[3px] right-0.5">
               <PageActionsDropdown
                 isLanguagePage={Boolean(langPage)}
                 page={langPage || page}
@@ -264,14 +276,14 @@ const PageItem = ({
                 setAddEditPage={(arg) => onClickAction("edit", langPage || arg)}
                 setUnpublishPage={(arg) => onClickAction("unpublish", arg)}
                 setDeletePage={(arg) => onClickAction("delete", langPage || arg)}>
-                <div className="hover:bg-surface m-0 cursor-pointer rounded border border-transparent p-0.5 duration-100 hover:border-border">
-                  <MoreHorizontal className="h-4 w-4 text-muted-foreground" onClick={(e) => e.stopPropagation()} />
+                <div className="hover:bg-surface hover:border-border m-0 cursor-pointer rounded border border-transparent p-0.5 duration-100">
+                  <MoreHorizontal className="text-muted-foreground h-4 w-4" onClick={(e) => e.stopPropagation()} />
                 </div>
               </PageActionsDropdown>
             </div>
           ) : pageOwner ? (
-            <span className="duration absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-x-1 text-xs text-destructive">
-              <Lock className="h-3 w-3 fill-destructive/20 text-destructive" />
+            <span className="duration text-destructive absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-x-1 text-xs">
+              <Lock className="fill-destructive/20 text-destructive h-3 w-3" />
               <Tooltip content={`${pageOwner} is editing this page`}>
                 <span className="font-bold">{pageOwner}</span>
               </Tooltip>
@@ -290,7 +302,7 @@ const PageItem = ({
                 page,
               });
             }}
-            className="absolute right-0 top-1 flex -translate-x-1/2 items-center gap-x-1 rounded bg-primary px-2 py-0.5 text-xs text-primary-foreground opacity-0 duration-200 hover:bg-primary/90 group-hover:opacity-100">
+            className="bg-primary text-primary-foreground hover:bg-primary/90 absolute top-1 right-0 flex -translate-x-1/2 items-center gap-x-1 rounded px-2 py-0.5 text-xs opacity-0 duration-200 group-hover:opacity-100">
             <Plus size={12} className="stroke-[3]" />{" "}
             <span className="text-[10px]">Add {get(LANGUAGES, selectedLanguage)} Page</span>
           </button>

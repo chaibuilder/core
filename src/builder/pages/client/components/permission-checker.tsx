@@ -1,6 +1,6 @@
 import { usePermissions } from "~/builder/hooks/use-permissions";
 
-export const PermissionChecker = ({
+export const IfChaiPermission = ({
   permission,
   permissions,
   children,
@@ -24,4 +24,4 @@ export const PermissionChecker = ({
   return children;
 };
 
-export default PermissionChecker;
+export default IfChaiPermission;

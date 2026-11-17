@@ -10,6 +10,6 @@ import { CHAI_PERMISSION_LIST } from "./permissions";
  * Lives apart from `permissions.ts` so the pure matching helpers stay free of
  * registry dependencies (they are public API).
  */
-export function getPermissionCatalog(): string[] {
+export function getChaiPermissionCatalog(): string[] {
   return [...new Set([...CHAI_PERMISSION_LIST, ...getContributedChaiPermissions()])];
 }

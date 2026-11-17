@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildChaiBuilderConfig } from "~/server/build-config";
-import { getDb } from "~/server/chai-actions/db";
-import { resetChaiContextResolverForTests, setChaiContextResolver } from "~/server/chai-context-resolver";
+import { getChaiDb } from "~/server/chai-actions/db";
+import { resetChaiContextResolverForTests, registerChaiContextResolver } from "~/server/chai-context-resolver";
 import { resetActiveChaiBuilderConfigForTests } from "~/server/defaults/config-registry";
 import { getOptionalRequestState } from "~/server/chai-builder/state";
 import { registerChaiInstanceApi, resetChaiInstanceApisForTests } from "~/server/plugin-api/instance-api-registry";
@@ -38,11 +38,11 @@ describe("getChaiBuilder", () => {
     expect(Object.isFrozen(cb.context)).toBe(true);
     expect(typeof cb.getPage).toBe("function");
     expect(typeof cb.runAction).toBe("function");
-    expect(cb.db).toBe(getDb());
+    expect(cb.db).toBe(getChaiDb());
     expect(typeof cb.safeQuery).toBe("function");
 
     const result = await cb.safeQuery(async ({ db, schema }) => {
-      expect(db).toBe(getDb());
+      expect(db).toBe(getChaiDb());
       expect(schema).toBe(cb.schema);
       return "ok";
     });
@@ -77,7 +77,7 @@ describe("getChaiBuilder", () => {
   });
 
   it("reflects draft resolved by the registered resolver", async () => {
-    setChaiContextResolver(async () => ({ draft: true }));
+    registerChaiContextResolver(async () => ({ draft: true }));
 
     const config = buildChaiBuilderConfig({ db: stubChaiDbConfig() });
     const cb = await getChaiBuilder(config);
@@ -113,7 +113,7 @@ describe("getChaiBuilder", () => {
   });
 
   it("throws when request is passed without route props", async () => {
-    setChaiContextResolver(async () => ({ userId: "user-1" }));
+    registerChaiContextResolver(async () => ({ userId: "user-1" }));
     const config = buildChaiBuilderConfig({ db: stubChaiDbConfig() });
     const request = new Request("https://example.com") as Request & {
       cookies: { get: () => undefined };
@@ -126,7 +126,7 @@ describe("getChaiBuilder", () => {
   });
 
   it("merges the registered resolver result into the request context", async () => {
-    setChaiContextResolver(async () => ({
+    registerChaiContextResolver(async () => ({
       userId: "user-42",
       lang: "fr",
     }));
@@ -166,7 +166,7 @@ describe("getChaiBuilder", () => {
   });
 
   it("shares route-resolved context with later getChaiBuilder(config) calls in the same request", async () => {
-    setChaiContextResolver(async () => ({
+    registerChaiContextResolver(async () => ({
       appId: "hostname-resolved-app",
       siteUrl: "https://acme.example",
     }));

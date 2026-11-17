@@ -1,6 +1,13 @@
 import "~/server/only-server";
 import { getChaiBuilderConfigOnInit } from "~/server/build-config";
-import { ensureDbReady, getDb, registerDb, safeQuery, schema, type ChaiDbContext } from "~/server/chai-actions/db";
+import {
+  ensureChaiDbReady,
+  getChaiDb,
+  registerChaiDb,
+  safeQuery,
+  schema,
+  type ChaiDbContext,
+} from "~/server/chai-actions/db";
 import { getOptionalRequestState, runInContext } from "~/server/chai-builder/state";
 import { getDebugLevel, setGlobalDebugLevel } from "~/server/debug/debug-level";
 import { logApiComplete, logInitPhase, logPhaseStart, logTraceStart } from "~/server/debug/debug-log";
@@ -172,7 +179,7 @@ function bindActionWithDebug<Args extends unknown[], R>(
  *
  * - `getChaiBuilder(config)` — uses shared per-request context when already resolved (e.g. by an
  *   earlier `getChaiBuilder(config, routeProps)` in the same render); otherwise invokes the registered
- *   context resolver (see `setChaiContextResolver`), falling back to a static default when none is set.
+ *   context resolver (see `registerChaiContextResolver`), falling back to a static default when none is set.
  * - `getChaiBuilder(config, { params, searchParams }, request?)` — same props shape as `page` / `layout` /
  *   `generateMetadata`. Resolves context via the registered resolver and stores it for the rest of the request.
  *
@@ -213,7 +220,7 @@ export async function getChaiBuilder(
   const builderStart = performance.now();
   const ctx = await resolveSharedChaiContext(routeProps, request);
 
-  await ensureDbReady();
+  await ensureChaiDbReady();
   await _core.ensureSynced();
   if (getDebugLevel() >= 1) {
     logInitPhase("getChaiBuilder", Math.round(performance.now() - builderStart));
@@ -235,8 +242,8 @@ function createContextualInstance(core: ChaiBuilderCore, context: ChaiRequestCon
   );
 
   const runActionFn = async <I, O>(name: string, input: I): Promise<O> => {
-    const { dispatchChaiAction } = await import("~/server/chai-actions/dispatch-action");
-    return dispatchChaiAction(name, input) as Promise<O>;
+    const { runChaiAction } = await import("~/server/chai-actions/dispatch-action");
+    return runChaiAction(name, input) as Promise<O>;
   };
 
   const tryActionFn = async <I, O>(name: string, input: I) => {
@@ -256,7 +263,7 @@ function createContextualInstance(core: ChaiBuilderCore, context: ChaiRequestCon
     (name: string, _input: unknown) => `tryAction:${name}`,
   ) as ChaiBuilderInstance["tryAction"];
 
-  const db = getDb();
+  const db = getChaiDb();
   const dbCtx: ChaiDbContext = { db, schema };
 
   // Plugin-contributed namespaces (registerChaiInstanceApi), each function
@@ -394,7 +401,7 @@ function createContextualInstance(core: ChaiBuilderCore, context: ChaiRequestCon
 }
 
 function createCore(config: ResolvedChaiBuilderServerConfig): ChaiBuilderCore {
-  registerDb(config.db);
+  registerChaiDb(config.db);
   setActiveChaiBuilderConfig(config);
   setGlobalDebugLevel(config.debugLevel);
 

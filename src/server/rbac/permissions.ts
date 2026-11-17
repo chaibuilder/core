@@ -28,13 +28,13 @@ function entityOf(permission: string): string {
  * Wildcard-aware: `*` matches everything, `entity:*` matches any op in the entity.
  * A retired key a stored role still grants satisfies its replacement (`LEGACY_PERMISSION_ALIASES`).
  */
-export function hasPermission(granted: string[] | null | undefined, required: string): boolean {
+export function hasChaiPermission(granted: string[] | null | undefined, required: string): boolean {
   if (!required) return true;
   if (!granted || granted.length === 0) return false;
   if (granted.includes(WILDCARD_ALL)) return true;
   if (granted.includes(required)) return true;
   if (granted.includes(`${entityOf(required)}:*`)) return true;
-  return legacyAliasesOf(required).some((legacy) => hasPermission(granted, legacy));
+  return legacyAliasesOf(required).some((legacy) => hasChaiPermission(granted, legacy));
 }
 
 /**
@@ -42,7 +42,7 @@ export function hasPermission(granted: string[] | null | undefined, required: st
  * catalog-bounded list of granted permission keys. `false` entries revoke a key
  * that an earlier wildcard granted.
  */
-export function expandGrantMap(
+export function expandChaiGrantMap(
   map: Record<string, boolean> | null | undefined,
   catalog: string[] = CHAI_PERMISSION_LIST,
 ): string[] {
@@ -85,7 +85,7 @@ export function expandGrantMap(
  * compute the effective permission set for MCP requests:
  *   effective = userPermissions ∩ delegatedScopes
  */
-export function intersectPermissions(a: string[], b: string[], catalog: string[] = CHAI_PERMISSION_LIST): string[] {
+export function intersectChaiPermissions(a: string[], b: string[], catalog: string[] = CHAI_PERMISSION_LIST): string[] {
   const expand = (list: string[]): Set<string> => {
     const out = new Set<string>();
     for (const key of list) {

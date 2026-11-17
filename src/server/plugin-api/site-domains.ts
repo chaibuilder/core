@@ -2,7 +2,7 @@
  * Process-global site domain resolver.
  *
  * Where a site's domain and subdomain are stored belongs to the plugin that owns domains, not to
- * core. Core's `resolveAppIdByHostname` and `getSiteDomains` keep their caching and errors and
+ * core. Core's `resolveChaiAppIdByHostname` and `getSiteDomains` keep their caching and errors and
  * ask the resolver registered here for the data. With no resolver registered, no hostname maps to
  * a site and no site has domains.
  *

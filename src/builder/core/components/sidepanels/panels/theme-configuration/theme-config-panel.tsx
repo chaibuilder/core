@@ -31,7 +31,7 @@ import { Switch } from "~/components/ui/switch";
 import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 import { claude, defaultShadcnPreset, solarized, supabase, twitter } from "~/constants/THEME_PRESETS";
-import { useRegisteredFonts } from "~/registry";
+import { useRegisteredChaiFonts } from "~/registry";
 import type { ChaiSiteLayout, ChaiTheme, ChaiThemePreset } from "~/types/chaibuilder-editor-props";
 import type { ChaiDesignTokens } from "~/types/types";
 import { themeColorLabel } from "~/utils/theme-color-label";
@@ -58,13 +58,7 @@ interface ThemeConfigProps {
 }
 
 const isCompleteTheme = (value: Partial<ChaiTheme> | undefined): value is ChaiTheme =>
-  Boolean(
-    value &&
-      typeof value === "object" &&
-      "fontFamily" in value &&
-      "borderRadius" in value &&
-      "colors" in value,
-  );
+  Boolean(value && typeof value === "object" && "fontFamily" in value && "borderRadius" in value && "colors" in value);
 
 const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "" }) => {
   const [isDarkMode, setIsDarkMode] = useDarkMode();
@@ -80,7 +74,7 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
   const importThemeEnabled = useBuilderProp("flags.importTheme", true);
   const darkModeEnabled = useBuilderProp("flags.darkMode", false);
   const siteLayoutEnabled = useBuilderProp("flags.siteLayout", false);
-  const availableFonts = useRegisteredFonts();
+  const availableFonts = useRegisteredChaiFonts();
   const isAiEnabled = useBuilderProp("flags.ai", false);
 
   const [themeValues, setThemeValues] = useTheme();
@@ -252,7 +246,7 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
               value={themeColor as string}
               onChange={(newValue: string) => handleColorChange(key, newValue)}
             />
-            <Label className="text-xs font-light leading-tight text-foreground">{themeColorLabel(key)}</Label>
+            <Label className="text-foreground text-xs leading-tight font-light">{themeColorLabel(key)}</Label>
           </div>
         );
       })}
@@ -267,8 +261,8 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
             "no-scrollbar flex h-full w-full items-center justify-center overflow-y-auto text-center",
             className,
           )}>
-          <div className="space-y-2 px-4 text-muted-foreground">
-            <p className="text-xs font-light leading-relaxed">
+          <div className="text-muted-foreground space-y-2 px-4">
+            <p className="text-xs leading-relaxed font-light">
               {t("You don't have permission to edit the theme. Please contact your administrator to get access.")}
             </p>
           </div>
@@ -287,7 +281,7 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
         {themePresets.length > 0 && (
           <div className="space-y-2 py-2">
             <div className="flex w-full items-center justify-between">
-              <Label className="text-xs font-medium text-foreground">{t("Presets")}</Label>
+              <Label className="text-foreground text-xs font-medium">{t("Presets")}</Label>
               <div className="flex items-center gap-1">
                 {importThemeEnabled && !themeReadOnly && (
                   <Button variant="link" size="xs" onClick={() => setIsImportModalOpen(true)}>
@@ -333,133 +327,133 @@ const ThemeConfigPanel: React.FC<ThemeConfigProps> = React.memo(({ className = "
         <ReadOnlyControls disabled={themeReadOnly} reason={themeReadOnlyReason}>
           <div className={cn("space-y-3 py-2", className)}>
             {availableFonts.length > 0 ? (
-            <>
-              {/* Fonts Section */}
-              <div className="flex items-center gap-2 pt-1">
-                <TextIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs font-medium text-foreground">{t("Typography")}</span>
-              </div>
-              {chaiThemeOptions?.fontFamily && (
-                <div className="space-y-2">
-                  {Object.entries(chaiThemeOptions.fontFamily).map(([key, value]: [string, any]) => (
-                    <FontSelector
-                      key={key}
-                      label={key}
-                      value={
-                        themeValues.fontFamily[key.replace(/font-/g, "") as keyof typeof themeValues.fontFamily] ||
-                        value[Object.keys(value)[0]]
-                      }
-                      onChange={(newValue: string) => handleFontChange(key, newValue)}
-                    />
-                  ))}
+              <>
+                {/* Fonts Section */}
+                <div className="flex items-center gap-2 pt-1">
+                  <TextIcon className="text-muted-foreground h-3.5 w-3.5" />
+                  <span className="text-foreground text-xs font-medium">{t("Typography")}</span>
                 </div>
-              )}
-              <Separator />
-            </>
-          ) : (
-            ""
-          )}
-
-          {/* Border Radius Section */}
-          {chaiThemeOptions?.borderRadius && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <SquareRoundCorner className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-foreground">{t("Border Radius")}</span>
-                </div>
-                <div className="relative flex items-center">
-                  <Input
-                    type="number"
-                    min={0}
-                    max={50}
-                    className="h-6 w-14 rounded-sm border-input bg-muted/20 pr-5 text-right text-[10px] font-light [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                    value={themeValues.borderRadius.replace("px", "")}
-                    onChange={(e) => handleBorderRadiusChange(e.target.value)}
-                  />
-                  <span className="pointer-events-none absolute right-1 text-[10px] font-light text-foreground">
-                    px
-                  </span>
-                </div>
-              </div>
-              <div className="py-1">
-                <BorderRadiusInput value={themeValues.borderRadius} onChange={handleBorderRadiusSliderChange} />
-              </div>
-            </div>
-          )}
-
-          {siteLayoutEnabled && (
-            <>
-              <Separator />
-
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <LayoutTemplate className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-foreground">{t("Site layout")}</span>
-                </div>
-                <Select value={themeValues.siteLayout ?? ""} onValueChange={handleSiteLayoutChange}>
-                  <SelectTrigger className="h-7 w-32 text-xs">
-                    <SelectValue placeholder={t("Not set")} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="container" className="text-xs">
-                      {t("Container")}
-                    </SelectItem>
-                    <SelectItem value="fluid" className="text-xs">
-                      {t("Fluid")}
-                    </SelectItem>
-                    <SelectItem value="narrow" className="text-xs">
-                      {t("Narrow")}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
-          )}
-
-          <Separator />
-
-          {/* Colors Section with Mode Switch */}
-          {chaiThemeOptions?.colors && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <MixerHorizontalIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="text-xs font-medium text-foreground">{t("Colors")}</span>
-                </div>
-                {darkModeEnabled && (
-                  <div className="flex items-center gap-1.5">
-                    <SunIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                    <Switch
-                      checked={isDarkMode}
-                      onCheckedChange={(checked: boolean) => setIsDarkMode(checked)}
-                      aria-label={t("Toggle dark mode")}
-                    />
-                    <MoonIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                {chaiThemeOptions?.fontFamily && (
+                  <div className="space-y-2">
+                    {Object.entries(chaiThemeOptions.fontFamily).map(([key, value]: [string, any]) => (
+                      <FontSelector
+                        key={key}
+                        label={key}
+                        value={
+                          themeValues.fontFamily[key.replace(/font-/g, "") as keyof typeof themeValues.fontFamily] ||
+                          value[Object.keys(value)[0]]
+                        }
+                        onChange={(newValue: string) => handleFontChange(key, newValue)}
+                      />
+                    ))}
                   </div>
                 )}
-              </div>
-              <div className="space-y-1.5">
-                {chaiThemeOptions.colors.map((group) => (
-                  <div key={group.group}>{renderColorGroup(group)}</div>
-                ))}
-              </div>
-            </div>
-          )}
-          <Suspense fallback={<div />}>
-            {isImportModalOpen && importThemeEnabled && (
-              <LazyCssImportModal
-                open={isImportModalOpen}
-                onOpenChange={setIsImportModalOpen}
-                onImport={handleCssImport}
-              />
+                <Separator />
+              </>
+            ) : (
+              ""
             )}
-          </Suspense>
+
+            {/* Border Radius Section */}
+            {chaiThemeOptions?.borderRadius && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <SquareRoundCorner className="text-muted-foreground h-3.5 w-3.5" />
+                    <span className="text-foreground text-xs font-medium">{t("Border Radius")}</span>
+                  </div>
+                  <div className="relative flex items-center">
+                    <Input
+                      type="number"
+                      min={0}
+                      max={50}
+                      className="border-input bg-muted/20 h-6 w-14 [appearance:textfield] rounded-sm pr-5 text-right text-[10px] font-light [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                      value={themeValues.borderRadius.replace("px", "")}
+                      onChange={(e) => handleBorderRadiusChange(e.target.value)}
+                    />
+                    <span className="text-foreground pointer-events-none absolute right-1 text-[10px] font-light">
+                      px
+                    </span>
+                  </div>
+                </div>
+                <div className="py-1">
+                  <BorderRadiusInput value={themeValues.borderRadius} onChange={handleBorderRadiusSliderChange} />
+                </div>
+              </div>
+            )}
+
+            {siteLayoutEnabled && (
+              <>
+                <Separator />
+
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <LayoutTemplate className="text-muted-foreground h-3.5 w-3.5" />
+                    <span className="text-foreground text-xs font-medium">{t("Site layout")}</span>
+                  </div>
+                  <Select value={themeValues.siteLayout ?? ""} onValueChange={handleSiteLayoutChange}>
+                    <SelectTrigger className="h-7 w-32 text-xs">
+                      <SelectValue placeholder={t("Not set")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="container" className="text-xs">
+                        {t("Container")}
+                      </SelectItem>
+                      <SelectItem value="fluid" className="text-xs">
+                        {t("Fluid")}
+                      </SelectItem>
+                      <SelectItem value="narrow" className="text-xs">
+                        {t("Narrow")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+            {/* Colors Section with Mode Switch */}
+            {chaiThemeOptions?.colors && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MixerHorizontalIcon className="text-muted-foreground h-3.5 w-3.5" />
+                    <span className="text-foreground text-xs font-medium">{t("Colors")}</span>
+                  </div>
+                  {darkModeEnabled && (
+                    <div className="flex items-center gap-1.5">
+                      <SunIcon className="text-muted-foreground h-3.5 w-3.5" />
+                      <Switch
+                        checked={isDarkMode}
+                        onCheckedChange={(checked: boolean) => setIsDarkMode(checked)}
+                        aria-label={t("Toggle dark mode")}
+                      />
+                      <MoonIcon className="text-muted-foreground h-3.5 w-3.5" />
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1.5">
+                  {chaiThemeOptions.colors.map((group) => (
+                    <div key={group.group}>{renderColorGroup(group)}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <Suspense fallback={<div />}>
+              {isImportModalOpen && importThemeEnabled && (
+                <LazyCssImportModal
+                  open={isImportModalOpen}
+                  onOpenChange={setIsImportModalOpen}
+                  onImport={handleCssImport}
+                />
+              )}
+            </Suspense>
           </div>
         </ReadOnlyControls>
       </div>
       {/* Edge-to-edge action bar; the negative margins cancel the right panel's p-3. */}
-      <div className="-mx-3 -mb-3 flex shrink-0 flex-col gap-2 border-t bg-background p-3">
+      <div className="bg-background -mx-3 -mb-3 flex shrink-0 flex-col gap-2 border-t p-3">
         <div className="flex gap-2">
           <ChaiSlot slotId={CHAI_SLOT_IDS.GLOBAL_STYLES_HISTORY} context={{ scope: "theme" }} />
           {hasUnsavedTheme && (

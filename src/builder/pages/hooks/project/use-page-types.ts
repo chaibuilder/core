@@ -1,13 +1,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCallback, useMemo } from "react";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useWebsitePrimaryPages as useWebsitePages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages as useWebsitePages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import { ChaiPageType } from "~/types/actions";
-import { useApiUrl } from "./use-builder-prop";
+import { useChaiApiUrl } from "./use-builder-prop";
 
-export const usePageTypes = () => {
-  const apiUrl = useApiUrl();
+export const useChaiPageTypes = () => {
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   return useQuery<ChaiPageType[]>({
     queryKey: [ACTIONS.GET_PAGE_TYPES],
@@ -20,7 +20,7 @@ export const usePageTypes = () => {
 };
 
 export const usePageType = (pageType: string) => {
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   return useMemo(() => pageTypes?.find((type: ChaiPageType) => type.key === pageType), [pageTypes, pageType]);
 };
 

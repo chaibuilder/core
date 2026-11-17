@@ -9,14 +9,14 @@ import { PublishThemeButton } from "~/builder/pages/client/components/publish-th
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { mockChaiAction } from "~/tests/builder/msw";
 import { renderInBuilder } from "~/tests/builder/render-in-builder";
-import type { ChaiSaveWebsiteData, ChaiTheme } from "~/types";
+import type { ChaiSaveSiteArgs, ChaiTheme } from "~/types";
 
 const theme = { fontFamily: { heading: "Lora", body: "Inter" }, borderRadius: "6px", colors: {} } as ChaiTheme;
 
 const renderButton = async ({
   appChanges = ["THEME"],
   permissions = null as string[] | null,
-  onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true),
+  onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true),
 } = {}) => {
   const settings = mockChaiAction(ACTIONS.GET_WEBSITE_DRAFT_SETTINGS, {
     languages: [],

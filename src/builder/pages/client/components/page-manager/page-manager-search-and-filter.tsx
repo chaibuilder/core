@@ -8,8 +8,8 @@ import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { usePartialTabLabel } from "~/builder/hooks/use-create-partial-label";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
-import { useFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
 import { usePageExpandManager } from "~/builder/pages/hooks/utils/use-page-expand-manager";
 import { ChaiPage } from "~/builder/pages/utils/page-organization";
 import { TagFilterSelector } from "./tag-filter-selector";
@@ -58,8 +58,12 @@ interface LanguageSelectorProps {
  * @param selectedLanguage - Currently selected language
  * @param setSelectedLanguage - Setter for selected language
  */
-export const LanguageSelector = ({ languages, selectedLanguage, setSelectedLanguage }: LanguageSelectorProps) => {
-  const fallbackLang = useFallbackLang();
+export const ChaiLanguageFilterSelect = ({
+  languages,
+  selectedLanguage,
+  setSelectedLanguage,
+}: LanguageSelectorProps) => {
+  const fallbackLang = useChaiFallbackLang();
   return (
     <Tabs
       onValueChange={(_tab) => setSelectedLanguage(_tab.toLowerCase())}
@@ -156,7 +160,7 @@ const PageManagerSearchAndFilter = ({
 }: PageManagerSearchAndFilterProps) => {
   const { t } = useTranslation();
   const tabLabel = usePartialTabLabel();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const layoutPagesEnabled = useBuilderProp("flags.layoutPages", false);
   const partialBlocksEnabled = useBuilderProp("flags.partialBlocks", true);
   const isMultiLingual = languages.length > 1;
@@ -175,7 +179,7 @@ const PageManagerSearchAndFilter = ({
 
   return (
     <TooltipProvider>
-      <div className="border-b-border space-y-3 border-b px-4 pb-2 pt-2">
+      <div className="border-b-border space-y-3 border-b px-4 pt-2 pb-2">
         {/* Top Row: Search and Actions */}
         <div className="flex w-full items-center gap-2">
           <div className="flex-1">
@@ -186,13 +190,21 @@ const PageManagerSearchAndFilter = ({
               <RefreshPagesList />
               <ExpandCollapse pages={pages} />
               {category === "pages" && (
-                <Button id="add-page-button" variant="default" onClick={() => onAddPage({ pageType: "page" })} size="sm">
+                <Button
+                  id="add-page-button"
+                  variant="default"
+                  onClick={() => onAddPage({ pageType: "page" })}
+                  size="sm">
                   <Plus className="mr-1 h-4 w-4" />
                   <span>{t("Add Page")}</span>
                 </Button>
               )}
               {category === "partials" && partialBlocksEnabled && defaultPartialType && (
-                <Button id="create-partial-button" variant="default" onClick={() => onAddPage({ pageType: defaultPartialType.key })} size="sm">
+                <Button
+                  id="create-partial-button"
+                  variant="default"
+                  onClick={() => onAddPage({ pageType: defaultPartialType.key })}
+                  size="sm">
                   <Plus className="mr-1 h-4 w-4" />
                   <span>{t("Create {{name}}", { name: defaultPartialType.name })}</span>
                 </Button>
@@ -213,7 +225,8 @@ const PageManagerSearchAndFilter = ({
           <div className="flex items-center gap-2 overflow-x-auto">
             {!search && (
               <Tabs onValueChange={setCategory} value={category} className="flex h-8 items-center p-0">
-                <TabsList className={`bg-muted/50 grid h-8 items-center rounded p-0 px-0.5 ${layoutPagesEnabled ? "grid-cols-3" : "grid-cols-2"}`}>
+                <TabsList
+                  className={`bg-muted/50 grid h-8 items-center rounded p-0 px-0.5 ${layoutPagesEnabled ? "grid-cols-3" : "grid-cols-2"}`}>
                   <TabsTrigger value="pages" className="h-7 rounded-sm px-2 py-0.5 text-xs">
                     {t("Pages")}
                   </TabsTrigger>
@@ -234,7 +247,7 @@ const PageManagerSearchAndFilter = ({
           <div className="flex shrink-0 items-center justify-end gap-2 overflow-x-auto">
             {(category === "pages" || search) && isMultiLingual && (
               <div className="flex items-center gap-1">
-                <LanguageSelector
+                <ChaiLanguageFilterSelect
                   languages={languages}
                   selectedLanguage={selectedLanguage}
                   setSelectedLanguage={(_selection) => {

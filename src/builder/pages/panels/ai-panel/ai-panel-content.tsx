@@ -10,10 +10,10 @@ import { ChaiSlot } from "~/builder/register-apis";
 import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useAiContext } from "~/builder/pages/hooks/ai/use-ai-context";
-import { useBuilderFetch } from "~/builder/pages/hooks/utils/use-fetch";
+import { useChaiActionFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
 import { Button } from "~/components/ui/button";
-import { AIContext } from "~/types";
+import { ChaiAiContext } from "~/types";
 import AiContextModal from "./ai-context-modal";
 import { AiConversationType, getChatsForType, resetChatsForType, saveChatsForType } from "./ai-conversations-storage";
 import {
@@ -42,7 +42,7 @@ export interface AiPanelContentProps {
   onSuccess?: (data: AISuccessCallback) => void;
   onError?: (data: AIErrorCallback) => void;
   onComplete?: (data: AICompleteCallback) => void;
-  context?: AIContext;
+  context?: ChaiAiContext;
   [key: string]: any;
   updateLoadingState?: (loading: boolean) => void;
   onImageGenerate?: (url: string) => void;
@@ -84,7 +84,7 @@ const AiPanelContentInner = ({
   const [isCreditsExpanded, setIsCreditsExpanded] = useState(false);
   const { selectedLang, fallbackLang } = useLanguages();
   const aiCreditsEnabled = useBuilderProp("flags.aiCredits", false);
-  const fetch = useBuilderFetch();
+  const fetch = useChaiActionFetch();
   const [searchParams] = useSearchParams();
   const page = searchParams.get("page");
 
@@ -308,7 +308,7 @@ export const AiPanelContent = ({
     onSuccess,
     onError,
     onComplete,
-    context: resolvedContext as AIContext,
+    context: resolvedContext as ChaiAiContext,
     ...rest,
   };
 

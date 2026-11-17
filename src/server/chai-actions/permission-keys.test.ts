@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
 import { BUILTIN_CHAI_ACTIONS } from "~/server/defaults/builtin-chai-actions";
-import { withActionPermission } from "~/server/plugin-api";
+import { withChaiActionPermission } from "~/server/plugin-api";
 import type { ChaiActionContext } from "~/types";
 import { ChaiBaseAction } from "./base-action";
 import { resolveRequiredPermissions } from "./dispatch-action";
-import { declaredPermissionKeysOf, permissionResolver } from "./permission-keys";
+import { getDeclaredChaiPermissionKeys, defineChaiPermissionResolver } from "./permission-keys";
 
 const context = { appId: "test-app" } as ChaiActionContext;
 
@@ -17,55 +17,55 @@ class NoopAction extends ChaiBaseAction<any, { ok: true }> {
 
 describe("declaredPermissionKeysOf", () => {
   it("returns the key for the static string form", () => {
-    expect(declaredPermissionKeysOf("pages:update")).toEqual(["pages:update"]);
+    expect(getDeclaredChaiPermissionKeys("pages:update")).toEqual(["pages:update"]);
   });
 
   it("returns the list for the list form, dropping empty keys", () => {
-    expect(declaredPermissionKeysOf(["pages:update", "", "pages:edit_seo"])).toEqual([
+    expect(getDeclaredChaiPermissionKeys(["pages:update", "", "pages:edit_seo"])).toEqual([
       "pages:update",
       "pages:edit_seo",
     ]);
   });
 
   it("returns [] for an ungated action", () => {
-    expect(declaredPermissionKeysOf(undefined)).toEqual([]);
-    expect(declaredPermissionKeysOf(null)).toEqual([]);
+    expect(getDeclaredChaiPermissionKeys(undefined)).toEqual([]);
+    expect(getDeclaredChaiPermissionKeys(null)).toEqual([]);
   });
 
   it("returns every key a tagged resolver may require", () => {
-    const resolver = permissionResolver(["pages:update", "pages:edit_seo"], (data: any) =>
+    const resolver = defineChaiPermissionResolver(["pages:update", "pages:edit_seo"], (data: any) =>
       data?.seo ? ["pages:update", "pages:edit_seo"] : "pages:update",
     );
-    expect(declaredPermissionKeysOf(resolver)).toEqual(["pages:update", "pages:edit_seo"]);
+    expect(getDeclaredChaiPermissionKeys(resolver)).toEqual(["pages:update", "pages:edit_seo"]);
     // The resolver still resolves per payload — the declared list is the superset.
     expect(resolver({ id: "p1" }, context)).toBe("pages:update");
     expect(resolver({ id: "p1", seo: {} }, context)).toEqual(["pages:update", "pages:edit_seo"]);
   });
 
   it("hands back a copy, so a caller cannot mutate the declaration", () => {
-    const resolver = permissionResolver(["pages:update"], () => "pages:update");
-    declaredPermissionKeysOf(resolver).push("pages:publish");
+    const resolver = defineChaiPermissionResolver(["pages:update"], () => "pages:update");
+    getDeclaredChaiPermissionKeys(resolver).push("pages:publish");
     expect(resolver.declaredPermissionKeys).toEqual(["pages:update"]);
   });
 
   // The whole point: a resolver the static audits cannot see is refused loudly at
   // registration instead of silently reading as ungated (#3881 merge sim, B2).
   it("refuses an untagged function form", () => {
-    expect(() => declaredPermissionKeysOf(() => "pages:update")).toThrow(/permissionResolver/);
+    expect(() => getDeclaredChaiPermissionKeys(() => "pages:update")).toThrow(/permissionResolver/);
   });
 });
 
 describe("withActionPermission", () => {
   it("records the static key", () => {
-    const action = withActionPermission(new NoopAction(), "pages:read");
+    const action = withChaiActionPermission(new NoopAction(), "pages:read");
     expect(action.requiredPermission).toBe("pages:read");
     expect(action.declaredPermissionKeys).toEqual(["pages:read"]);
   });
 
   it("records every key of a tagged resolver", () => {
-    const action = withActionPermission(
+    const action = withChaiActionPermission(
       new NoopAction(),
-      permissionResolver(["pages:update", "pages:edit_seo"], (data: any) =>
+      defineChaiPermissionResolver(["pages:update", "pages:edit_seo"], (data: any) =>
         data?.seo ? ["pages:update", "pages:edit_seo"] : "pages:update",
       ),
     );
@@ -73,7 +73,7 @@ describe("withActionPermission", () => {
   });
 
   it("throws on an untagged function rather than registering an opaque gate", () => {
-    expect(() => withActionPermission(new NoopAction(), () => "pages:update")).toThrow(/permissionResolver/);
+    expect(() => withChaiActionPermission(new NoopAction(), () => "pages:update")).toThrow(/permissionResolver/);
   });
 });
 

@@ -1,11 +1,11 @@
 import type { ChaiCoreSchema } from "~/db/schema-shape";
-import type { ChaiDbContext, DbInstance, DbResult } from "~/server/chai-actions/db";
+import type { ChaiDbContext, ChaiDbInstance, ChaiDbResult } from "~/server/chai-actions/db";
 import type {
-  CreateRoleActionData,
-  DeleteRoleActionData,
-  GetRoleActionData,
-  RoleEntry,
-  UpdateRoleActionData,
+  ChaiCreateRoleArgs,
+  ChaiDeleteRoleArgs,
+  ChaiGetRoleArgs,
+  ChaiRoleRecord,
+  ChaiUpdateRoleArgs,
 } from "~/types/roles";
 import type {
   createPage,
@@ -58,10 +58,10 @@ import type { getSiteDomains } from "~/server/chai-builder/public/get-site-domai
 import type { getSiteSettings } from "~/server/chai-builder/public/get-site-settings";
 import type { resolveLink } from "~/server/chai-builder/public/resolve-link";
 import type { resolveLinksInPageBlocks } from "~/server/chai-builder/public/resolve-links-batch";
-import type { ResolvedChaiAIGlobalConfig, ResolvedChaiBuilderServerConfig } from "~/types/server-config";
+import type { ResolvedChaiAiGlobalConfig, ResolvedChaiBuilderServerConfig } from "~/types/server-config";
 import type { ChaiPageType } from "~/types/actions";
 import type { ChaiRequestContext } from "~/types/chaibuilder-config";
-import type { CollectionConfig } from "~/types/collection-config";
+import type { CollectionConfig } from "~/types/deprecated";
 import type { ChaiRepeaterDataEntry } from "~/types/repeater-data";
 import type { ChaiTrashableEntity } from "~/types/trash";
 
@@ -107,9 +107,9 @@ export interface ChaiBuilderInstance<
   getConfig<K extends string & keyof TExtra>(key: K): TExtra[K];
   context: Readonly<ChaiRequestContext>;
 
-  readonly db: DbInstance;
+  readonly db: ChaiDbInstance;
   readonly schema: ChaiCoreSchema;
-  safeQuery: <T>(queryFn: (ctx: ChaiDbContext) => Promise<T>) => Promise<DbResult<T>>;
+  safeQuery: <T>(queryFn: (ctx: ChaiDbContext) => Promise<T>) => Promise<ChaiDbResult<T>>;
 
   // Registry reads
   getPageType: (key: string) => ChaiPageTypeEntry | undefined;
@@ -125,7 +125,7 @@ export interface ChaiBuilderInstance<
   getChaiCollection: (id: string) => ChaiRepeaterDataEntry | undefined;
   getChaiCollections: () => ChaiRepeaterDataEntry[];
   getTrashEntity: (key: string) => ChaiTrashEntry | undefined;
-  getAIConfig: () => ResolvedChaiAIGlobalConfig;
+  getAIConfig: () => ResolvedChaiAiGlobalConfig;
 
   // Request / render scoping
   runPageRequest: <T>(fn: () => T | Promise<T>) => Promise<T>;
@@ -205,10 +205,10 @@ export interface ChaiBuilderInstance<
    * their plugin is absent.
    */
   roles: {
-    getAll: () => Promise<RoleEntry[]>;
-    get: (data: GetRoleActionData) => Promise<RoleEntry | null>;
-    create: (data: CreateRoleActionData) => Promise<RoleEntry>;
-    update: (data: UpdateRoleActionData) => Promise<RoleEntry>;
-    delete: (data: DeleteRoleActionData) => Promise<{ deleted: boolean }>;
+    getAll: () => Promise<ChaiRoleRecord[]>;
+    get: (data: ChaiGetRoleArgs) => Promise<ChaiRoleRecord | null>;
+    create: (data: ChaiCreateRoleArgs) => Promise<ChaiRoleRecord>;
+    update: (data: ChaiUpdateRoleArgs) => Promise<ChaiRoleRecord>;
+    delete: (data: ChaiDeleteRoleArgs) => Promise<{ deleted: boolean }>;
   };
 }

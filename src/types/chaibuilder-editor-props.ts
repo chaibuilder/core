@@ -3,7 +3,7 @@ import { StructureRule } from "~/builder/hooks/structure-rules";
 import { ChaiPage } from "~/builder/pages/utils/page-organization";
 import { ChaiBlock } from "~/types/common";
 import { ChaiLoggedInUser, ChaiPageType } from "./actions";
-import { ChaiCollectoin } from "./collections";
+import type { ChaiCollectoin } from "./deprecated";
 import { ChaiRepeaterDataDefinition } from "./repeater-data";
 import { ChaiDesignTokens, ChaiSiteWideUsageData } from "./types";
 
@@ -51,7 +51,7 @@ export type ChaiBreakpoint = {
   width: number;
 };
 
-export type ChaiSavePageData = {
+export type ChaiSavePageArgs = {
   autoSave: boolean;
   blocks: ChaiBlock[];
   needTranslations?: boolean;
@@ -60,7 +60,7 @@ export type ChaiSavePageData = {
   linkPageIds?: string[];
 };
 
-export type ChaiSaveWebsiteData =
+export type ChaiSaveSiteArgs =
   | { type: "THEME"; data: ChaiTheme }
   | { type: "DESIGN_TOKENS"; data: ChaiDesignTokens }
   | {
@@ -68,7 +68,7 @@ export type ChaiSaveWebsiteData =
       data: { theme: ChaiTheme; designTokens: ChaiDesignTokens };
     };
 
-export type ChaiAskAiResponse = {
+export type ChaiAskAiResult = {
   blocks?: Array<{ _id: string } & Partial<ChaiBlock>>;
   usage?: Record<any, number>;
   error?: any;
@@ -275,7 +275,7 @@ export interface ChaiBuilderEditorProps {
     prompt: string,
     blocks: ChaiBlock[],
     lang: string,
-  ) => Promise<ChaiAskAiResponse>;
+  ) => Promise<ChaiAskAiResult>;
 
   /**
    * Get partial blocks
@@ -299,13 +299,13 @@ export interface ChaiBuilderEditorProps {
    * onSave callback function
    * @param saveData
    */
-  onSave?: ({ blocks, autoSave }: ChaiSavePageData) => Promise<boolean | Error>;
+  onSave?: ({ blocks, autoSave }: ChaiSavePageArgs) => Promise<boolean | Error>;
 
   /**
    * onSaveWebsiteData callback function for theme and design tokens
    * @param saveData
    */
-  onSaveWebsiteData?: (data: ChaiSaveWebsiteData) => Promise<boolean | Error>;
+  onSaveWebsiteData?: (data: ChaiSaveSiteArgs) => Promise<boolean | Error>;
 
   /**
    * onSaveStateChange callback function

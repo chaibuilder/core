@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   collectChaiFetchInterceptorHeaders,
-  getChaiFetchInterceptors,
-  notifyChaiFetchInterceptors,
+  getRegisteredChaiFetchInterceptors,
+  runChaiFetchInterceptors,
   registerChaiFetchInterceptor,
   resetChaiFetchInterceptorsForTests,
 } from "./register-chai-fetch-interceptor";
@@ -17,7 +17,7 @@ describe("registerChaiFetchInterceptor", () => {
     registerChaiFetchInterceptor("chai:test", { headers: () => ({ "x-a": "1" }) });
     registerChaiFetchInterceptor("chai:test", { headers: () => ({ "x-b": "2" }) });
 
-    expect(getChaiFetchInterceptors()).toHaveLength(1);
+    expect(getRegisteredChaiFetchInterceptors()).toHaveLength(1);
     expect(collectChaiFetchInterceptorHeaders({ action: "GET_PAGES" })).toEqual({ "x-b": "2" });
   });
 
@@ -48,7 +48,7 @@ describe("registerChaiFetchInterceptor", () => {
     registerChaiFetchInterceptor("chai:ok", { headers: () => ({ "x-ok": "1" }), onResponse: seen });
 
     expect(collectChaiFetchInterceptorHeaders({ action: "A" })).toEqual({ "x-ok": "1" });
-    notifyChaiFetchInterceptors({ action: "A", status: 200, body: { ok: true } });
+    runChaiFetchInterceptors({ action: "A", status: 200, body: { ok: true } });
 
     expect(seen).toHaveBeenCalledWith({ action: "A", status: 200, body: { ok: true } });
     expect(error).toHaveBeenCalledTimes(2);

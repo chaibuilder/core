@@ -1,9 +1,9 @@
 import { filter } from "lodash-es";
 import { useMemo } from "react";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 
 export const useTemplates = (pageType?: string) => {
-  const { data: pages, isFetching } = useWebsitePrimaryPages();
+  const { data: pages, isFetching } = useChaiPrimaryPages();
 
   const templates = useMemo(() => {
     if (!pages) return [];

@@ -2,7 +2,7 @@ import { pick } from "lodash-es";
 import { useCallback } from "react";
 import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
 import { useUpdateBlocksProps } from "~/builder/hooks/use-update-blocks-props";
-import { getBlockDefaultProps } from "~/registry";
+import { getChaiBlockDefaultProps } from "~/registry";
 
 /**
  * useResetBlockStyles
@@ -17,7 +17,7 @@ export const useResetBlockStyles = () => {
   const updateBlocksProps = useUpdateBlocksProps();
 
   const getDefaultStyles = useCallback((blockType: string) => {
-    const defaults = getBlockDefaultProps(blockType) as Record<string, any>;
+    const defaults = getChaiBlockDefaultProps(blockType) as Record<string, any>;
     return defaults || {};
   }, []);
 

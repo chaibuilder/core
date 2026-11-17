@@ -3,10 +3,10 @@ import { filter, first, forEach, has } from "lodash-es";
 import { useCallback } from "react";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
 import { builderStore } from "~/builder/atoms/store";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import { useBlocksStoreUndoableActions } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
-import { getBlockDefaultProps } from "~/registry";
+import { getChaiBlockDefaultProps } from "~/registry";
 import { ChaiBlock, ChaiCoreBlock } from "~/types/common";
 import { getParentAndPosition } from "~/utils/blocks-tree-ops";
 
@@ -45,7 +45,7 @@ export const useAddBlock = (): AddBlocks => {
       for (let i = 0; i < blocks.length; i++) {
         const { _id } = blocks[i];
 
-        blocks[i]._id = generateUUID();
+        blocks[i]._id = generateUuid();
         const children = filter(blocks, { _parent: _id });
         for (let j = 0; j < children.length; j++) {
           children[j]._parent = blocks[i]._id;
@@ -79,8 +79,8 @@ export const useAddBlock = (): AddBlocks => {
         return addPredefinedBlock(blocks, parentId ?? undefined, position);
       }
 
-      const blockId = generateUUID();
-      const props: { [key: string]: any } = getBlockDefaultProps(coreBlock.type);
+      const blockId = generateUuid();
+      const props: { [key: string]: any } = getChaiBlockDefaultProps(coreBlock.type);
 
       const newBlock: ChaiBlock = {
         _type: coreBlock.type,

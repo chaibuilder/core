@@ -5,15 +5,15 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ChaiImage } from "~/builder/core/components/shared";
 import { useMarkAsTemplate } from "~/builder/pages/hooks/pages/mutations";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { Button } from "~/components/ui/button";
 import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "~/components/ui/dialog";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -31,7 +31,7 @@ const MarkAsTemplate = ({ page, onClose }: { page: any; onClose: () => void }) =
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const markAsTemplateMutation = useMarkAsTemplate();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
 
   const pageType = (pageTypes as any)?.find((type: any) => type.key === page.pageType);
   const pageTypeName = pageType?.name || startCase(page.pageType);
@@ -112,7 +112,7 @@ const MarkAsTemplate = ({ page, onClose }: { page: any; onClose: () => void }) =
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t("Mark as template")}</DialogTitle>
-          <DialogDescription className="space-y-1 py-1 text-xs text-muted-foreground">
+          <DialogDescription className="text-muted-foreground space-y-1 py-1 text-xs">
             {t("Are you sure you want to mark this page as a template?")}
             <br />
             {t("Templates can be used to create new pages with the same content.")}
@@ -120,16 +120,16 @@ const MarkAsTemplate = ({ page, onClose }: { page: any; onClose: () => void }) =
         </DialogHeader>
 
         <div className="mb-4 space-y-4 text-xs">
-          <div className="space-y-3 rounded border bg-muted/50 p-4">
+          <div className="bg-muted/50 space-y-3 rounded border p-4">
             <div className="flex items-center gap-2">
-              <Tag className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium text-muted-foreground">{t("Page Name")}:</span>
+              <Tag className="text-muted-foreground h-4 w-4" />
+              <span className="text-muted-foreground font-medium">{t("Page Name")}:</span>
               <span className="font-semibold">{startCase(page.name)}</span>
             </div>
 
             <div className="flex items-center gap-2">
-              <File className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium text-muted-foreground">{t("Type")}:</span>
+              <File className="text-muted-foreground h-4 w-4" />
+              <span className="text-muted-foreground font-medium">{t("Type")}:</span>
               <span className="font-semibold">{pageTypeName}</span>
             </div>
           </div>
@@ -191,7 +191,7 @@ const MarkAsTemplate = ({ page, onClose }: { page: any; onClose: () => void }) =
                   />
                 </div>
               )}
-              <p className="text-xs text-muted-foreground">{t("max 1mb")}</p>
+              <p className="text-muted-foreground text-xs">{t("max 1mb")}</p>
             </div>
           </div>
         </div>

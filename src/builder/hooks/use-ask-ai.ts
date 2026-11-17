@@ -20,10 +20,10 @@ import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useRightPanel } from "~/builder/hooks/use-theme";
 import { useStreamMultipleBlocksProps, useUpdateMultipleBlocksProps } from "~/builder/hooks/use-update-blocks-props";
-import { LANGUAGES } from "~/constants/LANGUAGES";
+import { CHAI_LANGUAGES } from "~/constants/LANGUAGES";
 import { STYLES_KEY } from "~/constants/STRINGS";
 import { getRegisteredChaiBlock } from "~/registry";
-import { ChaiAskAiResponse } from "~/types/chaibuilder-editor-props";
+import { ChaiAskAiResult } from "~/types/chaibuilder-editor-props";
 import { ChaiBlock } from "~/types/common";
 
 function getChildBlocks(allBlocks: ChaiBlock[], blockId: string, blocks: ChaiBlock[]) {
@@ -69,7 +69,7 @@ export const pickOnlyAIProps = (blocks: ChaiBlock[], lang: string, isTranslatePr
 
 const addLangToPrompt = (prompt: string, currentLang: string, type: string) => {
   if (!currentLang || type !== "content") return prompt;
-  return `${prompt}. Generate content in ${get(LANGUAGES, currentLang, currentLang)} language.`;
+  return `${prompt}. Generate content in ${get(CHAI_LANGUAGES, currentLang, currentLang)} language.`;
 };
 
 export const askAiProcessingAtom = atom(false);
@@ -105,7 +105,7 @@ export const useAskAi = () => {
         type: "styles" | "content",
         blockId: string,
         prompt: string,
-        onComplete?: (response?: ChaiAskAiResponse) => void,
+        onComplete?: (response?: ChaiAskAiResult) => void,
       ) => {
         if (!callBack) return;
         setProcessing(true);
@@ -122,7 +122,7 @@ export const useAskAi = () => {
           if (askAiResponse === void 0) return;
           const { blocks: updatedBlocks, error } = askAiResponse as {
             blocks: ChaiBlock[];
-            error: ChaiAskAiResponse["error"];
+            error: ChaiAskAiResult["error"];
           };
           if (error) {
             setError(error);
@@ -143,7 +143,7 @@ export const useAskAi = () => {
           }
           if (onComplete) onComplete(askAiResponse);
         } catch (e) {
-          setError(e as ChaiAskAiResponse["error"]);
+          setError(e as ChaiAskAiResult["error"]);
         } finally {
           setProcessing(false);
           if (onComplete) onComplete();

@@ -3,7 +3,7 @@ import Script from "next/script";
 import { getChaiBuilder } from "~/server/get-chaibuilder";
 import { getActiveChaiBuilderConfig } from "~/server/defaults/config-registry";
 
-export const PageScripts = async () => {
+export const ChaiPageScripts = async () => {
   const chaiBuilder = await getChaiBuilder(getActiveChaiBuilderConfig());
   const siteSettings = await chaiBuilder.getSiteSettings();
   const locale = siteSettings.fallbackLang || "en";

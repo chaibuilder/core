@@ -1,4 +1,4 @@
-import { getAllRegisteredFonts } from "~/registry";
+import { getRegisteredChaiFonts } from "~/registry";
 import { ChaiTheme } from "~/types/chaibuilder-editor-props";
 import { toHex } from "./color-formatter";
 
@@ -182,7 +182,7 @@ const processAndFormatColor = (value: string): string => {
  * Helper function to process font family and extract only the first font name
  */
 const processFontFamily = (fontValue: string | null): string => {
-  const registeredFonts = getAllRegisteredFonts();
+  const registeredFonts = getRegisteredChaiFonts();
   if (!fontValue) {
     return "ui-sans-serif, system-ui, sans-serif";
   }

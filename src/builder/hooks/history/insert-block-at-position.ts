@@ -1,4 +1,4 @@
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import { ChaiBlock } from "~/types/common";
 
 export function insertBlocksAtPosition(
@@ -23,7 +23,7 @@ export function insertBlocksAtPosition(
 
       if (!hasChildren) {
         // Create a new Text block with the content
-        const textBlockId = generateUUID();
+        const textBlockId = generateUuid();
         const textBlock = {
           _id: textBlockId,
           _parent: parentId,

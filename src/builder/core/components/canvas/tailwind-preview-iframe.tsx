@@ -7,7 +7,7 @@ import { CssThemeVariables } from "~/builder/core/components/css-theme-var";
 import { ChaiFrame, useFrame } from "~/builder/core/frame";
 import { useDarkMode } from "~/builder/hooks/use-dark-mode";
 import { useTheme, useThemeOptions } from "~/builder/hooks/use-theme";
-import { resolveFont } from "~/registry/fonts";
+import { resolveChaiFont } from "~/registry/fonts";
 import { ChaiFont, ChaiFontBySrc, ChaiFontByUrl, ChaiTheme } from "~/types";
 import { useInnerHtml } from "~/web-blocks/use-inner-html";
 
@@ -26,7 +26,7 @@ const PreviewHeadTags = () => {
     const heading = get(chaiTheme, "fontFamily.heading");
     const body = get(chaiTheme, "fontFamily.body");
     return uniq(compact([heading, body]))
-      .map(resolveFont)
+      .map(resolveChaiFont)
       .filter(Boolean) as ChaiFont[];
   }, [chaiTheme]);
 

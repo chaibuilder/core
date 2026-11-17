@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildChaiBuilderConfig } from "~/server/build-config";
 import { getChaiAction } from "~/server/chai-actions/actions-registery";
-import { dispatchChaiAction, resolveRequiredPermissions } from "~/server/chai-actions/dispatch-action";
+import { runChaiAction, resolveRequiredPermissions } from "~/server/chai-actions/dispatch-action";
 import { runInContext } from "~/server/chai-builder/state";
 import { resetActiveChaiBuilderConfigForTests } from "~/server/defaults/config-registry";
 import { DEFAULT_ROLE_MAPS } from "~/server/rbac/default-roles";
@@ -17,7 +17,7 @@ const requiredFor = (actionName: string, data: unknown): string[] =>
 /** True when dispatching got past the permission check (the stub db fails it later, which is fine). */
 async function passesPermissionCheck(permissions: string[], action: string, data: unknown): Promise<boolean> {
   try {
-    await runInContext({ appId: "test-app", userId: "user-1", permissions }, () => dispatchChaiAction(action, data));
+    await runInContext({ appId: "test-app", userId: "user-1", permissions }, () => runChaiAction(action, data));
     return true;
   } catch (error) {
     return (error as { code?: string }).code !== "FORBIDDEN";

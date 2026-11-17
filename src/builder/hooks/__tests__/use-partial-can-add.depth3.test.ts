@@ -10,7 +10,7 @@ import { waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { useCheckPartialCanAdd } from "~/builder/hooks/partial-blocks/use-partial-can-add";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
 import { mockChaiAction } from "~/tests/builder/msw";
 import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
@@ -27,7 +27,7 @@ const check = async ({ pageId, dependencies = {}, partialPages = [] }: GraphSetu
     ACTIONS.GET_WEBSITE_PAGES,
     partialPages.map((id) => ({ id, slug: "", partialBlocks: (dependencies[id] ?? []).join("|") })),
   );
-  const { result } = renderHookInBuilder(() => ({ check: useCheckPartialCanAdd(), pages: useWebsitePrimaryPages() }), {
+  const { result } = renderHookInBuilder(() => ({ check: useCheckPartialCanAdd(), pages: useChaiPrimaryPages() }), {
     builderProps: { pageId },
   });
   await waitFor(() => expect(result.current.pages.isFetched).toBe(true));

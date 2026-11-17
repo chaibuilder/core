@@ -35,7 +35,7 @@ export const useChaiFeatureFlag = (flagKey: string) => {
   return flags.includes(flagKey);
 };
 
-export const useToggleChaiFeatureFlag = (flagKey: string) => {
+export const useChaiFeatureFlagToggle = (flagKey: string) => {
   const [flags, setFlags] = useAtom(featureFlagsAtom);
   const toggleFlag = () => {
     if (flags.includes(flagKey)) {

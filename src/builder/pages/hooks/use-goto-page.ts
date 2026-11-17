@@ -3,7 +3,7 @@ import { updateBlockIdInUrl } from "~/builder/hooks/use-block-selection-query-sy
 import { useIsPublishing } from "./pages/mutations";
 import { useChangePage } from "./use-change-page";
 
-export const useGotoPage = () => {
+export const useChaiGotoPage = () => {
   const changePage = useChangePage();
   const isPublishing = useIsPublishing();
   return useCallback(

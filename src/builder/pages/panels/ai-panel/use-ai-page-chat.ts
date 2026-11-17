@@ -8,19 +8,19 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { chaiDesignTokensAtom, usePageExternalData } from "~/builder/atoms/builder";
 import { getCurrentBlocks } from "~/builder/atoms/store";
 import { canAddChildBlock } from "~/builder/core/functions/block-helpers";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import { useBlocksStoreUndoableActions } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useBindProp } from "~/builder/hooks/use-bind-prop";
 import { useBlocksHtmlForAi } from "~/builder/hooks/use-blocks-html-for-ai";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useRemoveBlocks } from "~/builder/hooks/use-remove-blocks";
 import { useReplaceBlock } from "~/builder/hooks/use-replace-block";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { partialBlocksListAtom, useCheckPartialCanAdd } from "~/builder/hooks/use-partial-blocks-store";
 import { AI_CREDITS_QUERY_KEY } from "~/builder/pages/constants/AI_CREDITS";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
-import { useApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
 import { AI_OMITTED_HTML_SENTINEL } from "~/constants/AI_TOOL_HISTORY";
 import {
   applyAddBlocks,
@@ -153,7 +153,7 @@ type UseAiPageChatResult = Omit<UseChatHelpers<UIMessage>, "stop"> & {
 };
 
 export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageChatOptions = {}): UseAiPageChatResult => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const getAccessToken = usePagesProp("getAccessToken", noop);
   const beforeRequest = usePagesProp("beforeRequest", noop);
   const logout = usePagesProp("onLogout", noop);
@@ -165,7 +165,7 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
   const { data: currentPage } = usePrimaryPage();
   const blocksHtmlForAi = useBlocksHtmlForAi();
   const queryClient = useQueryClient();
-  const { savePageAsync } = useSavePage();
+  const { savePageAsync } = useChaiSavePage();
 
   const { addBlocks, setNewBlocks } = useBlocksStoreUndoableActions();
   const replaceBlock = useReplaceBlock();
@@ -173,7 +173,7 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
   const bindProp = useBindProp();
   const partialBlocksList = useAtomValue(partialBlocksListAtom);
   const checkPartialCanAdd = useCheckPartialCanAdd();
-  const { data: websitePages } = useWebsitePrimaryPages();
+  const { data: websitePages } = useChaiPrimaryPages();
 
   /**
    * AI emits partials as `<chai-partial-block partial-id='...'>` with no name,
@@ -542,7 +542,7 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     setMessages((prev) => [
       ...prev,
       {
-        id: generateUUID(),
+        id: generateUuid(),
         role: "assistant",
         parts: [
           {

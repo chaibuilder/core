@@ -8,7 +8,10 @@ import {
   registerChaiSidebarPanel,
   useChaiSidebarPanels,
 } from "~/builder/register-apis/register-chai-sidebar-panel";
-import { CHAI_SIDEBAR_PANEL_ORDER, DEFAULT_SIDEBAR_PANEL_ORDER } from "~/builder/register-apis/sidebar-panel-order";
+import {
+  CHAI_SIDEBAR_PANEL_ORDER,
+  CHAI_SIDEBAR_PANEL_DEFAULT_ORDER,
+} from "~/builder/register-apis/sidebar-panel-order";
 
 describe("registerChaiSidebarPanel", () => {
   beforeEach(() => {
@@ -117,7 +120,7 @@ describe("registerChaiSidebarPanel", () => {
     const MockButton = () => <div>Unordered Button</div>;
     registerChaiSidebarPanel("unordered-panel", { position: "top", button: MockButton, label: "Unordered" });
 
-    expect(CHAI_BUILDER_PANELS["unordered-panel"].order).toBe(DEFAULT_SIDEBAR_PANEL_ORDER);
+    expect(CHAI_BUILDER_PANELS["unordered-panel"].order).toBe(CHAI_SIDEBAR_PANEL_DEFAULT_ORDER);
   });
 
   it("should pin fixed panels regardless of the order passed in", () => {

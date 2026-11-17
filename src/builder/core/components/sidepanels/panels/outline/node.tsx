@@ -12,7 +12,7 @@ import { canAcceptChildBlock, canAddChildBlock } from "~/builder/core/functions/
 import { pubsub } from "~/builder/core/pubsub";
 import { cn } from "~/builder/core/utils/cn";
 import { isPartialBlockType, useIsPartialBlockMissing } from "~/builder/hooks/partial-blocks";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { useBlockHighlight } from "~/builder/hooks/use-block-highlight";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { usePermissions } from "~/builder/hooks/use-permissions";
@@ -284,7 +284,7 @@ export const Node = memo(({ node, style, dragHandle }: NodeRendererProps<any>) =
   // renameable either (see `canRename`), so `_name` never carries a user-set label
   // for them. Falls back to the baked name / block label only when the referenced
   // page can't be resolved (e.g. a missing partial).
-  const { data: projectPages } = useWebsitePrimaryPages();
+  const { data: projectPages } = useChaiPrimaryPages();
   const displayName = useMemo(
     () => getOutlineNodeLabel(data, isPartialBlock, partialRefId, projectPages),
     [isPartialBlock, partialRefId, projectPages, data],

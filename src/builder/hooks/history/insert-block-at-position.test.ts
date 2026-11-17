@@ -39,7 +39,7 @@ describe("insertBlocksAtPosition", () => {
 
   test("should create Text block when parent has content and no children", () => {
     // Mock the generateUUID function to return a predictable ID for testing
-    vi.spyOn(Functions, "generateUUID").mockReturnValue("text_block_id");
+    vi.spyOn(Functions, "generateUuid").mockReturnValue("text_block_id");
 
     const PARENT_WITH_CONTENT = {
       _id: "parent1",

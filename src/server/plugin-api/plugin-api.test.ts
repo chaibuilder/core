@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildChaiBuilderConfig } from "~/server/build-config";
 import { getChaiAction } from "~/server/chai-actions/actions-registery";
 import { schema } from "~/server/chai-actions/db";
-import { getChaiContextResolver, resetChaiContextResolverForTests } from "~/server/chai-context-resolver";
+import { getRegisteredChaiContextResolver, resetChaiContextResolverForTests } from "~/server/chai-context-resolver";
 import { resolveChaiBuilderConfig } from "~/server/defaults";
 import { resetActiveChaiBuilderConfigForTests } from "~/server/defaults/config-registry";
 import { runInContext } from "~/server/chai-builder/state";
@@ -11,7 +11,7 @@ import {
   getChaiRequestHeader,
   getContributedChaiInstanceApis,
   getContributedChaiPermissions,
-  mergeDefaultRoleGrants,
+  mergeChaiDefaultRoleGrants,
   registerChaiInstanceApi,
   registerChaiPermissions,
   resetChaiInstanceApisForTests,
@@ -106,11 +106,11 @@ describe("server plugins", () => {
       plugins: [
         defineChaiServerPlugin((config) => ({
           ...config,
-          defaultRoleGrants: mergeDefaultRoleGrants(config.defaultRoleGrants, { editor: ["first"] }),
+          defaultRoleGrants: mergeChaiDefaultRoleGrants(config.defaultRoleGrants, { editor: ["first"] }),
         })),
         defineChaiServerPlugin((config) => ({
           ...config,
-          defaultRoleGrants: mergeDefaultRoleGrants(config.defaultRoleGrants, {
+          defaultRoleGrants: mergeChaiDefaultRoleGrants(config.defaultRoleGrants, {
             editor: [`after:${config.defaultRoleGrants?.editor?.join()}`],
           }),
         })),
@@ -230,13 +230,13 @@ describe("server plugins", () => {
       plugins: [
         defineChaiServerPlugin((config) => ({
           ...config,
-          defaultRoleGrants: mergeDefaultRoleGrants(config.defaultRoleGrants, {
+          defaultRoleGrants: mergeChaiDefaultRoleGrants(config.defaultRoleGrants, {
             editor: ["widgets:read", "widgets:update"],
           }),
         })),
         defineChaiServerPlugin((config) => ({
           ...config,
-          defaultRoleGrants: mergeDefaultRoleGrants(config.defaultRoleGrants, {
+          defaultRoleGrants: mergeChaiDefaultRoleGrants(config.defaultRoleGrants, {
             editor: ["gadgets:read", "widgets:read"],
             viewer: ["gadgets:read"],
           }),
@@ -303,7 +303,7 @@ describe("server plugins", () => {
       ],
     });
 
-    expect(getChaiContextResolver()).toBe(second);
+    expect(getRegisteredChaiContextResolver()).toBe(second);
   });
 
   it("registers plugin request middleware and runs setup hooks with the resolved config", async () => {

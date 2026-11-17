@@ -3,14 +3,14 @@ import { SquareLibrary } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { saveToLibraryModalAtom } from "~/builder/atoms/builder";
 import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
-import { useSaveToLibraryComponent } from "~/builder/register-apis";
+import { useRegisteredChaiSaveToLibrary } from "~/builder/register-apis";
 import { DropdownMenuItem } from "~/components/ui/dropdown-menu";
 
 export const SaveToLibrary = ({ MenuItem = DropdownMenuItem }: { MenuItem?: React.ComponentType<any> }) => {
   const selectedBlock = useSelectedBlock();
   const { t } = useTranslation();
   const [, setModalState] = useAtom(saveToLibraryModalAtom);
-  const SaveToLibraryComponent = useSaveToLibraryComponent();
+  const SaveToLibraryComponent = useRegisteredChaiSaveToLibrary();
 
   const handleSaveToLibrary = () => {
     if (selectedBlock) {

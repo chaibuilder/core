@@ -17,7 +17,7 @@ import {
   builderSaveStateAtom,
   checkMissingTranslations,
   getBlocksWithMissingTranslations,
-  useSavePage,
+  useChaiSavePage,
 } from "~/builder/hooks/use-save-page";
 import { registerTestBlocks } from "~/tests/builder/blocks";
 import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
@@ -59,7 +59,7 @@ const renderSavePage = ({
 } = {}) => {
   const onSave = vi.fn(async (_payload: any) => {});
   const onSaveStateChange = vi.fn();
-  const rendered = renderHookInBuilder(() => useSavePage(), {
+  const rendered = renderHookInBuilder(() => useChaiSavePage(), {
     blocks,
     builderProps: { onSave, onSaveStateChange, permissions },
     seed: (store) => {
@@ -317,7 +317,7 @@ describe("useSavePage - getUntranslatedBlocks", () => {
   };
 
   const getUntranslatedBlocks = (selectedLang: string) =>
-    renderHookInBuilder(() => useSavePage(), {
+    renderHookInBuilder(() => useChaiSavePage(), {
       blocks,
       selectedLang,
       seed: (store) => store.set(partialBlocksAtom, partialBlocks),
@@ -387,7 +387,7 @@ describe("useSavePage - arePartialsLoading", () => {
 });
 
 describe("useSavePage - prevent save when no unsaved changes", () => {
-  const saveAsync = async (result: { current: ReturnType<typeof useSavePage> }, force = false) => {
+  const saveAsync = async (result: { current: ReturnType<typeof useChaiSavePage> }, force = false) => {
     await act(async () => {
       await result.current.savePageAsync(force);
     });
@@ -1075,7 +1075,7 @@ describe("useSavePage - savePage structure validation", () => {
     vi.useRealTimers();
   });
 
-  const forceSave = async (result: { current: ReturnType<typeof useSavePage> }) => {
+  const forceSave = async (result: { current: ReturnType<typeof useChaiSavePage> }) => {
     await act(async () => {
       result.current.savePage(false, true);
       await vi.runAllTimersAsync();

@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { chaiDesignTokensAtom } from "~/builder/atoms/builder";
 import { useSendRealtimeEvent } from "~/builder/pages/client/realtime";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { ChaiPage, ChaiWebsiteSetting } from "~/types/actions";
+import { ChaiPage, ChaiSiteSettings } from "~/types/actions";
 import { ChaiTheme } from "~/types/chaibuilder-editor-props";
 import { ChaiDesignTokens } from "~/types/types";
 import { chaiThemeValuesAtom } from "./use-theme";
@@ -20,7 +20,7 @@ type SyncPayload = {
 };
 
 type SyncData = {
-  settings?: Partial<ChaiWebsiteSetting>;
+  settings?: Partial<ChaiSiteSettings>;
   pageId?: string;
   designTokens?: ChaiDesignTokens;
   linkPageIds?: string[];
@@ -34,7 +34,7 @@ type AppChanges = string[];
 type UpdateQueryDataParams = {
   queryClient: QueryClient;
   queryKey: unknown[];
-  data: Partial<ChaiWebsiteSetting>;
+  data: Partial<ChaiSiteSettings>;
   setTheme?: (theme: SetStateAction<ChaiTheme | Partial<ChaiTheme>>) => void;
   setDesignTokens?: (tokens: ChaiDesignTokens) => void;
 };
@@ -64,7 +64,7 @@ type UnpublishPageParams = {
  */
 const trackThemeChanges = (
   appChanges: AppChanges,
-  data: Partial<ChaiWebsiteSetting>,
+  data: Partial<ChaiSiteSettings>,
   setTheme?: (theme: SetStateAction<ChaiTheme | Partial<ChaiTheme>>) => void,
 ): AppChanges => {
   if (appChanges.includes("THEME") || data?.theme !== undefined) {
@@ -81,7 +81,7 @@ const trackThemeChanges = (
  */
 const trackDesignTokenChanges = (
   appChanges: AppChanges,
-  data: Partial<ChaiWebsiteSetting>,
+  data: Partial<ChaiSiteSettings>,
   setDesignTokens?: (tokens: ChaiDesignTokens) => void,
 ): AppChanges => {
   if (appChanges.includes("DESIGN_TOKENS") || data?.designTokens !== undefined) {
@@ -97,11 +97,11 @@ const trackDesignTokenChanges = (
  * Merge old data with new data and track changes
  */
 const mergeDataWithChanges = (
-  oldData: ChaiWebsiteSetting | undefined,
-  data: Partial<ChaiWebsiteSetting>,
+  oldData: ChaiSiteSettings | undefined,
+  data: Partial<ChaiSiteSettings>,
   setTheme?: (theme: SetStateAction<ChaiTheme | Partial<ChaiTheme>>) => void,
   setDesignTokens?: (tokens: ChaiDesignTokens) => void,
-): ChaiWebsiteSetting | Partial<ChaiWebsiteSetting> => {
+): ChaiSiteSettings | Partial<ChaiSiteSettings> => {
   let appChanges = oldData?.appChanges || [];
 
   appChanges = trackThemeChanges(appChanges, data, setTheme);
@@ -119,7 +119,7 @@ const mergeDataWithChanges = (
  * Update QueryClient cache directly without refetching
  */
 const updateQueryData = ({ queryClient, queryKey, data, setTheme, setDesignTokens }: UpdateQueryDataParams): void => {
-  queryClient.setQueryData(queryKey, (oldData: ChaiWebsiteSetting | undefined) =>
+  queryClient.setQueryData(queryKey, (oldData: ChaiSiteSettings | undefined) =>
     mergeDataWithChanges(oldData, data, setTheme, setDesignTokens),
   );
 };
@@ -234,9 +234,9 @@ const clearPageChanges = (page: ChaiPage, publishedIds: string[]): ChaiPage => {
  * Clear appChanges for published THEME or DESIGN_TOKENS
  */
 const clearAppChanges = (
-  oldData: ChaiWebsiteSetting | undefined,
+  oldData: ChaiSiteSettings | undefined,
   publishedIds: string[],
-): ChaiWebsiteSetting | undefined => {
+): ChaiSiteSettings | undefined => {
   if (!oldData) return oldData;
 
   const appChanges = oldData.appChanges || [];
@@ -263,7 +263,7 @@ const handlePublishChanges = ({ queryClient, ids }: PublishChangesParams): void 
   });
 
   if (ids.includes("THEME") || ids.includes("DESIGN_TOKENS")) {
-    queryClient.setQueryData([ACTIONS.GET_WEBSITE_DRAFT_SETTINGS], (oldData: ChaiWebsiteSetting | undefined) =>
+    queryClient.setQueryData([ACTIONS.GET_WEBSITE_DRAFT_SETTINGS], (oldData: ChaiSiteSettings | undefined) =>
       clearAppChanges(oldData, ids),
     );
   }

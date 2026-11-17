@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { isEmpty } from "lodash-es";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "./use-fetch";
 
 export const useChaiUserInfo = (currentEditor: string) => {
-  const apiURL = useApiUrl();
+  const apiURL = useChaiApiUrl();
   const fetchAPI = useFetch();
   return useQuery({
     queryKey: [ACTIONS.GET_CHAI_USER, currentEditor],

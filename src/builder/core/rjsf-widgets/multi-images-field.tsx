@@ -8,7 +8,7 @@ import MediaManagerModal from "~/builder/core/components/sidepanels/panels/image
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
-import { LANGUAGES } from "~/constants/LANGUAGES";
+import { CHAI_LANGUAGES } from "~/constants/LANGUAGES";
 import { ChaiAsset } from "~/types";
 
 type ImageType = {
@@ -96,12 +96,12 @@ export const MultiImagesField = ({ formData, onChange }: FieldProps) => {
           <div
             role="button"
             onClick={() => setShowImage(!showImage)}
-            className="flex min-h-7 cursor-pointer items-center justify-between rounded-t p-1 hover:bg-accent/80">
+            className="hover:bg-accent/80 flex min-h-7 cursor-pointer items-center justify-between rounded-t p-1">
             <div className="flex items-center gap-x-1">
               {showImage ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
               <h3 className="text-xs font-medium">{t("Images")}</h3>
             </div>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-muted-foreground text-xs">
               {images.length} {t("selected")}
             </span>
           </div>
@@ -111,20 +111,22 @@ export const MultiImagesField = ({ formData, onChange }: FieldProps) => {
                 <div
                   key={img.id ?? index}
                   className="bg-surface group relative flex items-center gap-x-2 rounded-md border p-1.5">
-                  <div className="h-12 w-12 rounded bg-background/10">
+                  <div className="bg-background/10 h-12 w-12 rounded">
                     <img
                       src={img.url}
                       alt={getDescription(img)}
                       width={48}
                       height={48}
-                      className="h-12 min-w-12 max-w-12 rounded object-cover"
+                      className="h-12 max-w-12 min-w-12 rounded object-cover"
                     />
                   </div>
                   <div className="flex w-full flex-col justify-start py-0">
-                    <div className="flex items-start justify-start text-[12px] text-muted-foreground">
+                    <div className="text-muted-foreground flex items-start justify-start text-[12px]">
                       <Label>
                         {t("Alt text")}{" "}
-                        <span className="text-[9px] text-muted-foreground/70">{LANGUAGES[langKey] || langKey}</span>
+                        <span className="text-muted-foreground/70 text-[9px]">
+                          {CHAI_LANGUAGES[langKey] || langKey}
+                        </span>
                       </Label>
                       <Button
                         variant="ghost"
@@ -163,9 +165,9 @@ export const MultiImagesField = ({ formData, onChange }: FieldProps) => {
                         }}
                       />
                     ) : (
-                      <span className="flex-1 truncate text-xs text-foreground">
+                      <span className="text-foreground flex-1 truncate text-xs">
                         {truncate(getDescription(img), { length: 30 }) || (
-                          <span className="italic text-muted-foreground">{t("No description")}</span>
+                          <span className="text-muted-foreground italic">{t("No description")}</span>
                         )}
                       </span>
                     )}
@@ -173,7 +175,7 @@ export const MultiImagesField = ({ formData, onChange }: FieldProps) => {
                   <div className="flex items-center gap-x-1">
                     {editingIndex !== index ? (
                       <>
-                        <div className="absolute right-0 top-0 flex flex-col items-center justify-center rounded border-b border-l">
+                        <div className="absolute top-0 right-0 flex flex-col items-center justify-center rounded border-b border-l">
                           <Button
                             type="button"
                             onClick={() => moveUp(index)}
@@ -200,7 +202,7 @@ export const MultiImagesField = ({ formData, onChange }: FieldProps) => {
                           size="icon-xs"
                           variant="ghost"
                           onClick={() => removeImage(index)}
-                          className="absolute bottom-0 right-0 hidden h-5 w-5 items-center justify-center text-destructive hover:bg-destructive/10 group-hover:flex"
+                          className="text-destructive hover:bg-destructive/10 absolute right-0 bottom-0 hidden h-5 w-5 items-center justify-center group-hover:flex"
                           aria-label={t("Remove image")}>
                           <Cross1Icon className="h-3 w-3" />
                         </Button>
@@ -210,7 +212,7 @@ export const MultiImagesField = ({ formData, onChange }: FieldProps) => {
                         type="button"
                         size="icon-xs"
                         onClick={() => removeImage(index)}
-                        className="absolute right-1 top-1 hidden rounded-full bg-primary p-1 text-primary-foreground hover:bg-primary/90 group-hover:block"
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 absolute top-1 right-1 hidden rounded-full p-1 group-hover:block"
                         aria-label={t("Remove image")}>
                         <Check className="h-3 w-3" />
                       </Button>
@@ -226,7 +228,7 @@ export const MultiImagesField = ({ formData, onChange }: FieldProps) => {
       <MediaManagerModal multiple={true} onSelect={handleSelect} mode="image">
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-x-2 rounded-md border border-dashed border-border py-1 text-xs text-muted-foreground hover:bg-accent">
+          className="border-border text-muted-foreground hover:bg-accent flex w-full items-center justify-center gap-x-2 rounded-md border border-dashed py-1 text-xs">
           <Images className="!h-3.5 !w-3.5" />
           {t("Choose images")}
         </button>

@@ -4,7 +4,7 @@ import type { ChaiBlock } from "~/types/common";
 import type { ChaiTheme } from "./chaibuilder-editor-props";
 import type { ChaiDesignTokens } from "./types";
 
-export type ChaiWebsiteSetting = {
+export type ChaiSiteSettings = {
   appKey: string;
   fallbackLang: string;
   languages: string[];
@@ -166,37 +166,37 @@ export type ChaiAsset = {
   height?: number;
 };
 
-export type AssetsParams = {
+export type ChaiListAssetsArgs = {
   search: string;
   limit: number;
   page: number;
 };
 
-export type ImageConfig = {
+export type ChaiImageConfig = {
   lastImage?: string;
   aspectRatio?: "1:1" | "3:4" | "4:3" | "9:16" | "16:9";
   quality?: number;
 };
 
-export type AIChatOptions = {
+export type ChaiAiChatOptions = {
   messages: any[];
-  image?: ImageConfig;
+  image?: ChaiImageConfig;
   systemPrompt?: string;
   initiator?: string | null;
   model?: string;
-  context?: AIContext;
+  context?: ChaiAiContext;
   designTokens?: ChaiDesignTokens;
   images?: string[];
   attachments?: { url?: string; mediaType?: string; filename?: string }[];
   options?: Record<string, any>;
 };
 
-export type AIContext = {
+export type ChaiAiContext = {
   site?: Record<string, any>;
   page?: Record<string, any>;
 };
 
-export interface ChaiBuilderPagesAIInterface {
-  handleRequest(options: AIChatOptions, res: any): Promise<StreamTextResult<any, any>>;
+export interface ChaiPagesAiHandler {
+  handleRequest(options: ChaiAiChatOptions, res: any): Promise<StreamTextResult<any, any>>;
   isConfigured(): boolean;
 }

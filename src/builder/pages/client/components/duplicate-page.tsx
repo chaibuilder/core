@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
 import { useDuplicatePage } from "~/builder/pages/hooks/pages/use-duplicate-page";
-import { useLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
+import { useChaiLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
 import { useChangePage } from "~/builder/pages/hooks/use-change-page";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "~/components/ui/accordion";
 import { Button } from "~/components/ui/button";
@@ -43,7 +43,7 @@ const DuplicatePage = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Rows derive from the fetched variants; state holds only what the user changed
-  const { data: languagePages, isPlaceholderData } = useLanguagePages(page.id);
+  const { data: languagePages, isPlaceholderData } = useChaiLanguagePages(page.id);
   const [variantEdits, setVariantEdits] = useState<Record<string, VariantEdit>>({});
   const canHaveVariants = !isPartial && !page.primaryPage;
   const variantRows = (canHaveVariants ? (languagePages ?? []) : [])
@@ -151,27 +151,27 @@ const DuplicatePage = ({
           <DialogDescription>{t("Create a copy of the page with a new name and slug")}</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3 rounded-lg border bg-gradient-to-br from-accent/50 to-accent/30 px-3 py-2 shadow-sm">
+        <div className="from-accent/50 to-accent/30 space-y-3 rounded-lg border bg-gradient-to-br px-3 py-2 shadow-sm">
           <div className="flex items-center gap-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-primary/10">
-              <File className="h-3 w-3 text-primary" />
+            <div className="bg-primary/10 flex h-5 w-5 items-center justify-center rounded-md">
+              <File className="text-primary h-3 w-3" />
             </div>
-            <div className="text-xs text-foreground">{t("Current Page Details")}</div>
+            <div className="text-foreground text-xs">{t("Current Page Details")}</div>
           </div>
           <div className="space-y-2">
             <div className="flex items-start gap-2">
-              <span className="min-w-[45px] text-xs font-medium text-muted-foreground">{t("Name")}:</span>
-              <span className="flex-1 text-xs font-medium text-foreground">{page.name}</span>
+              <span className="text-muted-foreground min-w-[45px] text-xs font-medium">{t("Name")}:</span>
+              <span className="text-foreground flex-1 text-xs font-medium">{page.name}</span>
             </div>
             {!isPartial && (
               <div className="flex items-start gap-2">
-                <span className="min-w-[45px] text-xs font-medium text-muted-foreground">{t("Slug")}:</span>
-                <code className="flex-1 font-mono text-xs text-foreground">{page.slug}</code>
+                <span className="text-muted-foreground min-w-[45px] text-xs font-medium">{t("Slug")}:</span>
+                <code className="text-foreground flex-1 font-mono text-xs">{page.slug}</code>
               </div>
             )}
             <div className="flex items-start gap-2">
-              <span className="min-w-[45px] text-xs font-medium text-muted-foreground">{t("Type")}:</span>
-              <span className="inline-flex items-center rounded-full text-xs text-foreground">{page.pageType}</span>
+              <span className="text-muted-foreground min-w-[45px] text-xs font-medium">{t("Type")}:</span>
+              <span className="text-foreground inline-flex items-center rounded-full text-xs">{page.pageType}</span>
             </div>
           </div>
         </div>
@@ -248,7 +248,7 @@ const DuplicatePage = ({
             </div>
           )}
 
-          {error && <div className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</div>}
+          {error && <div className="bg-destructive/10 text-destructive rounded-md px-3 py-2 text-sm">{error}</div>}
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onClose} disabled={isPending}>

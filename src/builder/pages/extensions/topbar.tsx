@@ -4,16 +4,16 @@ import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { PageDropdownInHeader } from "~/builder/pages/client/components/page-dropdown-in-header";
 import TopbarLeft from "~/builder/pages/client/components/topbar-left";
 import TopbarRight from "~/builder/pages/client/components/topbar-right";
-import { useCurrentActivePage, usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
+import { useChaiActivePage, usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
 import { usePageType } from "~/builder/pages/hooks/project/use-page-types";
 import { ChaiSlot } from "~/builder/register-apis";
 import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
 import PagesManagerTrigger from "../client/components/page-manager/page-manager-trigger";
-import { LanguageSwitcher } from "../client/components/topbar-left";
+import { ChaiLanguageSwitcher } from "../client/components/topbar-left";
 import { useLanguages } from "~/builder/hooks/use-languages";
 
 export const AddressBar = () => {
-  const { isFetching: isFetchingActivePage } = useCurrentActivePage();
+  const { isFetching: isFetchingActivePage } = useChaiActivePage();
   const { data: currentPage, isFetching: isFetchingCurrentPage } = usePrimaryPage();
   const pageType = usePageType(currentPage?.pageType);
   const isFetching = isFetchingActivePage || isFetchingCurrentPage;
@@ -27,10 +27,10 @@ export const AddressBar = () => {
       <div className="flex items-center">
         {hasMultipleLanguages && (
           <>
-            <LanguageSwitcher />
+            <ChaiLanguageSwitcher />
             <ChevronRight
               data-testid="pages-manager-chevron"
-              className="mx-px h-4 w-4 flex-shrink-0 text-foreground/60"
+              className="text-foreground/60 mx-px h-4 w-4 flex-shrink-0"
             />
           </>
         )}
@@ -45,7 +45,7 @@ export const AddressBar = () => {
         {isPagesManagerEnabled && (
           <ChevronRight
             data-testid="pages-manager-chevron"
-            className="mx-px h-4 w-4 flex-shrink-0 text-foreground/60"
+            className="text-foreground/60 mx-px h-4 w-4 flex-shrink-0"
           />
         )}
 
@@ -59,7 +59,7 @@ export const AddressBar = () => {
             </span>
             <ChevronRight
               data-testid="dynamic-page-type-chevron"
-              className="mx-px h-4 w-4 flex-shrink-0 text-foreground/60"
+              className="text-foreground/60 mx-px h-4 w-4 flex-shrink-0"
             />
           </>
         ) : null}
@@ -75,10 +75,9 @@ export const AddressBar = () => {
 
 export const Topbar = () => {
   return (
-    <div className="grid h-full w-full grid-cols-3 py-1 items-center bg-background px-2">
+    <div className="bg-background grid h-full w-full grid-cols-3 items-center px-2 py-1">
       <div className="flex justify-start">
         <TopbarLeft />
-        
       </div>
       <div className="flex justify-center">
         {/* <CanvasTopBar /> */}

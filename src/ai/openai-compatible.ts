@@ -38,7 +38,7 @@ import {
 } from "~/server/chai-actions/ai-providers/openai-compatible-options";
 import type { ChaiAiProviderPlugin, ChaiAiSdkProvider } from "~/types/server-config";
 
-export const openAICompatiblePlugin: ChaiAiProviderPlugin = {
+export const openAiCompatiblePlugin: ChaiAiProviderPlugin = {
   id: OPENAI_COMPATIBLE_PLUGIN_ID,
   label: OPENAI_COMPATIBLE_PLUGIN_LABEL,
   packageName: OPENAI_COMPATIBLE_PACKAGE,
@@ -46,3 +46,6 @@ export const openAICompatiblePlugin: ChaiAiProviderPlugin = {
   fingerprint: openAICompatibleFingerprint,
   createProvider: (): ChaiAiSdkProvider => createOpenAICompatible(openAICompatibleOptions()) as ChaiAiSdkProvider,
 };
+
+// Deprecated names, kept for compatibility. See ./openai-compatible.deprecated.ts.
+export * from "./openai-compatible.deprecated";

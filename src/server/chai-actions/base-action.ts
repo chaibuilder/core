@@ -9,13 +9,13 @@ import { ChaiAction, ChaiActionContext, ChaiRequiredPermission } from "./chai-ac
 export abstract class ChaiBaseAction<T = any, K = any> implements ChaiAction<T, K> {
   protected context: ChaiActionContext | null = null;
   /**
-   * Permission required to run this action. Enforced by `dispatchChaiAction`.
+   * Permission required to run this action. Enforced by `runChaiAction`.
    * Override in subclasses. Undefined = authenticated-only (no specific permission).
    */
   public requiredPermission?: ChaiRequiredPermission<T>;
   /**
    * Static superset of the keys {@link requiredPermission} may require. Set by
-   * `wp` / `withActionPermission` at registration; see `permission-keys.ts`.
+   * `wp` / `withChaiActionPermission` at registration; see `permission-keys.ts`.
    */
   public declaredPermissionKeys?: string[];
   /**

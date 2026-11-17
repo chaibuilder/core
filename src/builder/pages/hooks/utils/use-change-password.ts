@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "./use-fetch";
 
 export type ChangePasswordPayload = {
@@ -11,7 +11,7 @@ export type ChangePasswordPayload = {
 };
 
 export const useChangePassword = () => {
-  const apiURL = useApiUrl();
+  const apiURL = useChaiApiUrl();
   const fetchAPI = useFetch();
 
   return useMutation({

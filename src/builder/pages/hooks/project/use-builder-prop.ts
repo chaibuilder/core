@@ -30,7 +30,7 @@ export const useAIActionModel = (action: string, defaultModel?: string): string 
   }, [actionModels, action, defaultModel]);
 };
 
-export const useApiUrl = () => {
+export const useChaiApiUrl = () => {
   return usePagesProp("apiUrl", "/chai/api") as string;
 };
 
