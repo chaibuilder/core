@@ -597,6 +597,6 @@ BSD 3-Clause. See [LICENSE](LICENSE).
 ## Links
 
 - [chaibuilder.com](https://chaibuilder.com)
-- [docs.chaibuilder.com](https://docs.chaibuilder.com)
+- [Documentation](https://chaibuilder.com/docs)
 - [GitHub](https://github.com/chaibuilder/core)
 - [Changelog](CHANGELOG.md)
