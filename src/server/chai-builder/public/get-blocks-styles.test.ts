@@ -88,43 +88,27 @@ describe("getBlocksStyles", () => {
     expect(b).not.toContain(".bg-fuchsia-600");
   });
 
-  // Content authored under Tailwind v3 must render unchanged on v4 (#4198).
-  it("keeps the v3 values of the utilities v4 rescaled", async () => {
-    const css = await getBlocksStyles([
-      block("b1", "shadow-sm drop-shadow-sm blur-sm backdrop-blur-sm ring"),
-    ]);
-    const rule = (selector: string) => css.match(new RegExp(`\\${selector}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
+  // Container queries are core in Tailwind v4 (no @tailwindcss/container-queries plugin).
+  it("compiles container queries without a plugin", async () => {
+    const css = await getBlocksStyles([block("b1", "@container @md:flex @container/card @lg/card:grid")]);
 
-    expect(rule(".shadow-sm")).toContain("0 1px 2px 0");
-    expect(rule(".drop-shadow-sm")).toContain("drop-shadow(0 1px 1px rgb(0 0 0 / 0.05))");
-    expect(rule(".blur-sm")).toContain("blur(4px)");
-    expect(rule(".backdrop-blur-sm")).toContain("blur(4px)");
-    expect(rule(".ring")).toContain("calc(3px + var(--tw-ring-offset-width))");
+    expect(css).toContain("container-type: inline-size");
+    expect(css).toContain("container-name: card");
+    expect(css).toMatch(/@container\s*\(width >= 28rem\)/);
+    expect(css).toMatch(/@container card\s*\(width >= 32rem\)/);
   });
 
-  // v4's `outline-none` is `outline-style: none`; v3's is a transparent 2px outline (#4198).
-  it("keeps v3 outline-none and the bare ring color", async () => {
-    // The page CSS is unoptimized: variants stay nested (`.focus\:outline-none { &:focus { … } }`).
-    const css = (await getBlocksStyles([block("b1", "outline-none focus:outline-none ring")])).replace(
-      /\s*\{\s*&:focus\s*\{/g,
-      ":focus {",
-    );
-    // Cascade result: the last declaration of `prop` across every rule for `selector`.
-    const last = (selector: string, prop: string) => {
-      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const bodies = Array.from(css.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, "g")), (m) => m[1]);
-      const values = bodies.flatMap((body) =>
-        Array.from(body.matchAll(new RegExp(`(?:^|[;\\s])${prop}:\\s*([^;]+);`, "g")), (m) => m[1].trim()),
-      );
-      return values.at(-1);
-    };
+  // Tailwind v4 only: no v3 value overrides ride along with the page CSS.
+  it("compiles the rescaled utilities to Tailwind v4's own values", async () => {
+    const css = await getBlocksStyles([block("b1", "shadow-sm blur-sm ring outline-none")]);
+    const rule = (selector: string) => css.match(new RegExp(`\\${selector}\\s*\\{([^}]*)\\}`))?.[1] ?? "";
 
-    for (const selector of [".outline-none", ".focus\\:outline-none:focus"]) {
-      expect(last(selector, "outline")).toBe("2px solid transparent");
-      expect(last(selector, "outline-offset")).toBe("2px");
-      expect(last(selector, "outline-style")).toBe("solid");
-      expect(last(selector, "--tw-outline-style")).toBe("solid");
-    }
-    expect(last(".ring", "--tw-ring-shadow")).toContain("var(--tw-ring-color, rgb(59 130 246 / 0.5))");
+    expect(css).not.toContain("0 1px 2px 0 rgb(0 0 0 / 0.05)");
+    expect(css).not.toContain("rgb(59 130 246 / 0.5)");
+    expect(rule(".blur-sm")).not.toContain("blur(4px)");
+    expect(rule(".ring")).toContain("calc(1px + var(--tw-ring-offset-width))");
+    expect(rule(".ring")).toContain("currentcolor");
+    expect(rule(".outline-none")).toContain("outline-style: none");
+    expect(rule(".outline-none")).not.toContain("2px solid transparent");
   });
 });

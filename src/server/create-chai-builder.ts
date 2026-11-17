@@ -1,4 +1,4 @@
-import { setChaiContextResolver } from "~/server/chai-context-resolver";
+import { registerChaiContextResolver } from "~/server/chai-context-resolver";
 import { getChaiBuilder } from "~/server/get-chaibuilder";
 import type {
   ChaiBuilderInstance,
@@ -75,7 +75,7 @@ export function createChaiBuilder<
   options?: CreateChaiBuilderOptions<Req>,
 ): ChaiBuilderHandle<TExtra> {
   if (options?.context) {
-    setChaiContextResolver(options.context as ChaiContextResolver);
+    registerChaiContextResolver(options.context as ChaiContextResolver);
   }
 
   return {

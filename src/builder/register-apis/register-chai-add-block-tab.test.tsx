@@ -2,13 +2,13 @@
  * @vitest-environment happy-dom
  */
 import { renderHook } from "@testing-library/react";
-import { ADD_BLOCK_TABS, registerChaiAddBlockTab, useChaiAddBlockTabs } from "./register-chai-add-block-tab";
+import { CHAI_ADD_BLOCK_TABS, registerChaiAddBlockTab, useChaiAddBlockTabs } from "./register-chai-add-block-tab";
 
 describe("add-block-tabs", () => {
   beforeEach(() => {
     // Clear the ADD_BLOCK_TABS object before each test
-    Object.keys(ADD_BLOCK_TABS).forEach((key) => {
-      delete ADD_BLOCK_TABS[key];
+    Object.keys(CHAI_ADD_BLOCK_TABS).forEach((key) => {
+      delete CHAI_ADD_BLOCK_TABS[key];
     });
 
     // Mock console.warn
@@ -32,10 +32,10 @@ describe("add-block-tabs", () => {
       });
 
       // Check if tab is registered
-      expect(ADD_BLOCK_TABS["test-tab"]).toBeDefined();
-      expect(ADD_BLOCK_TABS["test-tab"].id).toBe("test-tab");
-      expect(ADD_BLOCK_TABS["test-tab"].tab).toBe(MockTab);
-      expect(ADD_BLOCK_TABS["test-tab"].tabContent).toBe(MockTabContent);
+      expect(CHAI_ADD_BLOCK_TABS["test-tab"]).toBeDefined();
+      expect(CHAI_ADD_BLOCK_TABS["test-tab"].id).toBe("test-tab");
+      expect(CHAI_ADD_BLOCK_TABS["test-tab"].tab).toBe(MockTab);
+      expect(CHAI_ADD_BLOCK_TABS["test-tab"].tabContent).toBe(MockTabContent);
     });
 
     it("should warn when registering a tab with an existing id", () => {

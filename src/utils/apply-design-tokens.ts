@@ -4,7 +4,7 @@ import { STYLES_KEY } from "~/constants/STRINGS";
 import { ChaiBlock } from "~/types/common";
 import { ChaiDesignTokens } from "~/types/types";
 
-export const applyDesignTokens = (blocks: ChaiBlock[], designTokens: ChaiDesignTokens) => {
+export const applyChaiDesignTokens = (blocks: ChaiBlock[], designTokens: ChaiDesignTokens) => {
   return blocks.map((block) => {
     const styleKeys = keys(block).filter((key) => isString(block[key]) && block[key].startsWith(STYLES_KEY));
     if (styleKeys.length === 0) return block;
@@ -35,13 +35,13 @@ if (import.meta.vitest) {
       ];
       const snapshot = structuredClone(input);
 
-      const result = applyDesignTokens(input, mockDesignTokens);
+      const result = applyChaiDesignTokens(input, mockDesignTokens);
 
       expect(input).toEqual(snapshot);
       expect(result[0]).not.toBe(input[0]);
       expect(result[0].styles).toBe("#styles:,bg-white");
       // Re-applying on the untouched input must yield the same result
-      expect(applyDesignTokens(input, mockDesignTokens)[0].styles).toBe("#styles:,bg-white");
+      expect(applyChaiDesignTokens(input, mockDesignTokens)[0].styles).toBe("#styles:,bg-white");
     });
   });
 }

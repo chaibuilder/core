@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getAllRegisteredFonts } from "~/registry";
+import { getRegisteredChaiFonts } from "~/registry";
 import { getAppFields, updateAppFields } from "~/server/chai-actions/apps/app-store";
 import { runChaiActionHooks } from "~/server/plugin-api/action-hooks";
 import type { ChaiTheme } from "~/types/chaibuilder-editor-props";
@@ -42,7 +42,7 @@ export class UpdateThemeAction extends ChaiBaseAction<UpdateThemeActionData, Upd
       throw new ActionError(`Invalid theme: ${formatZodIssues(parsed.error)}`, "INVALID_DATA", 400);
     }
 
-    const fonts = getAllRegisteredFonts().map((font) => font.family);
+    const fonts = getRegisteredChaiFonts().map((font) => font.family);
     const unknownFonts = [parsed.data.fontFamily?.heading, parsed.data.fontFamily?.body].filter(
       (font): font is string => !!font && !fonts.includes(font),
     );

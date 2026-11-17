@@ -6,7 +6,7 @@ import { Plus, X } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePageExternalData } from "~/builder/atoms/builder";
-import { NestedPathSelector } from "~/builder/core/components/nested-path-selector";
+import { ChaiNestedPathSelector } from "~/builder/core/components/nested-path-selector";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
@@ -258,7 +258,7 @@ export default React.memo(function AttrsEditor({
                     <div className="flex items-center justify-between">
                       <Label htmlFor="attrValue">{t("Value")}</Label>
                       {!isEmpty(pageExternalData) && (
-                        <NestedPathSelector data={pageExternalData} onSelect={handlePathSelect} />
+                        <ChaiNestedPathSelector data={pageExternalData} onSelect={handlePathSelect} />
                       )}
                     </div>
                     <Textarea
@@ -277,7 +277,7 @@ export default React.memo(function AttrsEditor({
                   </div>
                 </div>
 
-                {error && <p className="text-[10px] text-destructive">{error}</p>}
+                {error && <p className="text-destructive text-[10px]">{error}</p>}
               </form>
             </PopoverContent>
           </Popover>
@@ -288,12 +288,12 @@ export default React.memo(function AttrsEditor({
             {attributes.map((attr, index) => (
               <div
                 key={index}
-                className="flex items-center justify-between rounded-md border border-border bg-muted/10 px-2 py-1 text-sm">
+                className="border-border bg-muted/10 flex items-center justify-between rounded-md border px-2 py-1 text-sm">
                 <div className="flex flex-col gap-0.5 text-xs leading-tight">
-                  <span className="truncate text-[10px] font-medium leading-none text-muted-foreground">
+                  <span className="text-muted-foreground truncate text-[10px] leading-none font-medium">
                     {attr.key}
                   </span>
-                  <span className="max-w-[200px] text-wrap text-xs font-normal leading-none text-foreground">
+                  <span className="text-foreground max-w-[200px] text-xs leading-none font-normal text-wrap">
                     {attr.value.toString()}
                   </span>
                 </div>

@@ -1,6 +1,6 @@
 import { ImageModel, LanguageModel } from "ai";
 import { getConfigAI, getConfigFeatures } from "~/server/defaults/config-registry";
-import type { ResolvedChaiAIGlobalConfig } from "~/types";
+import type { ResolvedChaiAiGlobalConfig } from "~/types";
 
 export const apiError = (code: string, error: unknown) => {
   console.error(error);
@@ -12,7 +12,7 @@ export function isAiCreditsEnabled(): boolean {
   return (getConfigFeatures() as any).aiCredits === true;
 }
 
-export function getAiLogger(): ResolvedChaiAIGlobalConfig["logging"]["logger"] {
+export function getAiLogger(): ResolvedChaiAiGlobalConfig["logging"]["logger"] {
   return getConfigAI().logging.logger;
 }
 

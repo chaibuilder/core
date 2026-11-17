@@ -2,11 +2,11 @@ import { find } from "lodash-es";
 import { useMemo } from "react";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
-import { useLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
+import { useChaiLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
 
 export const useCurrentLanguagePage = () => {
   const { selectedLang, fallbackLang } = useLanguages();
-  const { data: languagePages, isFetching } = useLanguagePages();
+  const { data: languagePages, isFetching } = useChaiLanguagePages();
   const { data: primaryPage } = usePrimaryPage();
 
   const data = useMemo(() => {

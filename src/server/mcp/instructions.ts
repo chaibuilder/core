@@ -1,6 +1,6 @@
 import { getActiveChaiBuilderConfig } from "~/server/defaults/config-registry";
 import type { ChaiMcpInstructionsContext, ChaiMcpToolMeta } from "~/types/mcp";
-import { getChaiMcpInstructionsSections, getChaiMcpTools } from "./registry";
+import { getRegisteredChaiMcpInstructions, getRegisteredChaiMcpTools } from "./registry";
 
 /** `\b` treats `_` as a word character, so `page_edit` does not match `start_page_edit`. */
 const mentions = (text: string, name: string): boolean => new RegExp(`\\b${name}\\b`).test(text);
@@ -41,10 +41,10 @@ export function renderChaiMcpInstructions(tools: ChaiMcpToolMeta[]): string {
   const visible = new Set(tools.map((tool) => tool.name));
   // Every registered name, not just the visible ones: a name is only worth filtering a
   // line for if it is a tool somewhere, and the hidden ones are exactly the point.
-  const registered = getChaiMcpTools().map((tool) => tool.name);
+  const registered = getRegisteredChaiMcpTools().map((tool) => tool.name);
 
   const rendered: string[] = [];
-  for (const section of getChaiMcpInstructionsSections()) {
+  for (const section of getRegisteredChaiMcpInstructions()) {
     if (section.requiresTools && !section.requiresTools.some((name) => visible.has(name))) continue;
 
     let body: string;

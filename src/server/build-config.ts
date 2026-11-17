@@ -1,14 +1,14 @@
 import "~/server/only-server";
 import { is, Table } from "drizzle-orm";
 import { assertChaiTableMappingKeys, rebindChaiRelations } from "~/db/table-mapping";
-import { registerDb } from "~/db/core";
+import { registerChaiDb } from "~/db/core";
 import { syncBlockDataProvidersToRegistry } from "~/server/defaults/block-data-providers";
 import { setActiveChaiBuilderConfig } from "~/server/defaults/config-registry";
 import { editionServerPlugins } from "~/edition/builtin-server-plugins";
 import { EDITION_TABLE_NAMES } from "~/edition/table-names";
 import { registerChaiRequestMiddleware } from "~/server/plugin-api/request-middleware";
 import type { ChaiSchemaFragment } from "~/types/plugin";
-import { setChaiContextResolver } from "./chai-context-resolver";
+import { registerChaiContextResolver } from "./chai-context-resolver";
 import {
   resolveChaiBuilderConfig,
   type ChaiBuilderServerConfigInput,
@@ -22,6 +22,7 @@ const onInitByConfig = new WeakMap<ResolvedChaiBuilderServerConfig, ChaiBuilderC
 /**
  * Returns the `onInit` callback registered via {@link buildChaiBuilderConfig}, if any.
  * For ChaiBuilder SDK internal use.
+ * @internal
  */
 export function getChaiBuilderConfigOnInit(
   config: ResolvedChaiBuilderServerConfig,
@@ -56,7 +57,7 @@ export function buildChaiBuilderConfig<TExtra extends Record<string, unknown> = 
   });
   const extended = { ...resolved, ...(options?.extend ?? {}) } as ResolvedChaiBuilderServerConfig & TExtra;
   extended.db = withPluginSchema(extended.db, extended.schemaFragments);
-  registerDb(extended.db);
+  registerChaiDb(extended.db);
   setActiveChaiBuilderConfig(extended);
   syncBlockDataProvidersToRegistry(extended.blockDataProviders);
   registerPluginRuntime(extended);
@@ -107,7 +108,7 @@ function withPluginSchema(
 function registerPluginRuntime(config: Readonly<ResolvedChaiBuilderServerConfig>): void {
   if (config.contextResolver) {
     // Last plugin to set it wins; a later `createChaiBuilder(config, { context })` wins over all.
-    setChaiContextResolver(config.contextResolver);
+    registerChaiContextResolver(config.contextResolver);
   }
   for (const { name, handler } of config.requestMiddlewares) {
     registerChaiRequestMiddleware(name, handler);

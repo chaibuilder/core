@@ -1,5 +1,5 @@
 import { parseTree, TreeNode } from "~/utils/vendor/tree";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import { getBlocksTree } from "~/builder/core/functions/split-blocks";
 import { ChaiBlock } from "~/types/common";
 
@@ -111,7 +111,7 @@ function handleNewParentTextBlock(blocks: ChaiBlock[], blockToMove: ChaiBlock, n
 
     if (!hasOtherChildren) {
       // Create a new Text block with the content
-      const textBlockId = generateUUID();
+      const textBlockId = generateUuid();
       const textBlock = {
         _id: textBlockId,
         _parent: newParentId,

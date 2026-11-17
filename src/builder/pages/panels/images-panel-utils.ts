@@ -4,7 +4,7 @@ import {
   type ChaiAssetCategory,
   type ChaiMediaUploadsConfigInput,
 } from "~/constants/ASSET_TYPES";
-import { getBlockDefaultProps } from "~/registry";
+import { getChaiBlockDefaultProps } from "~/registry";
 import { BASE64_PATH_MAX_SIZE, isSvgFile } from "../digital-asset-manager/upload-files";
 
 /** The asset categories the sidebar media panel lists, uploads and drags onto the canvas. */
@@ -43,7 +43,7 @@ export const panelMaxBytesForFile = (
 
 /**
  * The block dropped on the canvas for a video asset: a `Video` block in `Custom`
- * mode playing the file. `getBlockDefaultProps` only reads top-level schema
+ * mode playing the file. `getChaiBlockDefaultProps` only reads top-level schema
  * properties, and the Video block declares `controls` (and the URL) inside its
  * `allOf` branches, so those are set here to the block's own control defaults.
  * The URL goes in both `customUrl` (built-in block) and `url` (the prop the
@@ -51,7 +51,7 @@ export const panelMaxBytesForFile = (
  */
 export const videoBlocksForAsset = (asset: { url: string; name?: string }) => [
   {
-    ...getBlockDefaultProps("Video"),
+    ...getChaiBlockDefaultProps("Video"),
     _type: "Video",
     _name: asset.name || "Video",
     videoSource: "Custom",

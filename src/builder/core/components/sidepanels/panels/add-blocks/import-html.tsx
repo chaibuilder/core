@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { pubsub } from "~/builder/core/pubsub";
 import { useAddBlock } from "~/builder/hooks/use-add-block";
-import { getPreImportHTML } from "~/builder/register-apis";
+import { runChaiPreImportHtmlHook } from "~/builder/register-apis";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
@@ -26,7 +26,7 @@ const ImportHTML = ({
 
   const importComponents = async () => {
     setLoading(true);
-    const codeHtml = await getPreImportHTML(code);
+    const codeHtml = await runChaiPreImportHtmlHook(code);
     const blocks = await getBlocksFromHTML(codeHtml);
     addPredefinedBlock([...blocks], parentId, position);
     setCode("");
@@ -46,7 +46,7 @@ const ImportHTML = ({
           rows={12}
           value={code}
           placeholder={t("Enter your code snippet here")}
-          className="resize-none overflow-x-auto whitespace-pre text-xs font-extralight"
+          className="resize-none overflow-x-auto text-xs font-extralight whitespace-pre"
         />
       </div>
       <div className="flex justify-end">

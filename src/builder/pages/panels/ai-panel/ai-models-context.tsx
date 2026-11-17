@@ -2,7 +2,7 @@
 
 import { createContext, ReactNode, useContext } from "react";
 import { usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
-import { AIContext } from "~/types";
+import { ChaiAiContext } from "~/types";
 import { AI_MODELS } from "./models";
 
 export type AIModel = {
@@ -63,7 +63,7 @@ export interface AIConfig {
   onSuccess?: (data: AISuccessCallback) => void;
   onError?: (data: AIErrorCallback) => void;
   onComplete?: (data: AICompleteCallback) => void;
-  context?: AIContext;
+  context?: ChaiAiContext;
   [key: string]: any;
 }
 

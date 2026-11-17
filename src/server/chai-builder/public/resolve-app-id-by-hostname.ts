@@ -30,7 +30,7 @@ export type ResolveAppIdByHostnameOptions = {
  * Hostnames are normalized via {@link getCleanHostname} before lookup, then handed to the site
  * domain resolver a plugin registered (`registerChaiSiteDomainResolver`).
  */
-export async function resolveAppIdByHostname(
+export async function resolveChaiAppIdByHostname(
   hostname: string,
   options?: ResolveAppIdByHostnameOptions,
 ): Promise<string> {

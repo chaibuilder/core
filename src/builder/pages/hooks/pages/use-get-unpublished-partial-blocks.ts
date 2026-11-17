@@ -2,7 +2,7 @@ import { compact, filter, find, get, isEmpty, uniq } from "lodash-es";
 import { useCallback } from "react";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
 import { builderStore } from "~/builder/atoms/store";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { ChaiBlock } from "~/types/common";
 
 export type PartialBlockStatus = "unpublished" | "unpublished_changes";
@@ -29,7 +29,7 @@ export const withNestedPartials = (ids: string[], pages: unknown[]) => {
 };
 
 export const useGetUnpublishedPartialBlocks = () => {
-  const { data: websitePages } = useWebsitePrimaryPages();
+  const { data: websitePages } = useChaiPrimaryPages();
 
   const getUnpublishedPartialBlocks = useCallback(() => {
     // Guard: return empty if websitePages is not loaded yet

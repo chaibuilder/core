@@ -1,7 +1,8 @@
-export const RJSF_EXTENSIONS: Record<string, { id: string; component: React.ComponentType<any>; type: string }> = {};
+export const CHAI_RJSF_EXTENSIONS: Record<string, { id: string; component: React.ComponentType<any>; type: string }> =
+  {};
 
 export const registerChaiBlockSettingWidget = (id: string, component: React.ComponentType<any>) => {
-  RJSF_EXTENSIONS[id] = {
+  CHAI_RJSF_EXTENSIONS[id] = {
     id,
     component,
     type: "widget",
@@ -9,7 +10,7 @@ export const registerChaiBlockSettingWidget = (id: string, component: React.Comp
 };
 
 export const registerChaiBlockSettingField = (id: string, component: React.ComponentType<any>) => {
-  RJSF_EXTENSIONS[id] = {
+  CHAI_RJSF_EXTENSIONS[id] = {
     id,
     component,
     type: "field",
@@ -17,7 +18,7 @@ export const registerChaiBlockSettingField = (id: string, component: React.Compo
 };
 
 export const registerChaiBlockSettingTemplate = (id: string, component: React.ComponentType<any>) => {
-  RJSF_EXTENSIONS[id] = {
+  CHAI_RJSF_EXTENSIONS[id] = {
     id,
     component,
     type: "template",
@@ -27,7 +28,7 @@ export const registerChaiBlockSettingTemplate = (id: string, component: React.Co
 export const useChaiBlockSettingComponents = (
   type: "widget" | "field" | "template",
 ): Record<string, React.ComponentType<any>> => {
-  return Object.values(RJSF_EXTENSIONS)
+  return Object.values(CHAI_RJSF_EXTENSIONS)
     .filter((component) => component.type === type)
     .reduce(
       (acc, component) => {

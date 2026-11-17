@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { useTestChaiConfig } from "~/tests/setup/chai-config";
-import type { ChaiCollectionEntry } from "~/types/chaibuilder-config";
+import type { ChaiCollectionEntry } from "~/types/deprecated";
 import type { ChaiBlock } from "~/types/common";
 import type { ChaiRepeaterDataEntry } from "~/types/repeater-data";
 import { fetchRepeaterItems } from "./fetch-repeater-items";

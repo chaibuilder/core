@@ -13,19 +13,15 @@ import type { ChaiContextResolver, ChaiRequestContext } from "~/types/chaibuilde
 const _g = globalThis as typeof globalThis & { __chaiContextResolver?: ChaiContextResolver };
 
 /**
- * Registers the process-wide context resolver. The last call wins.
- *
- * @deprecated Prefer `createChaiBuilder(config, { context })`, which registers the resolver
- * and hands back a `getChaiBuilder` bound to the config — so entry points import that instead
- * of relying on a side-effect import that is easy to forget. This function keeps working and
- * is what the factory calls internally.
+ * Registers the process-wide context resolver. The last call wins. Internal: hosts pass
+ * `context` to `createChaiBuilder(config, { context })`, which calls this.
  */
-export function setChaiContextResolver(resolver: ChaiContextResolver): void {
+export function registerChaiContextResolver(resolver: ChaiContextResolver): void {
   _g.__chaiContextResolver = resolver;
 }
 
 /** Returns the registered resolver, or `null` if none has been set. */
-export function getChaiContextResolver(): ChaiContextResolver | null {
+export function getRegisteredChaiContextResolver(): ChaiContextResolver | null {
   return _g.__chaiContextResolver ?? null;
 }
 
@@ -38,7 +34,7 @@ export function resetChaiContextResolverForTests(): void {
  * Static, Next-free context used when no resolver is registered (e.g. scripts,
  * seeding). Reads identity from env only — never touches `next/headers`.
  */
-export function staticDefaultChaiContext(overrides?: Partial<ChaiRequestContext>): ChaiRequestContext {
+export function createStaticChaiContext(overrides?: Partial<ChaiRequestContext>): ChaiRequestContext {
   return {
     appId: process.env.CHAIBUILDER_API_KEY ?? process.env.CHAIBUILDER_APP_KEY ?? "",
     siteUrl: process.env.SITE_URL ?? null,

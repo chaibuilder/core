@@ -1,12 +1,12 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import type { DuplicatePageVariant } from "~/server/chai-actions/pages/duplicate-page";
 
 export const useDuplicatePage = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
 

@@ -1,5 +1,5 @@
 import { eq } from "drizzle-orm";
-import { type DbResult, db, safeQuery, schema } from "~/server/chai-actions/db";
+import { type ChaiDbResult, db, safeQuery, schema } from "~/server/chai-actions/db";
 
 /**
  * The one entry point for an app row keyed by id: every core read or write of `apps` /
@@ -13,7 +13,7 @@ type AppRow = Record<string, any>;
 type ReadOpts = { draft?: boolean };
 
 /** The full row. `data: null` = not found. */
-export async function getAppRow(appId: string, { draft = true }: ReadOpts = {}): Promise<DbResult<AppRow | null>> {
+export async function getAppRow(appId: string, { draft = true }: ReadOpts = {}): Promise<ChaiDbResult<AppRow | null>> {
   const table = draft ? schema.apps : schema.appsOnline;
   const query = draft ? db.query.apps : db.query.appsOnline;
   const result = await safeQuery(() => query.findFirst({ where: eq(table.id, appId) }));
@@ -25,7 +25,7 @@ export async function getAppFields(
   appId: string,
   keys: readonly string[],
   { draft = true }: ReadOpts = {},
-): Promise<DbResult<AppRow | null>> {
+): Promise<ChaiDbResult<AppRow | null>> {
   const table = draft ? schema.apps : schema.appsOnline;
   const query = draft ? db.query.apps : db.query.appsOnline;
   const columns = Object.fromEntries(keys.map((key) => [key, true]));
@@ -34,6 +34,6 @@ export async function getAppFields(
 }
 
 /** Updates the draft row. */
-export async function updateAppFields(appId: string, patch: AppRow): Promise<DbResult<unknown>> {
+export async function updateAppFields(appId: string, patch: AppRow): Promise<ChaiDbResult<unknown>> {
   return safeQuery(() => db.update(schema.apps).set(patch).where(eq(schema.apps.id, appId)));
 }

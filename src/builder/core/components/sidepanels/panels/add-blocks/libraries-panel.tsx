@@ -18,14 +18,14 @@ import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLibraryBlocks } from "~/builder/hooks/use-library-blocks";
 import { useLibraryChaiBlocks } from "~/builder/hooks/use-library-chai-blocks";
 import { useSelectedLibrary } from "~/builder/hooks/use-selected-library";
-import { useChaiLibraries } from "~/builder/register-apis";
+import { useRegisteredChaiLibraries } from "~/builder/register-apis";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~/components/ui/select";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
-import { syncBlocksWithDefaultProps } from "~/registry";
+import { syncChaiBlocksWithDefaultProps } from "~/registry";
 import { ChaiLibrary, ChaiLibraryBlock } from "~/types/chaibuilder-editor-props";
 import { ChaiBlock } from "~/types/common";
 import { getBlocksFromHTML } from "~/utils/import-html/html-to-json";
@@ -42,7 +42,11 @@ export const getLibraryBlockMaxDepth = (block: ChaiLibraryBlock, groupMaxDepth: 
  * A registered block listed with `showInLibrary` follows the Blocks tab's rule: with
  * drag-and-drop off, it is disabled where the target parent would reject it.
  */
-export const isRegisteredLibraryBlockDisabled = (block: ChaiLibraryBlock, parentType: string | undefined, dnd: boolean) =>
+export const isRegisteredLibraryBlockDisabled = (
+  block: ChaiLibraryBlock,
+  parentType: string | undefined,
+  dnd: boolean,
+) =>
   !dnd &&
   has(block, "component") &&
   (!canAcceptChildBlock(parentType!, block.type) || !canBeNestedInside(parentType!, block.type));
@@ -79,7 +83,7 @@ export const BlockCard = ({
       if (has(block, "component")) {
         if (has(block, "blocks")) {
           const blocks = isFunction(block.blocks) ? block.blocks() : block.blocks;
-          addPredefinedBlock(syncBlocksWithDefaultProps(blocks), parentId, position);
+          addPredefinedBlock(syncChaiBlocksWithDefaultProps(blocks), parentId, position);
         } else {
           addCoreBlock(block, parentId, position);
         }
@@ -95,7 +99,7 @@ export const BlockCard = ({
         uiBlocks = await getBlocksFromHTML(uiBlocks);
       }
       if (!isEmpty(uiBlocks))
-        addPredefinedBlock(syncBlocksWithDefaultProps(uiBlocks), parentId, position, {
+        addPredefinedBlock(syncChaiBlocksWithDefaultProps(uiBlocks), parentId, position, {
           maxDepth: getLibraryBlockMaxDepth(block, groupMaxDepth),
         });
       pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
@@ -117,7 +121,7 @@ export const BlockCard = ({
       if (typeof uiBlocks === "string") {
         uiBlocks = await getBlocksFromHTML(uiBlocks);
       }
-      const blocks = syncBlocksWithDefaultProps(uiBlocks as ChaiBlock[]);
+      const blocks = syncChaiBlocksWithDefaultProps(uiBlocks as ChaiBlock[]);
       setDraggedBlock((prev) => (prev ? { ...prev, blocks } : prev));
       return blocks;
     });
@@ -136,7 +140,7 @@ export const BlockCard = ({
           <div
             aria-disabled={disabled}
             className={clsx(
-              "group relative mt-2 min-h-[45px] w-full max-w-full overflow-hidden rounded-md border border-border duration-200",
+              "group border-border relative mt-2 min-h-[45px] w-full max-w-full overflow-hidden rounded-md border duration-200",
               disabled ? "cursor-not-allowed opacity-50" : "hover:border-blue-500 hover:shadow-xl",
             )}>
             {!disabled && !isAdding && (
@@ -149,7 +153,7 @@ export const BlockCard = ({
               </Button>
             )}
             {isAdding && (
-              <div className="absolute flex h-full w-full items-center justify-center bg-background/70">
+              <div className="bg-background/70 absolute flex h-full w-full items-center justify-center">
                 <ReloadIcon className="h-4 w-4 animate-spin text-white" />
                 <span className="pl-2 text-sm text-white">Adding...</span>
               </div>
@@ -160,7 +164,7 @@ export const BlockCard = ({
               // the panel width.
               <ChaiImage src={block.preview} className={`block h-auto w-full max-w-full rounded-md`} alt={name} />
             ) : (
-              <div className="flex h-fit w-full flex-col items-center justify-center gap-1 rounded-md border border-border p-6 py-10 text-center">
+              <div className="border-border flex h-fit w-full flex-col items-center justify-center gap-1 rounded-md border p-6 py-10 text-center">
                 <p className="font-medium text-gray-800">{name}</p>
                 {description && <p className="text-sm text-gray-600">{description}</p>}
               </div>
@@ -191,17 +195,14 @@ const UILibrarySection = ({
   onSearchChange?: (value: string) => void;
 }) => {
   const [selectedLibrary, setLibrary] = useSelectedLibrary();
-  const uiLibraries = useChaiLibraries();
+  const uiLibraries = useRegisteredChaiLibraries();
   const library = uiLibraries.find((library) => library.id === selectedLibrary) || first(uiLibraries);
   const { data: uiLibraryBlocks, isLoading, isError, resetLibrary } = useLibraryBlocks(library);
   const libraryChaiBlocks = useLibraryChaiBlocks();
   const dnd = useBuilderProp("flags.dragAndDrop", true);
   const [allBlocks] = useBlocksStore();
   const parentType = allBlocks.find((block) => block._id === parentId)?._type;
-  const libraryBlocks = useMemo(
-    () => [...uiLibraryBlocks, ...libraryChaiBlocks],
-    [uiLibraryBlocks, libraryChaiBlocks],
-  );
+  const libraryBlocks = useMemo(() => [...uiLibraryBlocks, ...libraryChaiBlocks], [uiLibraryBlocks, libraryChaiBlocks]);
   // Support a controlled search term (single search box shared across all
   // add-block tabs) and an internal one (when used standalone).
   const isSearchControlled = controlledSearchTerm !== undefined;
@@ -296,13 +297,13 @@ const UILibrarySection = ({
   if (isLoading)
     return (
       <div className="flex animate-pulse flex-col space-y-1 py-2">
-        <div className="h-7 w-full rounded-md bg-accent" />
-        <div className="h-7 w-full rounded-md bg-accent" />
-        <div className="h-7 w-full rounded-md bg-accent" />
+        <div className="bg-accent h-7 w-full rounded-md" />
+        <div className="bg-accent h-7 w-full rounded-md" />
+        <div className="bg-accent h-7 w-full rounded-md" />
         <div className="h-3" />
-        <div className="h-36 w-full rounded-md bg-accent" />
-        <div className="h-36 w-full rounded-md bg-accent" />
-        <div className="h-36 w-full rounded-md bg-accent" />
+        <div className="bg-accent h-36 w-full rounded-md" />
+        <div className="bg-accent h-36 w-full rounded-md" />
+        <div className="bg-accent h-36 w-full rounded-md" />
       </div>
     );
 
@@ -332,7 +333,7 @@ const UILibrarySection = ({
                 </Select>
               </div>
               <div className="flex h-full max-h-full w-full flex-1 flex-col">
-                {!fromSidebar && <hr className="mt-1 border-border" />}
+                {!fromSidebar && <hr className="border-border mt-1" />}
                 <div className={`no-scrollbar h-full max-h-full flex-1 overflow-y-auto ${fromSidebar ? "" : "pb-20"}`}>
                   {/* Registered `showInLibrary` blocks keep the group list populated, so a failed
                       UI library load needs its own notice above them. */}
@@ -373,7 +374,7 @@ const UILibrarySection = ({
                         role="button"
                         onClick={() => setGroup(group)}
                         className={cn(
-                          "flex w-full cursor-pointer items-center justify-between rounded-md p-2 text-sm text-foreground transition-all ease-in-out hover:bg-gray-200 dark:hover:bg-gray-800",
+                          "text-foreground flex w-full cursor-pointer items-center justify-between rounded-md p-2 text-sm transition-all ease-in-out hover:bg-gray-200 dark:hover:bg-gray-800",
                           group === selectedGroup ? "bg-primary text-primary-foreground hover:bg-primary/80" : "",
                         )}>
                         <span>{groupLabel(group)}</span>
@@ -387,7 +388,8 @@ const UILibrarySection = ({
                 <SearchInput value={searchQuery} setValue={setSearchQuery} />
               )}
             </div>
-            <div className={`flex h-full max-h-full w-full flex-col border-border ${fromSidebar ? "" : "border-l h-full"}`}>
+            <div
+              className={`border-border flex h-full max-h-full w-full flex-col ${fromSidebar ? "" : "h-full border-l"}`}>
               <ScrollArea
                 ref={scrollAreaRef}
                 onMouseEnter={() => timeoutRef.current && clearTimeout(timeoutRef.current)}

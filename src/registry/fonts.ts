@@ -22,11 +22,11 @@ export const registerChaiFont = (family: string, font: Omit<ChaiFontBySrc, "fami
   } as ChaiFont);
 };
 
-export const useRegisteredFonts = () => {
+export const useRegisteredChaiFonts = () => {
   return REGISTERED_FONTS;
 };
 
-export const getRegisteredFont = (family: string) => {
+export const getRegisteredChaiFont = (family: string) => {
   return REGISTERED_FONTS.find((font) => font.family === family);
 };
 
@@ -39,14 +39,14 @@ const PLAIN_FAMILY = /^[A-Za-z0-9][A-Za-z0-9 ]*$/;
 const GENERIC_FAMILIES = new Set(["serif", "monospace", "cursive", "fantasy", "math", "emoji", "fangsong"]);
 
 /** A registered font, else a Google Fonts stylesheet for a plain family name. */
-export const resolveFont = (family: string): ChaiFont | undefined =>
-  getRegisteredFont(family) ??
+export const resolveChaiFont = (family: string): ChaiFont | undefined =>
+  getRegisteredChaiFont(family) ??
   (PLAIN_FAMILY.test(family) && !GENERIC_FAMILIES.has(family.toLowerCase())
     ? ({ family, url: googleFontsUrl(family), fallback: "ui-sans-serif, system-ui, sans-serif" } as ChaiFontByUrl)
     : undefined);
 
-export const getAllRegisteredFonts = () => {
+export const getRegisteredChaiFonts = () => {
   return REGISTERED_FONTS;
 };
 
-export { getFontStyles } from "./font-helpers";
+export { getChaiFontStyles } from "./font-helpers";

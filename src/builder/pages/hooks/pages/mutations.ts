@@ -2,12 +2,12 @@ import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-quer
 import { find, get } from "lodash-es";
 import { toast } from "sonner";
 import { useQuerySync } from "~/builder/hooks/use-query-sync";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { ERRORS } from "~/builder/pages/constants/ERRORS";
-import { useCurrentActivePage } from "~/builder/pages/hooks/pages/use-current-page";
-import { useApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiActivePage } from "~/builder/pages/hooks/pages/use-current-page";
+import { useChaiApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { useRevisionsEnabled } from "~/builder/pages/hooks/use-revisions-enabled";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import type { ChaiPageType } from "~/types/actions";
@@ -36,10 +36,10 @@ const getPageTypeLabel = (pageTypeObject: ChaiPageType | undefined, fallback: st
 };
 
 export const useCreatePage = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   return useMutation({
     mutationFn: async (newPage: Partial<any>) => {
       const response = await fetchAPI(apiUrl, {
@@ -84,11 +84,11 @@ export const useCreatePage = () => {
 };
 
 export const useUpdatePage = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
-  const { data: activePage } = useCurrentActivePage();
-  const { data: pageTypes } = usePageTypes();
+  const { data: activePage } = useChaiActivePage();
+  const { data: pageTypes } = useChaiPageTypes();
   return useMutation({
     mutationFn: async (updatedPage: Partial<any>) => {
       const response = await fetchAPI(apiUrl, {
@@ -133,10 +133,10 @@ export const useUpdatePage = () => {
 };
 
 export const useDeletePage = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const flags = usePagesProp("flags", {}) as Record<string, boolean>;
 
   return useMutation({
@@ -183,9 +183,9 @@ export const useDeletePage = () => {
 };
 
 export const useUnpublishPage = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const { handleQuerySync } = useQuerySync();
 
   return useMutation({
@@ -223,9 +223,9 @@ export const useUnpublishPage = () => {
 };
 
 export const usePublishPages = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
-  const { savePageAsync } = useSavePage();
+  const { savePageAsync } = useChaiSavePage();
   const revisionsEnabled = useRevisionsEnabled();
   const { handleQuerySync } = useQuerySync();
 
@@ -261,7 +261,7 @@ export const usePublishPages = () => {
 export const useIsPublishing = () => useIsMutating({ mutationKey: [ACTIONS.PUBLISH_CHANGES] }) > 0;
 
 export const useMarkAsTemplate = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
 
@@ -297,7 +297,7 @@ export const useMarkAsTemplate = () => {
 };
 
 export const useUnmarkAsTemplate = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
 
@@ -321,7 +321,7 @@ export const useUnmarkAsTemplate = () => {
 };
 
 export const useChangeSlug = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
 

@@ -10,7 +10,7 @@ import { chaiDrizzleLogger } from "~/db/logger";
  * to the core tables under the default naming. Pass `createChaiSqliteSchema(naming).schema` for a
  * programmatic naming. `schema` is the older spelling of the same option.
  */
-export type BetterSqliteDbInput =
+export type CreateBetterSqliteDbOptions =
   | {
       file: string;
       tableMapping?: ChaiTableMapping;
@@ -24,7 +24,7 @@ export type BetterSqliteDbInput =
       schema?: Record<string, unknown>;
     };
 
-function assertSingleBetterSqliteInput(input: BetterSqliteDbInput): void {
+function assertSingleBetterSqliteInput(input: CreateBetterSqliteDbOptions): void {
   const count = Number("file" in input) + Number("drizzle" in input);
   if (count !== 1) {
     throw new Error("ChaiBuilder: createBetterSqliteDB expects exactly one of `file` or `drizzle`.");
@@ -32,7 +32,7 @@ function assertSingleBetterSqliteInput(input: BetterSqliteDbInput): void {
 }
 
 /** Creates a better-sqlite3 Drizzle setup for `buildChaiBuilderConfig({ db: ... })`. */
-export function createBetterSqliteDB(input: BetterSqliteDbInput): ChaiDbSetup {
+export function createBetterSqliteDb(input: CreateBetterSqliteDbOptions): ChaiDbSetup {
   assertSingleBetterSqliteInput(input);
 
   const activeSchema = mapChaiTables(input.tables ?? input.schema ?? schema, input.tableMapping, schema);
@@ -69,3 +69,6 @@ export function createBetterSqliteDB(input: BetterSqliteDbInput): ChaiDbSetup {
 export type { BetterSQLite3Database };
 
 export type { ChaiTableMapping } from "~/db/table-mapping";
+
+// Deprecated names, kept for compatibility. See ./better-sqlite3.deprecated.ts.
+export * from "./better-sqlite3.deprecated";

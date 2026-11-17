@@ -1,4 +1,4 @@
-export const LANGUAGES: { [key: string]: string } = {
+export const CHAI_LANGUAGES: { [key: string]: string } = {
   ab: "Abkhazian",
   aa: "Afar",
   af: "Afrikaans",

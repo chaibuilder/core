@@ -14,10 +14,10 @@ const pageStylesLogger = consola.withTag("ChaiPageStyles");
 // in the Data Cache, which outlives deployments, so the key must change or an older deploy's output
 // keeps being served. v2: the min-width `@media` sort no longer depends on postcss (which is not
 // bundled into the v4 serverless runtime), so previously-cached *unsorted* CSS — the cause of
-// breakpoint-forked menus rendering both variants — must be recomputed. v3: Tailwind v3 values
-// for shadow-sm / drop-shadow-sm / blur-sm / backdrop-blur-sm / bare ring (V3_SCALE). v4: v3
-// `outline-none` and bare `ring` color (V3_COMPAT_CSS).
-const PAGE_STYLES_COMPILER_VERSION = "4";
+// breakpoint-forked menus rendering both variants — must be recomputed. v3/v4: Tailwind v3 value
+// overrides (since removed). v5: those overrides are gone; shadow-sm, drop-shadow-sm, blur-sm,
+// backdrop-blur-sm, bare `ring` and `outline-none` compile to Tailwind v4's own values.
+const PAGE_STYLES_COMPILER_VERSION = "5";
 
 // Stable function reference for caching - defined once at module level
 export async function fetchPageStylesUncached(blocks: ChaiBlock[]): Promise<string> {

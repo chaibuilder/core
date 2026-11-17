@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { usePartialBlocksList } from "~/builder/hooks/use-partial-blocks-store";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useStructureValidation } from "~/builder/hooks/use-structure-validation";
 import { Button } from "~/components/ui/button";
@@ -23,7 +23,7 @@ const ErrorsButton = ({ isActive, show }: { isActive: boolean; show: () => void 
       className={`relative h-8 w-8 ${isActive ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground" : ""}`}>
       <AlertTriangle className="h-5 w-5" />
       {totalCount > 0 && (
-        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+        <span className="bg-destructive text-destructive-foreground absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-bold">
           {totalCount > 99 ? "99+" : totalCount}
         </span>
       )}
@@ -35,7 +35,7 @@ const ErrorsPanel = () => {
   const { errors, errorCount, warningCount } = useStructureValidation();
   const [, setSelectedBlockIds] = useSelectedBlockIds();
   const gotoPage = useBuilderProp("gotoPage", noop);
-  const { saveState, savePageAsync } = useSavePage();
+  const { saveState, savePageAsync } = useChaiSavePage();
   const { selectedLang, fallbackLang } = useLanguages();
   const { data: partialBlocksList } = usePartialBlocksList();
   const { t } = useTranslation();
@@ -66,7 +66,7 @@ const ErrorsPanel = () => {
         <CheckCircle2 className="h-10 w-10 text-green-500" />
         <div>
           <p className="text-sm font-medium">{t("No issues found")}</p>
-          <p className="text-xs text-muted-foreground">{t("This page has no validation errors or warnings.")}</p>
+          <p className="text-muted-foreground text-xs">{t("This page has no validation errors or warnings.")}</p>
         </div>
       </div>
     );
@@ -77,7 +77,7 @@ const ErrorsPanel = () => {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="text-muted-foreground flex items-center gap-2 text-xs">
         {errorCount > 0 && (
           <span className="text-red-500">
             {errorCount} {t(errorCount === 1 ? "error" : "errors")}

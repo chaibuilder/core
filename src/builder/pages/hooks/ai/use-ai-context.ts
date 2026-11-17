@@ -1,17 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
-import { AIContext } from "~/types";
+import { ChaiAiContext } from "~/types";
 import { withoutPageDesignKeys, withoutSiteDesignKeys } from "~/utils/design-context";
 import { ACTIONS } from "../../constants/ACTIONS";
-import { useCurrentActivePage as useActivePage } from "../pages/use-current-page";
-import { useBuilderFetch } from "../utils/use-fetch";
+import { useChaiActivePage as useActivePage } from "../pages/use-current-page";
+import { useChaiActionFetch } from "../utils/use-fetch";
 
 export const AI_CONTEXT_QUERY_KEY = "AI_CONTEXT";
 
 export function useAiContext() {
   const { data: activePage } = useActivePage();
-  const builderFetch = useBuilderFetch();
+  const builderFetch = useChaiActionFetch();
 
-  return useQuery<AIContext | null>({
+  return useQuery<ChaiAiContext | null>({
     queryKey: [AI_CONTEXT_QUERY_KEY, activePage?.id],
     queryFn: async () => {
       if (!activePage?.id) return null;

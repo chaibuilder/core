@@ -1,7 +1,7 @@
 import Database from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { createBetterSqliteDB } from "~/db/better-sqlite3";
-import { registerDb, type ChaiDbSetup } from "~/db/core";
+import { createBetterSqliteDb } from "~/db/better-sqlite3";
+import { registerChaiDb, type ChaiDbSetup } from "~/db/core";
 import * as schema from "~/edition/test-schema";
 
 export type TestDb = BetterSQLite3Database<typeof schema>;
@@ -29,12 +29,12 @@ export function getTestDb(): TestDb {
 
 /** The same database as a ChaiBuilder `db` setup — what `buildChaiBuilderConfig({ db })` receives. */
 export function getTestDbSetup(): ChaiDbSetup {
-  return (setup ??= createBetterSqliteDB({ drizzle: getTestDb(), schema }));
+  return (setup ??= createBetterSqliteDb({ drizzle: getTestDb(), schema }));
 }
 
 /** Points ChaiBuilder's `db` singleton at the worker's real in-memory database. */
 export function registerTestDb(): void {
-  registerDb(getTestDbSetup());
+  registerChaiDb(getTestDbSetup());
 }
 
 export { schema };

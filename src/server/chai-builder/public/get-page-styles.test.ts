@@ -125,7 +125,7 @@ describe("get-page-styles", () => {
 
     expect(cache.wraps).toEqual([
       {
-        keyParts: [`page-styles-${TEST_APP_ID}-page-1-c4-m3-g-${fingerprint}`],
+        keyParts: [`page-styles-${TEST_APP_ID}-page-1-c5-m3-g-${fingerprint}`],
         tags: ["page-styles", "page-page-1"],
       },
     ]);

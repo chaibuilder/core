@@ -3,13 +3,14 @@ import { createChaiMcpResponse } from "./response";
 import {
   defineChaiMcpInstructionsSection,
   defineChaiMcpTool,
-  getChaiMcpInstructionsSections,
-  getChaiMcpTool,
-  getChaiMcpTools,
+  getRegisteredChaiMcpInstructions,
+  getRegisteredChaiMcpTool,
+  getRegisteredChaiMcpTools,
   registerChaiMcpInstructions,
   registerChaiMcpTool,
   registerChaiMcpTools,
   resetChaiMcpRegistryForTests,
+  unregisterChaiMcpTool,
   unregisterChaiMcpTools,
 } from "./registry";
 
@@ -25,14 +26,26 @@ describe("MCP tool registry", () => {
     registerChaiMcpTools("chai:mcp", [tool("create_page"), tool("publish_page")]);
     registerChaiMcpTools("app", [tool("list_leads")]);
 
-    expect(getChaiMcpTools().map((t) => t.name)).toEqual(["create_page", "publish_page", "list_leads"]);
+    expect(getRegisteredChaiMcpTools().map((t) => t.name)).toEqual(["create_page", "publish_page", "list_leads"]);
+  });
+
+  it("unregisters one tool and gives back its override claim", () => {
+    registerChaiMcpTools("chai:mcp", [tool("create_page"), tool("publish_page")]);
+    registerChaiMcpTool("app", tool("publish_page"), { override: true });
+    registerChaiMcpTool("app", tool("list_leads"));
+
+    unregisterChaiMcpTool("app", "publish_page");
+    expect(getRegisteredChaiMcpTools().map((t) => t.name)).toEqual(["create_page", "publish_page", "list_leads"]);
+
+    unregisterChaiMcpTool("app", "list_leads");
+    expect(getRegisteredChaiMcpTools().map((t) => t.name)).toEqual(["create_page", "publish_page"]);
   });
 
   it("replaces an owner's previous set rather than appending to it", () => {
     registerChaiMcpTools("chai:mcp", [tool("create_page"), tool("publish_page")]);
     registerChaiMcpTools("chai:mcp", [tool("create_page")]);
 
-    expect(getChaiMcpTools().map((t) => t.name)).toEqual(["create_page"]);
+    expect(getRegisteredChaiMcpTools().map((t) => t.name)).toEqual(["create_page"]);
   });
 
   it("keeps a first-registration position when an owner re-registers", () => {
@@ -40,29 +53,29 @@ describe("MCP tool registry", () => {
     registerChaiMcpTools("app", [tool("list_leads")]);
     registerChaiMcpTools("chai:mcp", [tool("create_page"), tool("publish_page")]);
 
-    expect(getChaiMcpTools().map((t) => t.name)).toEqual(["create_page", "publish_page", "list_leads"]);
+    expect(getRegisteredChaiMcpTools().map((t) => t.name)).toEqual(["create_page", "publish_page", "list_leads"]);
   });
 
   it("upserts a single tool without dropping the owner's others", () => {
     registerChaiMcpTools("app", [tool("a_tool"), tool("b_tool")]);
     registerChaiMcpTool("app", tool("a_tool", ["pages:read"]));
 
-    expect(getChaiMcpTools().map((t) => t.name)).toEqual(["b_tool", "a_tool"]);
-    expect(getChaiMcpTool("a_tool")?.permissions).toEqual(["pages:read"]);
+    expect(getRegisteredChaiMcpTools().map((t) => t.name)).toEqual(["b_tool", "a_tool"]);
+    expect(getRegisteredChaiMcpTool("a_tool")?.permissions).toEqual(["pages:read"]);
   });
 
   it("refuses a name another owner already registered", () => {
     registerChaiMcpTools("chai:mcp", [tool("publish_page")]);
 
     expect(() => registerChaiMcpTools("app", [tool("publish_page")])).toThrow(/already owned by "chai:mcp"/);
-    expect(getChaiMcpTools()).toHaveLength(1);
+    expect(getRegisteredChaiMcpTools()).toHaveLength(1);
   });
 
   it("lets an owner take over a name deliberately", () => {
     registerChaiMcpTools("chai:mcp", [tool("publish_page", ["pages:publish"])]);
     registerChaiMcpTools("app", [tool("publish_page", ["app:publish"])], { override: true });
 
-    const tools = getChaiMcpTools();
+    const tools = getRegisteredChaiMcpTools();
     expect(tools).toHaveLength(1);
     expect(tools[0].permissions).toEqual(["app:publish"]);
   });
@@ -85,7 +98,7 @@ describe("MCP tool registry", () => {
     registerChaiMcpTools("app", [tool("list_leads")]);
     unregisterChaiMcpTools("app");
 
-    expect(getChaiMcpTools().map((t) => t.name)).toEqual(["create_page"]);
+    expect(getRegisteredChaiMcpTools().map((t) => t.name)).toEqual(["create_page"]);
   });
 });
 
@@ -100,7 +113,7 @@ describe("MCP instructions registry", () => {
       defineChaiMcpInstructionsSection({ id: "alpha", order: 30, body: "x" }),
     ]);
 
-    expect(getChaiMcpInstructionsSections().map((s) => s.id)).toEqual(["preamble", "alpha", "seo", "leads"]);
+    expect(getRegisteredChaiMcpInstructions().map((s) => s.id)).toEqual(["preamble", "alpha", "seo", "leads"]);
   });
 
   it("refuses an id another owner already registered", () => {

@@ -10,7 +10,7 @@ import { useCallback, useEffect } from "react";
  * transport, the channel, the Supabase client — is the plugin's business.
  *
  * With the plugin absent both halves degrade quietly: the editor reports itself as
- * the sole editor (see `usePageLockStatus`) and broadcasts become no-ops.
+ * the sole editor (see `useChaiPageLockStatus`) and broadcasts become no-ops.
  */
 
 /** An event broadcast to every other client editing the same site. */

@@ -16,7 +16,7 @@ import { ChaiImage } from "~/builder/core/components/shared";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useBuilderFetch } from "~/builder/pages/hooks/utils/use-fetch";
+import { useChaiActionFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { Loading } from "~/components/ui/loader";
@@ -56,8 +56,8 @@ const AssetPreview = ({ asset, type }: { asset: Asset; type: ChaiAssetType }) =>
 
   if (type === "audio") {
     return (
-      <div className="flex h-full w-full flex-col items-center justify-center gap-4 rounded-lg border bg-muted/20 p-6">
-        <Music className="h-16 w-16 text-muted-foreground" />
+      <div className="bg-muted/20 flex h-full w-full flex-col items-center justify-center gap-4 rounded-lg border p-6">
+        <Music className="text-muted-foreground h-16 w-16" />
         <audio src={asset.url} controls preload="metadata" className="w-full max-w-sm">
           <track kind="captions" />
         </audio>
@@ -67,14 +67,14 @@ const AssetPreview = ({ asset, type }: { asset: Asset; type: ChaiAssetType }) =>
 
   const Icon = type === "document" ? FileText : FileIcon;
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center gap-3 rounded-lg border bg-muted/20 p-6">
-      <Icon className="h-16 w-16 text-muted-foreground" />
-      <span className="text-sm font-medium text-foreground">{asset.name}</span>
+    <div className="bg-muted/20 flex h-full w-full flex-col items-center justify-center gap-3 rounded-lg border p-6">
+      <Icon className="text-muted-foreground h-16 w-16" />
+      <span className="text-foreground text-sm font-medium">{asset.name}</span>
       <a
         href={asset.url}
         target="_blank"
         rel="noreferrer"
-        className="text-sm font-medium text-primary underline-offset-4 hover:underline">
+        className="text-primary text-sm font-medium underline-offset-4 hover:underline">
         {t("Open in new tab")}
       </a>
     </div>
@@ -142,7 +142,7 @@ export const SingleAssetDetail = ({ assetId, onBack, onEdit, onSave, isSaving }:
   const [selectedLang, setSelectedLang] = useState(selectedLangFromHook || fallbackLang);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const isAiEnabled = useBuilderProp("flags.ai", false);
-  const builderFetch = useBuilderFetch();
+  const builderFetch = useChaiActionFetch();
 
   // No longer checking for placeholder for AI generation
 
@@ -247,8 +247,8 @@ export const SingleAssetDetail = ({ assetId, onBack, onEdit, onSave, isSaving }:
           <div className="mb-4 flex justify-center">
             <AlertCircle className="h-12 w-12 text-gray-400" />
           </div>
-          <h3 className="mb-2 text-lg font-medium text-foreground">{t("No Asset Found")}</h3>
-          <p className="mb-6 text-sm text-muted-foreground">
+          <h3 className="text-foreground mb-2 text-lg font-medium">{t("No Asset Found")}</h3>
+          <p className="text-muted-foreground mb-6 text-sm">
             {isError
               ? t("There was an error loading the asset. Please try again later.")
               : t("The asset you're looking for doesn't exist or has been removed.")}
@@ -308,8 +308,8 @@ export const SingleAssetDetail = ({ assetId, onBack, onEdit, onSave, isSaving }:
         </div>
 
         <div className="space-y-2 overflow-y-auto">
-          <div className="grid gap-4 rounded-xl border bg-accent p-3">
-            <Label className="text-sm font-medium text-foreground/80">{t("Details")}</Label>
+          <div className="bg-accent grid gap-4 rounded-xl border p-3">
+            <Label className="text-foreground/80 text-sm font-medium">{t("Details")}</Label>
             <div className="space-y-4">
               {[
                 { label: t("Name"), value: asset.name, fullWidth: true },
@@ -375,13 +375,13 @@ export const SingleAssetDetail = ({ assetId, onBack, onEdit, onSave, isSaving }:
                   <div key={rowIndex} className="grid grid-cols-2 gap-4">
                     {row.map((item) => (
                       <div key={item.label} className={item.fullWidth ? "col-span-2" : "col-span-1"}>
-                        <Label className="mb-1 block text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                        <Label className="text-muted-foreground/70 mb-1 block text-[10px] font-medium tracking-wider uppercase">
                           {item.label}
                         </Label>
                         <div className="flex items-start gap-2">
                           <div
                             className={
-                              "text-sm font-light leading-relaxed text-foreground " +
+                              "text-foreground text-sm leading-relaxed font-light " +
                               (item.capitalize ? " capitalize " : " ") +
                               (item.fullWidth ? " line-clamp-2 break-all" : " truncate")
                             }
@@ -406,8 +406,8 @@ export const SingleAssetDetail = ({ assetId, onBack, onEdit, onSave, isSaving }:
 
           {asset.usedOn && asset.usedOn.length > 0 && (
             <div className="grid gap-3">
-              <Label className="text-base font-semibold text-foreground/80">{t("Used On")}</Label>
-              <div className="grid grid-cols-1 gap-2 rounded-xl border bg-muted/20 p-3 text-sm">
+              <Label className="text-foreground/80 text-base font-semibold">{t("Used On")}</Label>
+              <div className="bg-muted/20 grid grid-cols-1 gap-2 rounded-xl border p-3 text-sm">
                 {asset.usedOn.map((page) => (
                   <div key={`${page.name}-${page.slug}-${page.href ?? ""}`} className="flex items-center gap-2">
                     {page.href ? (
@@ -415,11 +415,11 @@ export const SingleAssetDetail = ({ assetId, onBack, onEdit, onSave, isSaving }:
                         href={page.href}
                         target="_blank"
                         rel="noreferrer"
-                        className="w-max text-left font-medium text-foreground hover:underline">
+                        className="text-foreground w-max text-left font-medium hover:underline">
                         {page.name}
                       </a>
                     ) : (
-                      <div className="w-max text-left font-medium text-foreground">{page.name}</div>
+                      <div className="text-foreground w-max text-left font-medium">{page.name}</div>
                     )}
                     {page.slug && <div className="text-muted-foreground/70">({page.slug})</div>}
                   </div>
@@ -428,14 +428,14 @@ export const SingleAssetDetail = ({ assetId, onBack, onEdit, onSave, isSaving }:
             </div>
           )}
 
-          <div className="relative grid gap-1 rounded-xl border bg-accent p-3">
+          <div className="bg-accent relative grid gap-1 rounded-xl border p-3">
             <div className="flex items-center justify-between gap-x-3">
-              <Label className="flex items-center gap-1 text-sm font-medium text-foreground/80">
+              <Label className="text-foreground/80 flex items-center gap-1 text-sm font-medium">
                 {t("Description")}
               </Label>
               {otherLanguages?.length > 0 && (
                 <Select value={selectedLang} onValueChange={setSelectedLang}>
-                  <SelectTrigger className="bg-surface h-6 w-max gap-x-2 pr-1 text-xs ring-offset-background focus:ring-1 focus:ring-ring">
+                  <SelectTrigger className="bg-surface ring-offset-background focus:ring-ring h-6 w-max gap-x-2 pr-1 text-xs focus:ring-1">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

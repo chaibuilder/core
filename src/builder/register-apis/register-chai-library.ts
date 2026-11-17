@@ -27,10 +27,10 @@ export const registerChaiLibrary = <T extends Record<string, any> = Record<strin
   LIBRARIES_REGISTRY[id] = { ...library, id };
 };
 
-export const getChaiLibrary = (id: string) => {
+export const getRegisteredChaiLibrary = (id: string) => {
   return LIBRARIES_REGISTRY[id];
 };
 
-export const useChaiLibraries = () => {
+export const useRegisteredChaiLibraries = () => {
   return values(LIBRARIES_REGISTRY);
 };

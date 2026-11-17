@@ -9,7 +9,7 @@ import { PublishDesignTokensButton } from "~/builder/pages/client/components/pub
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { mockChaiAction } from "~/tests/builder/msw";
 import { renderInBuilder } from "~/tests/builder/render-in-builder";
-import type { ChaiSaveWebsiteData, ChaiTheme } from "~/types";
+import type { ChaiSaveSiteArgs, ChaiTheme } from "~/types";
 
 const theme = { fontFamily: { heading: "Lora", body: "Inter" }, borderRadius: "6px", colors: {} } as ChaiTheme;
 const liveTokens = {
@@ -24,7 +24,7 @@ const draftTokens = {
 const renderButton = async ({
   appChanges = ["DESIGN_TOKENS"],
   permissions = null as string[] | null,
-  onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true),
+  onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true),
 } = {}) => {
   const settings = mockChaiAction(ACTIONS.GET_WEBSITE_DRAFT_SETTINGS, (data: { draft: boolean }) => ({
     languages: [],

@@ -1,7 +1,7 @@
 import { first, get, isEmpty, startsWith } from "lodash-es";
 import { useCallback, useMemo } from "react";
 import { usePageExternalData } from "~/builder/atoms/builder";
-import { NestedPathSelector } from "~/builder/core/components/nested-path-selector";
+import { ChaiNestedPathSelector } from "~/builder/core/components/nested-path-selector";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useCollectionItemBindingContext } from "~/builder/hooks/use-collection-item-binding-context";
 import { useSelectedBlockHierarchy } from "~/builder/hooks/use-selected-blockIds";
@@ -192,7 +192,7 @@ export const DataBindingSelector = ({
     return null;
   }
   return (
-    <NestedPathSelector
+    <ChaiNestedPathSelector
       data={{
         ...((repeaterData && { [repeaterKey]: repeaterData }) as any),
         // The injected root key literally is `$item`, so picked paths need no rewrite.

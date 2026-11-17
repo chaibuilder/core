@@ -6,7 +6,7 @@ import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { COLLECTION_PREFIX } from "~/constants/STRINGS";
-import type { ChaiCollection } from "~/types/collections";
+import type { ChaiCollection } from "~/types/deprecated";
 
 export const RepeaterBindingWidget = ({ value, onChange }: WidgetProps) => {
   const source = useRepeaterSource();

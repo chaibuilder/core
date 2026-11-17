@@ -7,21 +7,16 @@ import { runInFreshContext } from "~/server/chai-builder/state";
 import { mergeDelegationCeilings, resolveEffectivePermissions } from "~/server/rbac/effective-permissions";
 import type { ChaiIncomingRequest, ChaiRequestContext } from "~/types/chaibuilder-config";
 import type { ChaiBuilderInstance } from "~/types/chaibuilder-instance";
-import type {
-  ChaiMcpAuthFailureEvent,
-  ChaiMcpRequestContext,
-  ChaiMcpTool,
-  ChaiMcpToolCallEvent,
-  ChaiMcpToolMeta,
-  ChaiMcpToolOutcome,
-  ChaiMcpToolResult,
-} from "~/types/mcp";
+import type { ChaiMcpRequestContext, ChaiMcpTool, ChaiMcpToolOutcome, ChaiMcpToolResult } from "~/types/mcp";
 import { summarizeChaiMcpToolArgs } from "./audit";
 import { renderChaiMcpInstructions } from "./instructions";
-import { canInvokeChaiMcpTool, missingChaiMcpToolPermissions } from "./permissions";
-import { getChaiMcpTools } from "./registry";
+import { canInvokeChaiMcpTool, getMissingChaiMcpToolPermissions } from "./permissions";
+import { getRegisteredChaiMcpTools } from "./registry";
 import { runWithChaiMcpRequest, runWithChaiMcpToolContext } from "./request-context";
 import { toSafeChaiMcpError } from "./response";
+import type { ChaiMcpHandlerOptions, ChaiMcpRouteHandlerOptions } from "./handler-types";
+
+export type { ChaiMcpHandlerOptions, ChaiMcpRouteHandlerOptions, ChaiMcpServerInfo } from "./handler-types";
 
 /**
  * MCP Streamable HTTP transport for ChaiBuilder.
@@ -39,55 +34,6 @@ import { toSafeChaiMcpError } from "./response";
  * instance handles a second request), which is also what keeps one caller's context from
  * leaking into another's.
  */
-
-export type ChaiMcpServerInfo = {
-  name: string;
-  version: string;
-  title?: string;
-};
-
-export type ChaiMcpHandlerOptions = {
-  serverInfo: ChaiMcpServerInfo;
-  /**
-   * `resource_metadata` for the 401 challenge (RFC 9728), so an OAuth-capable client can
-   * discover where to authenticate instead of giving up.
-   */
-  resourceMetadataUrl?: string | ((request: Request) => string | undefined);
-  /** `realm` for the 401 challenge. Defaults to the request's own URL. */
-  realm?: string;
-  /**
-   * Permission(s) required to use the MCP surface at all, checked before any tool is
-   * listed. A credential that should not drive an agent can be refused in one place
-   * rather than per tool.
-   */
-  connectPermission?: string | string[];
-  /**
-   * Ceiling for this transport, intersected with whatever the context resolver set. An
-   * app can mount a read-only MCP route without changing how its credentials are issued.
-   */
-  delegatedPermissions?: string[];
-  /** Largest `arguments` payload accepted for a single call. Default 2 MB. */
-  maxArgsBytes?: number;
-  /** Largest request body accepted. Default 4 MB. */
-  maxBodyBytes?: number;
-  /**
-   * Omit tools the caller lacks permission for from `tools/list`. On by default: an agent
-   * that cannot see a tool does not spend context on it or plan around it. Calls are
-   * re-checked regardless, so this is a context optimisation, never the security boundary.
-   */
-  hideUngrantedTools?: boolean;
-  /** Last word on which tools this request may see, after the permission filter. */
-  toolFilter?: (tool: ChaiMcpToolMeta, ctx: ChaiMcpRequestContext) => boolean;
-  /** Replace or wrap the rendered server instructions. */
-  instructions?: string | ((rendered: string, ctx: ChaiMcpRequestContext) => string);
-  /** Audit sink. Receives every settled tool call; a failure in it never fails the call. */
-  onToolCall?: (event: ChaiMcpToolCallEvent) => void | Promise<void>;
-  onAuthFailure?: (event: ChaiMcpAuthFailureEvent) => void | Promise<void>;
-  /** Passed to cache invalidation for layout-level revalidation. */
-  catchAllRoute?: string[];
-  /** Host extras carried onto every tool context and audit event (token label, …). */
-  extra?: Record<string, unknown> | ((request: Request) => Record<string, unknown>);
-};
 
 const DEFAULT_MAX_ARGS_BYTES = 2_000_000;
 const DEFAULT_MAX_BODY_BYTES = 4_000_000;
@@ -258,7 +204,7 @@ export async function handleChaiMcpRequest(
       ? options.connectPermission
       : [options.connectPermission]
     : [];
-  const missingConnect = missingChaiMcpToolPermissions(permissions, {
+  const missingConnect = getMissingChaiMcpToolPermissions(permissions, {
     name: "connect",
     kind: "read",
     description: "",
@@ -295,7 +241,7 @@ export async function handleChaiMcpRequest(
   // The derived context — surface stamped, ceiling applied — must not collapse into an
   // outer request state that lacks them, so it starts a store of its own. Every `cb.*`
   // call and every action dispatched from a tool then sees the MCP identity, which is
-  // what makes revisions attribute to `mcp` and the ceiling bind in `dispatchChaiAction`.
+  // what makes revisions attribute to `mcp` and the ceiling bind in `runChaiAction`.
   const derived: ChaiRequestContext = {
     ...resolved,
     surface: mcpContext.surface,
@@ -314,7 +260,7 @@ export async function handleChaiMcpRequest(
 
 function visibleTools(ctx: ChaiMcpRequestContext, options: ChaiMcpHandlerOptions): ChaiMcpTool[] {
   const hide = options.hideUngrantedTools ?? true;
-  return getChaiMcpTools().filter((tool) => {
+  return getRegisteredChaiMcpTools().filter((tool) => {
     if (hide && !canInvokeChaiMcpTool(ctx.permissions, tool)) return false;
     return options.toolFilter ? options.toolFilter(tool, ctx) : true;
   });
@@ -434,14 +380,14 @@ async function callTool(
     if (!tool) {
       // Distinguish "never existed" from "you cannot see it" for the audit trail only;
       // the caller is told the same thing either way.
-      outcome = getChaiMcpTools().some((candidate) => candidate.name === name) ? "forbidden" : "not_found";
+      outcome = getRegisteredChaiMcpTools().some((candidate) => candidate.name === name) ? "forbidden" : "not_found";
       message = `Error: unknown tool "${name}".`;
       return finish({ content: [{ type: "text", text: message }], isError: true });
     }
 
     // Re-checked even though the list was filtered: `hideUngrantedTools` is a context
     // optimisation, and this is the boundary.
-    const missing = missingChaiMcpToolPermissions(ctx.permissions, tool);
+    const missing = getMissingChaiMcpToolPermissions(ctx.permissions, tool);
     if (missing.length > 0) {
       return fail("forbidden", `Error: missing permission ${missing.join(", ")} for "${name}".`);
     }
@@ -467,11 +413,6 @@ async function callTool(
     }
   });
 }
-
-export type ChaiMcpRouteHandlerOptions = ChaiMcpHandlerOptions & {
-  /** Usually `(request) => getChaiBuilder({}, request)` — the host's own resolver. */
-  getChaiBuilder: (request: ChaiIncomingRequest) => Promise<ChaiBuilderInstance<any>> | ChaiBuilderInstance<any>;
-};
 
 /**
  * Route handlers for a framework that exports `GET`/`POST`/`DELETE` (Next.js App Router,

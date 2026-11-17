@@ -12,14 +12,15 @@ export {
   defineChaiMcpInstructionsSection,
   defineChaiMcpTool,
   defineChaiMcpToolMeta,
-  getChaiMcpInstructionsSections,
-  getChaiMcpTool,
-  getChaiMcpTools,
+  getRegisteredChaiMcpInstructions,
+  getRegisteredChaiMcpTool,
+  getRegisteredChaiMcpTools,
   registerChaiMcpInstructions,
   registerChaiMcpTool,
   registerChaiMcpTools,
   resetChaiMcpRegistryForTests,
   unregisterChaiMcpInstructions,
+  unregisterChaiMcpTool,
   unregisterChaiMcpTools,
   type ChaiMcpRegisterOptions,
 } from "./registry";
@@ -35,7 +36,7 @@ export {
   runWithChaiMcpToolContext,
 } from "./request-context";
 
-export { canInvokeChaiMcpTool, missingChaiMcpToolPermissions } from "./permissions";
+export { canInvokeChaiMcpTool, getMissingChaiMcpToolPermissions } from "./permissions";
 export { createChaiMcpResponse, toSafeChaiMcpError } from "./response";
 export { runChaiMcpAction } from "./actions";
 export { renderChaiMcpInstructions } from "./instructions";

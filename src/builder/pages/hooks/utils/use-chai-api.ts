@@ -2,13 +2,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useQuerySync } from "~/builder/hooks/use-query-sync";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { usePageEditInfo } from "~/builder/pages/hooks/pages/use-current-page";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { ChaiBlock } from "~/types/common";
 import { ChaiDesignTokens } from "~/types/types";
 import { useFetch } from "./use-fetch";
 
 export const usePagesSavePage = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const [, setPageEditInfo] = usePageEditInfo();
   const queryClient = useQueryClient();

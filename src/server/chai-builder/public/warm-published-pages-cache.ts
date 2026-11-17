@@ -5,7 +5,7 @@ import { CHAI_BUILT_IN_DESIGN_TOKENS } from "~/constants/BUILTIN_TOKENS";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { runInContext } from "~/server/chai-builder/state";
 import type { ChaiDesignTokens } from "~/types";
-import { applyDesignTokens } from "~/utils";
+import { applyChaiDesignTokens } from "~/utils";
 import { getFullPage } from "./get-full-page";
 import { getPageStylesCached } from "./get-page-styles";
 import { getSiteSettings } from "./get-site-settings";
@@ -91,7 +91,7 @@ async function warmPageStylesForPageId(pageId: string): Promise<boolean> {
     ...CHAI_BUILT_IN_DESIGN_TOKENS,
     ...(get(siteSettings, "designTokens", {}) as ChaiDesignTokens),
   };
-  const pageBlocks = applyDesignTokens(page.blocks ?? [], designTokens);
+  const pageBlocks = applyChaiDesignTokens(page.blocks ?? [], designTokens);
 
   await getPageStylesCached(pageId, pageBlocks);
   return true;

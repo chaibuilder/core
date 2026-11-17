@@ -26,7 +26,7 @@ type NestedPathSelectorProps = {
  * list with truncated value previews. Used by settings-panel fields, the RTE
  * modal, attribute editor, repeater filters, SEO panel and the JSON-LD editor.
  */
-export function NestedPathSelector({
+export function ChaiNestedPathSelector({
   data,
   onSelect,
   dataType = "value",

@@ -1,4 +1,4 @@
-import { getFontStyles, registerChaiFont } from "~/registry";
+import { getChaiFontStyles, registerChaiFont } from "~/registry";
 
 const face = (url: string, fontWeight: string, fontStyle = "normal") => ({
   url,
@@ -22,7 +22,7 @@ describe("getFontStyles preloads", () => {
     });
     registerChaiFont("Variable", { fallback: "sans-serif", src: [face("/v", "100 900")] });
     registerChaiFont("Variable Alias", { fallback: "sans-serif", src: [face("/v", "100 900")] });
-    const preloads = async (heading: string, body: string) => (await getFontStyles(heading, body)).preloads;
+    const preloads = async (heading: string, body: string) => (await getChaiFontStyles(heading, body)).preloads;
 
     // Heading and body share a family: four weights.
     expect(await preloads("Static", "Static")).toEqual(["/s-400", "/s-700", "/s-600", "/s-500"]);
@@ -40,7 +40,7 @@ describe("getFontStyles Google Fonts fallback", () => {
 
   it("imports an unregistered font from Google Fonts before any @font-face", async () => {
     registerChaiFont("Local", { fallback: "sans-serif", src: [face("/l", "400")] });
-    const { fontStyles, preloads } = await getFontStyles("Figtree", "Local");
+    const { fontStyles, preloads } = await getChaiFontStyles("Figtree", "Local");
     const url = "https://fonts.googleapis.com/css?family=Figtree:300,400,500,600,700,800&display=swap";
     expect(fontStyles.startsWith(`@import url("${url}");`)).toBe(true);
     expect(fontStyles.indexOf("@import")).toBeLessThan(fontStyles.indexOf("@font-face"));
@@ -48,7 +48,7 @@ describe("getFontStyles Google Fonts fallback", () => {
   });
 
   it("encodes spaces as +", async () => {
-    const { fontStyles } = await getFontStyles("Work Sans", "Work Sans");
+    const { fontStyles } = await getChaiFontStyles("Work Sans", "Work Sans");
     expect(fontStyles).toBe(
       `@import url("https://fonts.googleapis.com/css?family=Work+Sans:300,400,500,600,700,800&display=swap");`,
     );
@@ -56,16 +56,16 @@ describe("getFontStyles Google Fonts fallback", () => {
 
   it("leaves registered fonts without an @import", async () => {
     registerChaiFont("Registered", { fallback: sans, src: [face("/r", "400")] });
-    const { fontStyles } = await getFontStyles("Registered", "Arial");
+    const { fontStyles } = await getChaiFontStyles("Registered", "Arial");
     expect(fontStyles).not.toContain("@import");
     expect(fontStyles).toContain('font-family: "Registered"');
   });
 
   it.each([sans, "serif", 'Evil"; } <x>', "a}b"])("does not import %s", async (family) => {
-    expect((await getFontStyles(family, family)).fontStyles).not.toContain("@import");
+    expect((await getChaiFontStyles(family, family)).fontStyles).not.toContain("@import");
   });
 
   it("emits nothing for an empty family", async () => {
-    expect((await getFontStyles("", "")).fontStyles).toBe("");
+    expect((await getChaiFontStyles("", "")).fontStyles).toBe("");
   });
 });

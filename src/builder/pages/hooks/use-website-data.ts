@@ -1,11 +1,11 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 
 export const useWebsiteData = () => {
   const fetchApi = useFetch();
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
 
   return useQuery({

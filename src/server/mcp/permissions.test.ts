@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ChaiMcpToolMeta } from "~/types/mcp";
-import { canInvokeChaiMcpTool, missingChaiMcpToolPermissions } from "./permissions";
+import { canInvokeChaiMcpTool, getMissingChaiMcpToolPermissions } from "./permissions";
 
 const meta = (permissions: string[]): ChaiMcpToolMeta => ({
   name: "a_tool",
@@ -31,7 +31,7 @@ describe("canInvokeChaiMcpTool", () => {
   });
 
   it("names what is missing", () => {
-    expect(missingChaiMcpToolPermissions(["pages:read"], meta(["pages:read", "pages:publish"]))).toEqual([
+    expect(getMissingChaiMcpToolPermissions(["pages:read"], meta(["pages:read", "pages:publish"]))).toEqual([
       "pages:publish",
     ]);
   });

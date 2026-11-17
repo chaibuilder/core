@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePermissions } from "./resolve-permissions";
+import { resolveChaiPermissions } from "./resolve-permissions";
 
 const catalog = ["pages:read", "pages:create", "pages:delete", "assets:read", "assets:delete", "users:remove"];
 
@@ -11,12 +11,12 @@ const roleMap = {
 
 describe("resolvePermissions", () => {
   it("returns role permissions from roleMap", () => {
-    const result = resolvePermissions({ role: "viewer", roleMap, catalog });
+    const result = resolveChaiPermissions({ role: "viewer", roleMap, catalog });
     expect(result).toEqual(["pages:read"]);
   });
 
   it("expands entity wildcard from role", () => {
-    const result = resolvePermissions({ role: "editor", roleMap, catalog });
+    const result = resolveChaiPermissions({ role: "editor", roleMap, catalog });
     expect(result).toContain("pages:read");
     expect(result).toContain("pages:create");
     expect(result).toContain("pages:delete");
@@ -25,22 +25,22 @@ describe("resolvePermissions", () => {
   });
 
   it("expands * from admin role", () => {
-    const result = resolvePermissions({ role: "admin", roleMap, catalog });
+    const result = resolveChaiPermissions({ role: "admin", roleMap, catalog });
     expect(result).toEqual(expect.arrayContaining(catalog));
   });
 
   it("returns empty for unknown role with no roleMap entry", () => {
-    const result = resolvePermissions({ role: "ghost", roleMap, catalog });
+    const result = resolveChaiPermissions({ role: "ghost", roleMap, catalog });
     expect(result).toEqual([]);
   });
 
   it("returns defaults when roleMap is null", () => {
-    const result = resolvePermissions({ role: "viewer", roleMap: null, catalog });
+    const result = resolveChaiPermissions({ role: "viewer", roleMap: null, catalog });
     expect(result).toEqual([]);
   });
 
   it("applies array-form userOverride as additive grants", () => {
-    const result = resolvePermissions({
+    const result = resolveChaiPermissions({
       role: "viewer",
       roleMap,
       catalog,
@@ -51,7 +51,7 @@ describe("resolvePermissions", () => {
   });
 
   it("applies map-form userOverride true to grant", () => {
-    const result = resolvePermissions({
+    const result = resolveChaiPermissions({
       role: "viewer",
       roleMap,
       catalog,
@@ -62,7 +62,7 @@ describe("resolvePermissions", () => {
   });
 
   it("applies map-form userOverride false to revoke", () => {
-    const result = resolvePermissions({
+    const result = resolveChaiPermissions({
       role: "editor",
       roleMap,
       catalog,
@@ -73,7 +73,7 @@ describe("resolvePermissions", () => {
   });
 
   it("revoke wins over entity wildcard grant", () => {
-    const result = resolvePermissions({
+    const result = resolveChaiPermissions({
       role: "admin",
       roleMap,
       catalog,
@@ -83,7 +83,7 @@ describe("resolvePermissions", () => {
   });
 
   it("userOverride entity:* revokes all ops in entity", () => {
-    const result = resolvePermissions({
+    const result = resolveChaiPermissions({
       role: "admin",
       roleMap,
       catalog,

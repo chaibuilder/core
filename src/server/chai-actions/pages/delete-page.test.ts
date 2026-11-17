@@ -1,6 +1,6 @@
 import { eq, inArray } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
-import { registerDb } from "~/db/core";
+import { registerChaiDb } from "~/db/core";
 import { schema } from "~/server/chai-actions/db";
 import { pageSlugTag, slugTag } from "~/server/chai-builder/public/page-routing-cache";
 import { fake } from "~/tests/setup/fakers";
@@ -70,7 +70,14 @@ describe("DeletePageAction", () => {
       );
       const variant = await seed(
         "appPages",
-        fake.appPages({ slug: "/en/primary", lang: "en", primaryPage: primary.id, online: true, currentEditor: null, deletedAt }),
+        fake.appPages({
+          slug: "/en/primary",
+          lang: "en",
+          primaryPage: primary.id,
+          online: true,
+          currentEditor: null,
+          deletedAt,
+        }),
       );
       await seed("appPagesOnline", fake.appPagesOnline({ id: primary.id, slug: "/primary" }));
       await seed(
@@ -144,7 +151,7 @@ describe("DeletePageAction", () => {
               }
             : Reflect.get(target, prop),
       });
-      registerDb({ drizzle: pgLike as never, schema: testSchema, dialect: "pg" });
+      registerChaiDb({ drizzle: pgLike as never, schema: testSchema, dialect: "pg" });
       sqlite.exec("CREATE TRIGGER fail_trash BEFORE UPDATE ON app_pages BEGIN SELECT RAISE(ABORT, 'boom'); END");
       try {
         await expect(action(DeletePageAction).run({ id: page.id })).rejects.toThrow();

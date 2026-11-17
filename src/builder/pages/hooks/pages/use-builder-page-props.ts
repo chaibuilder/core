@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { useCurrentActivePage, usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
-import { useFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
+import { useChaiActivePage, usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
+import { useChaiFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
 import { useDynamicPageIdentifier, useDynamicPageSlug } from "./use-dynamic-page-selector";
 
 /**
@@ -10,8 +10,8 @@ import { useDynamicPageIdentifier, useDynamicPageSlug } from "./use-dynamic-page
  */
 export const useBuilderPageProps = () => {
   const { data: primaryPage } = usePrimaryPage();
-  const { data: activePage } = useCurrentActivePage();
-  const fallbackLang = useFallbackLang();
+  const { data: activePage } = useChaiActivePage();
+  const fallbackLang = useChaiFallbackLang();
   const dynamicPageSlug = useDynamicPageSlug();
   const dynamicPageIdentifier = useDynamicPageIdentifier();
 

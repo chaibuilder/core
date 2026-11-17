@@ -8,26 +8,16 @@ import {
   isRegisteredLibraryBlockDisabled,
 } from "~/builder/core/components/sidepanels/panels/add-blocks/libraries-panel";
 import { PartialBlockCard } from "~/builder/core/components/sidepanels/panels/add-blocks/partial-block-card";
-import {
-  canAcceptInto,
-  canBeNestedInside,
-  isBlockAvailableForPageType,
-} from "~/builder/core/functions/block-helpers";
+import { canAcceptInto, canBeNestedInside, isBlockAvailableForPageType } from "~/builder/core/functions/block-helpers";
 import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
-import {
-  libraryBlocksAtom,
-  useLibraryBlocks,
-} from "~/builder/hooks/use-library-blocks";
+import { libraryBlocksAtom, useLibraryBlocks } from "~/builder/hooks/use-library-blocks";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useFeatureLabel } from "~/builder/hooks/use-feature-label";
 import { useLibraryChaiBlocks } from "~/builder/hooks/use-library-chai-blocks";
-import {
-  useCheckPartialCanAdd,
-  usePartialBlocksList,
-} from "~/builder/hooks/use-partial-blocks-store";
+import { useCheckPartialCanAdd, usePartialBlocksList } from "~/builder/hooks/use-partial-blocks-store";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
-import { useChaiLibraries } from "~/builder/register-apis";
+import { useRegisteredChaiLibraries } from "~/builder/register-apis";
 import { Label } from "~/components/ui/label";
 import { useRegisteredChaiBlocks } from "~/registry";
 import type { ChaiLibrary } from "~/types/chaibuilder-editor-props";
@@ -45,9 +35,7 @@ const formatPartialName = (name: string) =>
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 
 const SectionHeading = ({ children }: { children: ReactNode }) => (
-  <h2 className="text-sm font-semibold uppercase tracking-wide text-forground ">
-    {children}
-  </h2>
+  <h2 className="text-forground text-sm font-semibold tracking-wide uppercase">{children}</h2>
 );
 
 export const GlobalSearchResults = ({
@@ -77,7 +65,7 @@ export const GlobalSearchResults = ({
   const partialBlocksEnabled = useBuilderProp("flags.partialBlocks", true);
   const { data: partialBlocksList } = usePartialBlocksList();
   const checkPartialCanAdd = useCheckPartialCanAdd();
-  const libraries = useChaiLibraries();
+  const libraries = useRegisteredChaiLibraries();
   const libraryChaiBlocks = useLibraryChaiBlocks();
   const [libraryBlocks] = useAtom(libraryBlocksAtom);
   const currentPageType = currentPage?.pageType || "page";
@@ -107,12 +95,7 @@ export const GlobalSearchResults = ({
           };
         })
         .filter((block) =>
-          matchesGlobalSearch(searchTerm, [
-            block.label,
-            block.description,
-            block.group,
-            ...block.tags,
-          ]),
+          matchesGlobalSearch(searchTerm, [block.label, block.description, block.group, ...block.tags]),
         ),
     [checkPartialCanAdd, partialBlocksEnabled, partialBlocksList, searchTerm],
   );
@@ -121,21 +104,12 @@ export const GlobalSearchResults = ({
     () =>
       filter(chaiBlocks, { category: "core" })
         .filter((block) => isBlockAvailableForPageType(block, currentPageType))
-        .map((block) =>
-          block.type === "PageSlot" && showPageSlot
-            ? { ...block, hidden: false }
-            : block,
-        )
+        .map((block) => (block.type === "PageSlot" && showPageSlot ? { ...block, hidden: false } : block))
         .filter(
           (block) =>
             !block.hidden &&
             !block.showInLibrary &&
-            matchesGlobalSearch(searchTerm, [
-              block.label,
-              block.type,
-              block.group,
-              block.category,
-            ]),
+            matchesGlobalSearch(searchTerm, [block.label, block.type, block.group, block.category]),
         ),
     [chaiBlocks, currentPageType, searchTerm, showPageSlot],
   );
@@ -156,25 +130,15 @@ export const GlobalSearchResults = ({
           .map((block) => ({ key: `${library.id}-${block.id}`, block, library })),
       ),
       ...libraryChaiBlocks
-        .filter((block) =>
-          matchesGlobalSearch(searchTerm, [block.label, block.type, block.description, block.group]),
-        )
+        .filter((block) => matchesGlobalSearch(searchTerm, [block.label, block.type, block.description, block.group]))
         .map((block) => ({ key: `chai-block-${block.type}`, block: block as any, library: undefined })),
     ],
     [libraries, libraryBlocks, libraryChaiBlocks, searchTerm],
   );
 
-  const coreByGroup = useMemo(
-    () => groupBy(coreResults, "group"),
-    [coreResults],
-  );
-  const librariesLoading = libraries.some(
-    (library) => libraryBlocks[library.id]?.loading !== "complete",
-  );
-  const hasResults =
-    partialResults.length > 0 ||
-    coreResults.length > 0 ||
-    libraryResults.length > 0;
+  const coreByGroup = useMemo(() => groupBy(coreResults, "group"), [coreResults]);
+  const librariesLoading = libraries.some((library) => libraryBlocks[library.id]?.loading !== "complete");
+  const hasResults = partialResults.length > 0 || coreResults.length > 0 || libraryResults.length > 0;
 
   const partialSection =
     partialResults.length > 0 ? (
@@ -200,7 +164,7 @@ export const GlobalSearchResults = ({
         <SectionHeading>{blocksLabel}</SectionHeading>
         {Object.entries(coreByGroup).map(([group, blocks]) => (
           <div key={group} className="space-y-2">
-            <Label className="text-[11px] uppercase text-muted-foreground">{t(group)}</Label>
+            <Label className="text-muted-foreground text-[11px] uppercase">{t(group)}</Label>
             <div className="grid grid-cols-2 gap-2">
               {blocks.map((block) => {
                 const disabled =
@@ -212,7 +176,13 @@ export const GlobalSearchResults = ({
                   ) ||
                     !canBeNestedInside(parentType!, block.type));
                 return (
-                  <CoreBlock key={block.type} block={block} parentId={parentId} position={position} disabled={disabled} />
+                  <CoreBlock
+                    key={block.type}
+                    block={block}
+                    parentId={parentId}
+                    position={position}
+                    disabled={disabled}
+                  />
                 );
               })}
             </div>
@@ -260,16 +230,16 @@ export const GlobalSearchResults = ({
           `display: table` box, which is shrink-to-fit — a nowrap/truncated line (the global
           block descriptions) or a wide preview sizes it past the panel and the rows spill
           out of the panel's right edge. */}
-      <div className="no-scrollbar min-h-0 w-full flex-1 overflow-y-auto overflow-x-hidden">
+      <div className="no-scrollbar min-h-0 w-full flex-1 overflow-x-hidden overflow-y-auto">
         <div className="space-y-6 py-2">
           {orderedSections.map(({ key, node }) => node && <Fragment key={key}>{node}</Fragment>)}
 
           {!hasResults && !librariesLoading ? (
-            <div className="flex justify-center item-center min-h-full p-8 text-center text-sm text-muted-foreground">
+            <div className="item-center text-muted-foreground flex min-h-full justify-center p-8 text-center text-sm">
               {t("No results found")}
             </div>
           ) : !hasResults ? (
-            <div className="flex justify-center min-h-full p-8 text-center text-sm text-muted-foreground">
+            <div className="text-muted-foreground flex min-h-full justify-center p-8 text-center text-sm">
               {t("Searching...")}
             </div>
           ) : null}

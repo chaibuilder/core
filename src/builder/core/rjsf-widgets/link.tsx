@@ -10,7 +10,7 @@ import { useLanguages } from "~/builder/hooks/use-languages";
 import { Checkbox } from "~/components/ui/checkbox";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
-import { LANGUAGES } from "~/constants/LANGUAGES";
+import { CHAI_LANGUAGES } from "~/constants/LANGUAGES";
 import { BindingTextField, useBindingInputEnabled } from "./binding-editor/binding-editor-widget";
 import { DataBindingSelector } from "./data-binding-selector";
 const PageTypeField = ({
@@ -135,7 +135,7 @@ const PageTypeField = ({
           placeholder={t("Search pages")}
           className="pr-8"
         />
-        <div className="absolute bottom-2 right-2 top-2 flex items-center gap-1.5">
+        <div className="absolute top-2 right-2 bottom-2 flex items-center gap-1.5">
           {searchQuery && (
             <button
               onClick={clearSearch}
@@ -150,16 +150,16 @@ const PageTypeField = ({
       {(loading || !isEmpty(pageTypeItems) || (isSearching && isEmpty(pageTypeItems))) && (
         <div
           className={cn(
-            "bg-surface absolute z-40 mt-0.5 max-h-40 w-full max-w-[250px] overflow-y-auto rounded-md border border-border shadow-lg",
+            "bg-surface border-border absolute z-40 mt-0.5 max-h-40 w-full max-w-[250px] overflow-y-auto rounded-md border shadow-lg",
             resultsClassName,
           )}>
           {loading ? (
             <div className="space-y-1 p-2">
-              <div className="h-6 w-full animate-pulse rounded bg-muted/10" />
-              <div className="h-6 w-full animate-pulse rounded bg-muted/10" />
+              <div className="bg-muted/10 h-6 w-full animate-pulse rounded" />
+              <div className="bg-muted/10 h-6 w-full animate-pulse rounded" />
             </div>
           ) : isSearching && isEmpty(pageTypeItems) ? (
-            <div className="flex items-center justify-center p-4 text-xs text-muted-foreground">
+            <div className="text-muted-foreground flex items-center justify-center p-4 text-xs">
               {t("No results found for")} &quot;{searchQuery}&quot;
             </div>
           ) : (
@@ -175,9 +175,9 @@ const PageTypeField = ({
                         ? "bg-accent"
                         : "hover:bg-accent"
                   }`}>
-                  {item.name} {item.slug && <small className="font-light text-muted-foreground">( {item.slug} )</small>}
+                  {item.name} {item.slug && <small className="text-muted-foreground font-light">( {item.slug} )</small>}
                   {item.lang && (
-                    <small className="ml-1 rounded bg-muted px-1 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    <small className="bg-muted text-muted-foreground ml-1 rounded px-1 py-0.5 text-[10px] font-medium">
                       {item.lang}
                     </small>
                   )}
@@ -200,7 +200,7 @@ const LinkField = ({ schema, formData, onChange, name, preField = null, showHead
     () => (isEmpty(languages) ? "" : isEmpty(selectedLang) ? fallbackLang : selectedLang),
     [languages, selectedLang, fallbackLang],
   );
-  const currentLanguage = useMemo(() => get(LANGUAGES, lang, lang), [lang]);
+  const currentLanguage = useMemo(() => get(CHAI_LANGUAGES, lang, lang), [lang]);
   const linkType = type === "pageType" && isEmpty(pageTypes) ? "url" : type;
   const bindingInputEnabled = useBindingInputEnabled();
   const hrefInputRef = useRef<HTMLInputElement>(null);
@@ -235,7 +235,7 @@ const LinkField = ({ schema, formData, onChange, name, preField = null, showHead
         <div className="flex items-center justify-between gap-x-2">
           <Label>
             {schema?.title ?? "Link"}
-            <span className="pl-1 text-[9px] text-muted-foreground">{currentLanguage}</span>
+            <span className="text-muted-foreground pl-1 text-[9px]">{currentLanguage}</span>
           </Label>
           <DataBindingSelector
             schema={schema}
@@ -256,7 +256,7 @@ const LinkField = ({ schema, formData, onChange, name, preField = null, showHead
       <div className="flex flex-col gap-y-1.5">
         <div className="flex items-center gap-x-2">
           <select
-            className="flex h-8 w-full min-w-0 flex-1 rounded-md border border-input bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+            className="border-input focus-visible:ring-ring flex h-8 w-full min-w-0 flex-1 rounded-md border bg-transparent px-3 py-1 text-xs shadow-sm transition-colors focus-visible:ring-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             name="type"
             value={type}
             onChange={(e) => onChange({ ...formData, type: e.target.value })}>
@@ -276,13 +276,13 @@ const LinkField = ({ schema, formData, onChange, name, preField = null, showHead
             )}
           </select>
           {linkType === "url" && (
-            <div className="flex shrink-0 items-center gap-x-1.5 text-muted-foreground" title={t("Open in new tab")}>
+            <div className="text-muted-foreground flex shrink-0 items-center gap-x-1.5" title={t("Open in new tab")}>
               <Checkbox
                 id={`root.${name}.target`}
                 checked={target === "_blank"}
                 onCheckedChange={(checked) => onChange({ ...formData, target: checked ? "_blank" : "_self" })}
               />
-              <Label htmlFor={`root.${name}.target`} className="!mb-0 whitespace-nowrap pb-0 text-xs">
+              <Label htmlFor={`root.${name}.target`} className="!mb-0 pb-0 text-xs whitespace-nowrap">
                 {t("New tab")}
               </Label>
             </div>

@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
-import { useApiUrl } from "./use-builder-prop";
+import { useChaiApiUrl } from "./use-builder-prop";
 
 export interface Library {
   id: string;
@@ -11,7 +11,7 @@ export interface Library {
 }
 
 export const useLibraries = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
 
   return useQuery<Library[]>({
@@ -25,7 +25,7 @@ export const useLibraries = () => {
 };
 
 export const useLibraryItems = (libraryId: string) => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   return useQuery({
     queryKey: [ACTIONS.GET_LIBRARY_ITEMS, libraryId],
@@ -43,7 +43,7 @@ export const useLibraryItems = (libraryId: string) => {
 };
 
 export const useLibraryItem = (itemId: string) => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   return useQuery({
     queryKey: [ACTIONS.GET_LIBRARY_ITEM, itemId],

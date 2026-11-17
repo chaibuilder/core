@@ -18,7 +18,7 @@ export interface ChaiActionContext {
   appId: string;
   userId?: string;
   /**
-   * Effective access for this request, set by `dispatchChaiAction` on authenticated actions:
+   * Effective access for this request, set by `runChaiAction` on authenticated actions:
    * host-supplied context permissions or the resolved `app_users` membership, already clamped
    * by {@link delegatedPermissions}. Actions that resolve access themselves should return this
    * when present rather than looking it up again.
@@ -52,7 +52,7 @@ export type ChaiRequiredPermission<T = any> = string | string[] | ChaiPermission
 /**
  * The function form of {@link ChaiRequiredPermission}. `declaredPermissionKeys`
  * is the static superset of every key the resolver may return, for audits that
- * inspect permissions without dispatching. Build with `permissionResolver()`
+ * inspect permissions without dispatching. Build with `defineChaiPermissionResolver()`
  * (`~/server/chai-actions/permission-keys`) rather than setting it by hand.
  */
 export type ChaiPermissionResolver<T = any> = {
@@ -66,13 +66,13 @@ export type ChaiPermissionResolver<T = any> = {
  */
 export interface ChaiAction<T = any, K = any> {
   /**
-   * Permission required to run this action. Enforced by `dispatchChaiAction`.
+   * Permission required to run this action. Enforced by `runChaiAction`.
    * Undeclared (undefined) = authenticated-only (no specific permission).
    */
   requiredPermission?: ChaiRequiredPermission<T>;
   /**
    * Every permission key {@link requiredPermission} may require, whatever the
-   * payload. Set by `withActionPermission`; do not assign it by hand.
+   * payload. Set by `withChaiActionPermission`; do not assign it by hand.
    */
   declaredPermissionKeys?: string[];
   validate(data: T): boolean;

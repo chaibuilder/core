@@ -1,5 +1,5 @@
 import { find, get, has, isEmpty, isFunction } from "lodash-es";
-import { getRegisteredChaiBlock, syncBlocksWithDefaultProps } from "~/registry";
+import { getRegisteredChaiBlock, syncChaiBlocksWithDefaultProps } from "~/registry";
 import { ChaiBlock, ChaiPageProps } from "~/types/common";
 import { AsyncRenderBlocks } from "./async-blocks-renderer";
 
@@ -46,11 +46,17 @@ export async function AsyncRenderChaiBlocks(props: RenderChaiBlocksProps) {
   const fallbackLang = props.fallbackLang ?? lang;
   // Sync with default block props so newly-added schema defaults (including
   // styles) propagate to blocks saved before the default existed.
-  const blocks = syncBlocksWithDefaultProps(props.blocks);
+  const blocks = syncChaiBlocksWithDefaultProps(props.blocks);
 
   if (props.dataProviders) {
     return (
-      <AsyncRenderBlocks {...props} blocks={blocks} lang={lang} fallbackLang={fallbackLang} dataProviders={props.dataProviders} />
+      <AsyncRenderBlocks
+        {...props}
+        blocks={blocks}
+        lang={lang}
+        fallbackLang={fallbackLang}
+        dataProviders={props.dataProviders}
+      />
     );
   }
 
@@ -79,5 +85,13 @@ export async function AsyncRenderChaiBlocks(props: RenderChaiBlocksProps) {
     },
     {} as Record<string, Promise<Record<string, any>>>,
   );
-  return <AsyncRenderBlocks {...props} blocks={blocks} lang={lang} fallbackLang={fallbackLang} dataProviders={dataProviders} />;
+  return (
+    <AsyncRenderBlocks
+      {...props}
+      blocks={blocks}
+      lang={lang}
+      fallbackLang={fallbackLang}
+      dataProviders={dataProviders}
+    />
+  );
 }

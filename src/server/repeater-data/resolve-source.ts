@@ -1,5 +1,5 @@
 import { getConfigCollection, getConfigRepeaterDataSource } from "~/server/defaults/config-registry";
-import type { ChaiCollectionEntry } from "~/types/chaibuilder-config";
+import type { ChaiCollectionEntry } from "~/types/deprecated";
 import type { ChaiRepeaterDataEntry } from "~/types/repeater-data";
 
 export type ResolvedRepeaterSource =

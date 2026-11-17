@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { saveToLibraryModalAtom } from "~/builder/atoms/builder";
 import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
-import { useSaveToLibraryComponent } from "~/builder/register-apis";
+import { useRegisteredChaiSaveToLibrary } from "~/builder/register-apis";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
 import { ChaiBlock } from "~/types/common";
 const getBlocks = (allBlocks: ChaiBlock[], parent: string) => {
@@ -21,7 +21,7 @@ const getBlocks = (allBlocks: ChaiBlock[], parent: string) => {
 // Save to Library Modal Component
 export const SaveToLibraryModal = () => {
   const [modalState, setModalState] = useAtom(saveToLibraryModalAtom);
-  const SaveToLibraryComponent = useSaveToLibraryComponent();
+  const SaveToLibraryComponent = useRegisteredChaiSaveToLibrary();
   const { t } = useTranslation();
   const [blocks] = useBlocksStore();
   const close = () => setModalState({ isOpen: false, blockId: null });

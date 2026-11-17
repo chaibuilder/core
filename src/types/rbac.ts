@@ -2,10 +2,10 @@
 export type ChaiRoleGrantMap = Record<string, boolean>;
 
 /** Shape of a single role entry resolved from the `roles` table. */
-export type ChaiRoleEntry = { permissions?: string[] | null };
+export type ChaiRoleGrant = { permissions?: string[] | null };
 
 /** Role -> entry map assembled from the `roles` table for a client. */
-export type ChaiRolesAndPermissions = Record<string, ChaiRoleEntry | null | undefined>;
+export type ChaiRolesAndPermissions = Record<string, ChaiRoleGrant | null | undefined>;
 
 /**
  * Per-user override stored in `appUsers.permissions`.

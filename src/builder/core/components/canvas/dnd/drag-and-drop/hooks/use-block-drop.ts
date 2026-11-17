@@ -33,7 +33,7 @@ import { useCheckPartialCanAdd } from "~/builder/hooks/use-partial-blocks-store"
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useSelectedStylingBlocks } from "~/builder/hooks/use-selected-styling-blocks";
 import { useUpdateBlocksProps } from "~/builder/hooks/use-update-blocks-props";
-import { syncBlocksWithDefaultProps } from "~/registry";
+import { syncChaiBlocksWithDefaultProps } from "~/registry";
 import { ChaiBlock } from "~/types/common";
 
 /**
@@ -203,7 +203,7 @@ export const useBlockDrop = () => {
         const preBlocks = !dropBlock?.blocks
           ? null
           : isFunction(dropBlock?.blocks)
-            ? syncBlocksWithDefaultProps(dropBlock?.blocks())
+            ? syncChaiBlocksWithDefaultProps(dropBlock?.blocks())
             : dropBlock?.blocks;
 
         if (draggedBlockType === "PartialBlock") {

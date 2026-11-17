@@ -84,7 +84,7 @@ const sortItems = <T>(items: T[], sort: ChaiRepeaterSort[]): T[] => {
  * date strings compare as timestamps; missing item fields fail every filter
  * except `not_equals` / `not_in`, which pass.
  */
-export const applyRepeaterQuery = <T>(items: T[], query: ChaiRepeaterQuery): T[] => {
+export const applyChaiRepeaterQuery = <T>(items: T[], query: ChaiRepeaterQuery): T[] => {
   const filters = query?.filters ?? [];
   const filtered = filters.length ? items.filter((item) => filters.every((f) => matchesFilter(item, f))) : items;
   const sorted = sortItems(filtered, query?.sort ?? []);
@@ -98,12 +98,20 @@ if (import.meta.vitest) {
 
   const posts = [
     { title: "Alpha", views: 10, featured: true, publishedAt: "2026-01-05", category: "news", slug: "/blog/alpha" },
-    { title: "beta guide", views: 25, featured: false, publishedAt: "2026-03-01", category: "guide", slug: "/blog/beta" },
+    {
+      title: "beta guide",
+      views: 25,
+      featured: false,
+      publishedAt: "2026-03-01",
+      category: "guide",
+      slug: "/blog/beta",
+    },
     { title: "Gamma", views: 5, featured: true, publishedAt: "2025-11-20", category: "news", slug: "/blog/gamma" },
     { title: "Delta", views: 25, category: "guide", slug: "/blog/delta" },
   ];
 
-  const run = (partial: Partial<ChaiRepeaterQuery>) => applyRepeaterQuery(posts, { filters: [], sort: [], ...partial });
+  const run = (partial: Partial<ChaiRepeaterQuery>) =>
+    applyChaiRepeaterQuery(posts, { filters: [], sort: [], ...partial });
 
   describe("applyRepeaterQuery", () => {
     it("filters with equals / not_equals", () => {

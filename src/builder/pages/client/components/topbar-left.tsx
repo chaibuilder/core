@@ -6,7 +6,7 @@ import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
  * under `LANGUAGE_SWITCHER`; the OSS core renders nothing here. Kept as a
  * component (and re-exported from the builder barrel) for API compatibility.
  */
-export const LanguageSwitcher = (props: { showAdd?: boolean; goToDefaultLang?: boolean; showCode?: boolean }) => {
+export const ChaiLanguageSwitcher = (props: { showAdd?: boolean; goToDefaultLang?: boolean; showCode?: boolean }) => {
   return <ChaiSlot slotId={CHAI_SLOT_IDS.LANGUAGE_SWITCHER} context={props} />;
 };
 

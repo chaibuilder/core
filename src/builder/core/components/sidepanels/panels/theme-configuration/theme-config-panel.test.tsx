@@ -7,7 +7,7 @@ import { builderStore } from "~/builder/atoms/store";
 import { requestChaiPanelClose } from "~/builder/hooks/use-panel-close-guard";
 import { chaiThemeValuesAtom } from "~/builder/hooks/use-theme";
 import { renderInBuilder } from "~/tests/builder/render-in-builder";
-import type { ChaiDesignTokens, ChaiSaveWebsiteData, ChaiTheme, ChaiThemePreset } from "~/types";
+import type { ChaiDesignTokens, ChaiSaveSiteArgs, ChaiTheme, ChaiThemePreset } from "~/types";
 import ThemeConfigPanel from "./theme-config-panel";
 import { markDesignTokensSaved, THEME_PANEL_ID, unsavedThemeBaseAtom } from "~/builder/hooks/use-unsaved-theme";
 
@@ -31,7 +31,7 @@ const presetTokens: ChaiDesignTokens = {
 const themePresets: ChaiThemePreset[] = [{ editorial: { theme: presetTheme, designTokens: presetTokens } }];
 
 const renderPanel = (
-  onSaveWebsiteData: (data: ChaiSaveWebsiteData) => Promise<boolean | Error> = vi.fn(async () => true),
+  onSaveWebsiteData: (data: ChaiSaveSiteArgs) => Promise<boolean | Error> = vi.fn(async () => true),
   builderProps: Record<string, unknown> = {},
   seed: { theme?: ChaiTheme; designTokens?: ChaiDesignTokens } = {},
 ) =>
@@ -77,7 +77,7 @@ describe("ThemeConfigPanel explicit save", () => {
   it("keeps edits unsaved until Save is clicked", async () => {
     vi.useFakeTimers();
     try {
-      const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true);
+      const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true);
       const { store } = renderPanel(onSaveWebsiteData);
       expect(saveButton().disabled).toBe(true);
 
@@ -93,7 +93,7 @@ describe("ThemeConfigPanel explicit save", () => {
   });
 
   it("saves the edited theme from the Save bar", async () => {
-    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true);
+    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true);
     renderPanel(onSaveWebsiteData);
 
     editBorderRadius("8");
@@ -107,7 +107,7 @@ describe("ThemeConfigPanel explicit save", () => {
 
 describe("ThemeConfigPanel discard", () => {
   it("shows Discard only while something is unsaved, and rolls the edit back", () => {
-    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true);
+    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true);
     const { store } = renderPanel(onSaveWebsiteData);
     expect(screen.queryByRole("button", { name: "Discard" })).toBeNull();
 
@@ -132,7 +132,7 @@ describe("ThemeConfigPanel close guard", () => {
   });
 
   it("asks before closing with unsaved edits, and discard restores the saved theme", async () => {
-    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true);
+    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true);
     const { store } = renderPanel(onSaveWebsiteData);
     const proceed = vi.fn();
 
@@ -150,7 +150,7 @@ describe("ThemeConfigPanel close guard", () => {
   });
 
   it("saves, then closes, on Save & Close", async () => {
-    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true);
+    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true);
     renderPanel(onSaveWebsiteData);
     const proceed = vi.fn();
 
@@ -163,7 +163,7 @@ describe("ThemeConfigPanel close guard", () => {
   });
 
   it("stays open when the save fails", async () => {
-    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => {
+    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => {
       throw new Error("save failed");
     });
     renderPanel(onSaveWebsiteData);
@@ -180,7 +180,7 @@ describe("ThemeConfigPanel close guard", () => {
 
 describe("ThemeConfigPanel presets", () => {
   it("applies a preset's theme and design tokens as unsaved edits, with no undo toast", async () => {
-    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true);
+    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true);
     const { store } = renderPanel(onSaveWebsiteData);
 
     await applyPreset("Editorial");
@@ -203,7 +203,7 @@ describe("ThemeConfigPanel presets", () => {
   });
 
   it("discards a preset back to the saved theme and design tokens", async () => {
-    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true);
+    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true);
     const { store } = renderPanel(onSaveWebsiteData);
 
     await applyPreset("Editorial");
@@ -217,7 +217,7 @@ describe("ThemeConfigPanel presets", () => {
   });
 
   it("after the design tokens are saved on their own, Save and Discard act on the theme alone", async () => {
-    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true);
+    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true);
     const { store } = renderPanel(onSaveWebsiteData);
 
     await applyPreset("Editorial");
@@ -236,7 +236,7 @@ describe("ThemeConfigPanel presets", () => {
   });
 
   it("keeps the preset as unsaved edits when the save fails", async () => {
-    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => {
+    const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => {
       throw new Error("save failed");
     });
     const { store } = renderPanel(onSaveWebsiteData);
@@ -254,7 +254,7 @@ describe("ThemeConfigPanel fonts", () => {
   it("shows an unregistered theme font without rewriting or saving it", async () => {
     vi.useFakeTimers();
     try {
-      const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveWebsiteData) => true);
+      const onSaveWebsiteData = vi.fn(async (_data: ChaiSaveSiteArgs) => true);
       const theme = { ...currentTheme, fontFamily: { heading: "Montserrat", body: "Arial" } } as ChaiTheme;
       const { store } = renderPanel(onSaveWebsiteData, {}, { theme });
 

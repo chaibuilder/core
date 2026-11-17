@@ -1,6 +1,6 @@
 import type { ChaiBlockPropsSchema } from "~/types/common";
 import { groupProps, registerChaiBlockProps, stylesProp } from "../..";
-import { getBlockFormSchemas, registerChaiBlock } from "../runtime/core";
+import { getChaiBlockFormSchemas, registerChaiBlock } from "../runtime/core";
 
 describe("registerChaiBlockProps", () => {
   it("should handle empty props", () => {
@@ -287,7 +287,7 @@ describe("groupProps", () => {
       }),
     });
 
-    const { schema } = getBlockFormSchemas("GroupPropsBlock") as { schema: any };
+    const { schema } = getChaiBlockFormSchemas("GroupPropsBlock") as { schema: any };
     expect(schema.properties).toEqual({ columns: { type: "number", default: 3, group: "Layout" } });
   });
 });

@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import { useAddBlock } from "~/builder/hooks/use-add-block";
 import { getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlock } from "~/types/common";
@@ -20,7 +20,7 @@ export const useAddCustomBlock = () => {
       }
 
       const block: ChaiBlock = {
-        _id: generateUUID(),
+        _id: generateUuid(),
         _type: type,
         ...props,
       };

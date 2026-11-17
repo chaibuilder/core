@@ -170,7 +170,6 @@ const externals = [
   "@tanstack/react-query",
   "@tailwindcss/forms",
   "@tailwindcss/typography",
-  "@tailwindcss/container-queries",
   "@tiptap/react",
   "@tiptap/pm",
   "@tiptap/extension-link",

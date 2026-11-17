@@ -10,22 +10,14 @@ export const formatNumber = (num?: number) => {
 export const formatHsl = (hsl: culori.Hsl) => {
   return `hsl(${formatNumber(hsl.h)} ${formatNumber(hsl.s * 100)}% ${formatNumber(hsl.l * 100)}%)`;
 };
-export const colorFormatter = (
-  colorValue: string,
-  format: ColorFormat = "hsl",
-  tailwindVersion: "3" | "4" = "4",
-): string => {
+export const colorFormatter = (colorValue: string, format: ColorFormat = "hsl"): string => {
   try {
     const color = culori.parse(colorValue);
     if (!color) throw new Error("Invalid color input");
 
     switch (format) {
       case "hsl": {
-        const hsl = culori.converter("hsl")(color);
-        if (tailwindVersion === "4") {
-          return formatHsl(hsl);
-        }
-        return `${formatNumber(hsl.h)} ${formatNumber(hsl.s * 100)}% ${formatNumber(hsl.l * 100)}%`;
+        return formatHsl(culori.converter("hsl")(color));
       }
       case "rgb":
         return culori.formatRgb(color);

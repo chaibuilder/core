@@ -1,5 +1,5 @@
 import { filter, find, flatten, has } from "lodash-es";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import { ChaiBlock } from "~/types/common";
 
 export type ChaiBlockStructureEntry = { _id: string; _type: string; _slot?: string };
@@ -65,7 +65,7 @@ export function duplicateBlocks(
   const newBlocks: Array<any> = [];
   for (let i = 0; i < children.length; i++) {
     if (filter(blocks, { _parent: children[i]._id }).length > 0) {
-      const newId = generateUUID();
+      const newId = generateUuid();
       newBlocks.push({
         ...children[i],
         oldId: children[i]._id,
@@ -76,7 +76,7 @@ export function duplicateBlocks(
       newBlocks.push({
         ...children[i],
         oldId: children[i]._id,
-        ...{ _id: generateUUID(), _parent },
+        ...{ _id: generateUuid(), _parent },
       });
     }
   }
@@ -121,7 +121,7 @@ export const getDuplicatedBlocks = (
   newParentId: string | null = null,
 ): ChaiBlock[] => {
   let block = find(currentBlocks, { _id: id }) as ChaiBlock;
-  block = { ...block, oldId: block._id, _id: generateUUID() } as ChaiBlock;
+  block = { ...block, oldId: block._id, _id: generateUuid() } as ChaiBlock;
 
   if (newParentId !== block?._parent) {
     block = { ...block, _parent: newParentId as string };

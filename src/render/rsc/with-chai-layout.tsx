@@ -3,14 +3,14 @@ import type { ReactNode } from "react";
 import { consola } from "consola";
 import { draftMode } from "next/headers";
 import { CHAI_BUILT_IN_DESIGN_TOKENS } from "~/constants/BUILTIN_TOKENS";
-import { getFontStyles } from "~/registry";
+import { getChaiFontStyles } from "~/registry";
 import { getChaiThemeCssVariables } from "~/builder/core/components/canvas/static/chai-theme-helpers";
 import { getChaiBuilder } from "~/server/get-chaibuilder";
 import { getActiveChaiBuilderConfig } from "~/server/defaults/config-registry";
 import { getLayoutIdByName } from "~/server/chai-builder/public/get-layout-id-by-name";
 import { ChaiDesignTokens, ChaiTheme } from "~/types";
-import { applyDesignTokens } from "~/utils";
-import { NextJSRenderChaiBlocks } from "./next-render-chai-blocks";
+import { applyChaiDesignTokens } from "~/utils";
+import { ChaiBlocksRenderer } from "./next-render-chai-blocks";
 
 export type WithChaiLayoutProps = {
   /** Layout page uuid — collision-proof escape hatch when multiple layouts share a name. */
@@ -58,7 +58,7 @@ function bareFallback(props: WithChaiLayoutProps): ReactNode {
  *
  * Missing/unpublished layouts fall back to bare children (or named slot values) + warn.
  */
-export const WithChaiLayout = async (props: WithChaiLayoutProps) => {
+export const ChaiLayout = async (props: WithChaiLayoutProps) => {
   const cb = await getChaiBuilder(getActiveChaiBuilderConfig());
   return cb.runPageRequest(async () => {
     const withPhase = cb.withRenderPhase;
@@ -66,7 +66,8 @@ export const WithChaiLayout = async (props: WithChaiLayoutProps) => {
     const { isEnabled: draft } = await withPhase("WithChaiLayout.draftMode", () => draftMode());
 
     const layoutId =
-      props.id ?? (props.name ? await withPhase("WithChaiLayout.getLayoutIdByName", () => getLayoutIdByName(props.name!)) : null);
+      props.id ??
+      (props.name ? await withPhase("WithChaiLayout.getLayoutIdByName", () => getLayoutIdByName(props.name!)) : null);
 
     if (!layoutId) {
       consola.warn(
@@ -94,15 +95,13 @@ export const WithChaiLayout = async (props: WithChaiLayoutProps) => {
     };
 
     const styles = await withPhase("WithChaiLayout.getPageStyles", () =>
-      cb.getPageStyles(page.id, applyDesignTokens(page.blocks ?? [], tokens)),
+      cb.getPageStyles(page.id, applyChaiDesignTokens(page.blocks ?? [], tokens)),
     );
-    const themeVars = await withPhase("WithChaiLayout.themeVariables", async () =>
-      getChaiThemeCssVariables({ theme }),
-    );
+    const themeVars = await withPhase("WithChaiLayout.themeVariables", async () => getChaiThemeCssVariables({ theme }));
     const bodyFont = get(theme, "fontFamily.body", "Arial");
     const headingFont = get(theme, "fontFamily.heading", "Arial");
     const { fontStyles, preloads } = await withPhase("WithChaiLayout.getFontStyles", () =>
-      getFontStyles(headingFont, bodyFont),
+      getChaiFontStyles(headingFont, bodyFont),
     );
 
     return (
@@ -124,7 +123,7 @@ export const WithChaiLayout = async (props: WithChaiLayoutProps) => {
             {styles}
           </style>
         ) : null}
-        <NextJSRenderChaiBlocks
+        <ChaiBlocksRenderer
           pageData={pageData}
           settings={settings}
           page={page}

@@ -1,13 +1,13 @@
 import "~/server/only-server";
 import { DEFAULT_AI_CONFIG } from "./default-ai-config";
-import { DEFAULT_CHAI_BUILDER_SERVER_CONFIG } from "./default-server-config";
+import { CHAI_DEFAULT_SERVER_CONFIG } from "./default-server-config";
 import { deepMerge, mergeByKey } from "./merge-config";
-import { resolveDbConfig } from "./resolve-db-config";
-import { ChaiBuilderServerConfigInput, ResolvedChaiAIGlobalConfig, ResolvedChaiBuilderServerConfig } from "./types";
+import { resolveChaiDbConfig } from "./resolve-db-config";
+import { ChaiBuilderServerConfigInput, ResolvedChaiAiGlobalConfig, ResolvedChaiBuilderServerConfig } from "./types";
 
-export { DEFAULT_CHAI_BUILDER_SERVER_CONFIG } from "./default-server-config";
+export { CHAI_DEFAULT_SERVER_CONFIG } from "./default-server-config";
 
-function resolveAiConfig(input?: ChaiBuilderServerConfigInput["ai"]): ResolvedChaiAIGlobalConfig {
+function resolveAiConfig(input?: ChaiBuilderServerConfigInput["ai"]): ResolvedChaiAiGlobalConfig {
   if (!input) {
     return { ...DEFAULT_AI_CONFIG };
   }
@@ -47,14 +47,16 @@ export function resolveChaiBuilderConfig(rawInput: ChaiBuilderServerConfigInput)
     contextResolver: appContextResolver ?? afterPlugins.contextResolver,
   };
   const ai = resolveAiConfig(input.ai);
+  // `builderActions` is the deprecated spelling of `actions`: it is merged first, so on a name
+  // clash the current key wins and a host mid-migration can pass either.
   const actions = {
-    ...DEFAULT_CHAI_BUILDER_SERVER_CONFIG.actions,
-    ...input.actions,
+    ...CHAI_DEFAULT_SERVER_CONFIG.actions,
     ...input.builderActions,
+    ...input.actions,
   };
-  const trash = mergeByKey(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.trash, input.trash, (entry) => entry.key);
-  const defaultFeatures = DEFAULT_CHAI_BUILDER_SERVER_CONFIG.features;
-  const defaultMediaManager = DEFAULT_CHAI_BUILDER_SERVER_CONFIG.mediaManager;
+  const trash = mergeByKey(CHAI_DEFAULT_SERVER_CONFIG.trash, input.trash, (entry) => entry.key);
+  const defaultFeatures = CHAI_DEFAULT_SERVER_CONFIG.features;
+  const defaultMediaManager = CHAI_DEFAULT_SERVER_CONFIG.mediaManager;
   // deepMerge skips explicitly-undefined keys, so `{ copyPaste: undefined }` reads as "unset"
   // and falls through to the default rather than shipping undefined to the editor. Nested
   // plugin flags (`revisions: { enabled: true }`) keep the rest of their plugin's defaults.
@@ -62,25 +64,24 @@ export function resolveChaiBuilderConfig(rawInput: ChaiBuilderServerConfigInput)
   // `repeaterData` is the deprecated spelling of `chaiCollections`. Both are
   // merged by id, deprecated first, so a host mid-migration can pass either.
   const chaiCollections = mergeByKey(
-    mergeByKey(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.chaiCollections ?? [], input.repeaterData, (entry) => entry.id),
+    mergeByKey(CHAI_DEFAULT_SERVER_CONFIG.chaiCollections ?? [], input.repeaterData, (entry) => entry.id),
     input.chaiCollections,
     (entry) => entry.id,
   );
 
   const resolved: ResolvedChaiBuilderServerConfig = {
-    debugLevel: input.debugLevel ?? DEFAULT_CHAI_BUILDER_SERVER_CONFIG.debugLevel,
-    globalDataProvider: input.globalDataProvider ?? DEFAULT_CHAI_BUILDER_SERVER_CONFIG.globalDataProvider,
-    onPageNotFound: input.onPageNotFound ?? DEFAULT_CHAI_BUILDER_SERVER_CONFIG.onPageNotFound,
-    resolveDynamicTemplateTie:
-      input.resolveDynamicTemplateTie ?? DEFAULT_CHAI_BUILDER_SERVER_CONFIG.resolveDynamicTemplateTie,
-    upstreamPageSource: input.upstreamPageSource ?? DEFAULT_CHAI_BUILDER_SERVER_CONFIG.upstreamPageSource,
-    pageTypes: mergeByKey(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.pageTypes, input.pageTypes, (entry) => entry.key),
-    collections: mergeByKey(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.collections, input.collections, (entry) => entry.id),
+    debugLevel: input.debugLevel ?? CHAI_DEFAULT_SERVER_CONFIG.debugLevel,
+    globalDataProvider: input.globalDataProvider ?? CHAI_DEFAULT_SERVER_CONFIG.globalDataProvider,
+    onPageNotFound: input.onPageNotFound ?? CHAI_DEFAULT_SERVER_CONFIG.onPageNotFound,
+    resolveDynamicTemplateTie: input.resolveDynamicTemplateTie ?? CHAI_DEFAULT_SERVER_CONFIG.resolveDynamicTemplateTie,
+    upstreamPageSource: input.upstreamPageSource ?? CHAI_DEFAULT_SERVER_CONFIG.upstreamPageSource,
+    pageTypes: mergeByKey(CHAI_DEFAULT_SERVER_CONFIG.pageTypes, input.pageTypes, (entry) => entry.key),
+    collections: mergeByKey(CHAI_DEFAULT_SERVER_CONFIG.collections, input.collections, (entry) => entry.id),
     chaiCollections,
     /** @deprecated mirror of `chaiCollections` for hosts still reading this key. */
     repeaterData: chaiCollections,
     blockDataProviders: {
-      ...DEFAULT_CHAI_BUILDER_SERVER_CONFIG.blockDataProviders,
+      ...CHAI_DEFAULT_SERVER_CONFIG.blockDataProviders,
       ...input.blockDataProviders,
     },
     trash,
@@ -97,7 +98,7 @@ export function resolveChaiBuilderConfig(rawInput: ChaiBuilderServerConfigInput)
     roles: input.roles ?? undefined,
     ai,
     mediaManager: deepMerge(defaultMediaManager, input.mediaManager),
-    db: resolveDbConfig(input.db),
+    db: resolveChaiDbConfig(input.db),
     schemaFragments: input.schemaFragments ?? [],
     requestMiddlewares: input.requestMiddlewares ?? [],
     setupHooks: input.setupHooks ?? [],
@@ -108,7 +109,7 @@ export function resolveChaiBuilderConfig(rawInput: ChaiBuilderServerConfigInput)
   return resolved;
 }
 
-export { resolveDbConfig } from "./resolve-db-config";
+export { resolveChaiDbConfig } from "./resolve-db-config";
 export type {
   ChaiBuilderServerConfigInput,
   ChaiMediaManagerConfig,
@@ -116,7 +117,7 @@ export type {
   ChaiDbConfigInput,
   ChaiDbSetup,
   ChaiRolesConfig,
-  ResolvedChaiAIGlobalConfig,
+  ResolvedChaiAiGlobalConfig,
   ResolvedChaiBuilderServerConfig,
   ResolvedChaiDbConfig,
 } from "./types";

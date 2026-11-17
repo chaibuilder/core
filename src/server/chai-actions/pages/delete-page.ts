@@ -2,7 +2,7 @@ import { and, eq, inArray, isNotNull } from "drizzle-orm";
 import { z } from "zod";
 import { ActionError } from "~/server/chai-actions/action-error";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
-import { db, type DbInstance, getDbDialect, safeQuery, schema } from "~/server/chai-actions/db";
+import { db, type ChaiDbInstance, getChaiDbDialect, safeQuery, schema } from "~/server/chai-actions/db";
 import { apiError } from "~/server/chai-actions/lib";
 import type { PageTreeNode } from "~/server/chai-actions/utils/page-tree-builder";
 import { PageTreeBuilder } from "~/server/chai-actions/utils/page-tree-builder";
@@ -155,7 +155,7 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
     const permanent = this.permanent;
     const userId = this.userId;
 
-    const writes = async (q: DbInstance) => {
+    const writes = async (q: ChaiDbInstance) => {
       if (permanent) {
         await q.delete(schema.libraryTemplates).where(inArray(schema.libraryTemplates.pageId, reverseIds));
       }
@@ -174,7 +174,7 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
     // run the writes in sequence (better-sqlite3 transactions cannot await), online
     // rows first, so a failure there leaves the page offline but not trashed.
     const { error } = await safeQuery(() =>
-      getDbDialect() === "pg" ? db.transaction((tx) => writes(tx as unknown as DbInstance)) : writes(db),
+      getChaiDbDialect() === "pg" ? db.transaction((tx) => writes(tx as unknown as ChaiDbInstance)) : writes(db),
     );
     if (error) throw apiError("DELETE_FAILED", error);
 
@@ -306,7 +306,7 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
   private async restoreWithIds(ids: string[]): Promise<string[]> {
     let removedRows: Array<{ id: string; slug: string | null; primaryPage: string | null }> = [];
 
-    const writes = async (q: DbInstance) => {
+    const writes = async (q: ChaiDbInstance) => {
       // Lock the still-trashed rows first (Postgres): a concurrent restore of the same
       // rows waits here, and one that already committed leaves nothing to lock. Only
       // the locked set is touched below, so a stale restore cannot delete a row that
@@ -315,7 +315,7 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
         .select({ id: schema.appPages.id })
         .from(schema.appPages)
         .where(and(inArray(schema.appPages.id, ids), isNotNull(schema.appPages.deletedAt)));
-      const trashed = await (getDbDialect() === "pg" ? trashedQuery.for("update") : trashedQuery);
+      const trashed = await (getChaiDbDialect() === "pg" ? trashedQuery.for("update") : trashedQuery);
 
       const trashedIds = trashed.map((row) => row.id);
       if (trashedIds.length === 0) return;
@@ -337,7 +337,7 @@ export class DeletePageAction extends ChaiBaseAction<DeletePageActionData, Delet
     // live-row delete and the draft update commit together. sqlite runs the reads and
     // writes in sequence, with no row lock, so a concurrent restore there can interleave.
     const { error } = await safeQuery(() =>
-      getDbDialect() === "pg" ? db.transaction((tx) => writes(tx as unknown as DbInstance)) : writes(db),
+      getChaiDbDialect() === "pg" ? db.transaction((tx) => writes(tx as unknown as ChaiDbInstance)) : writes(db),
     );
     if (error) throw apiError("RESTORE_FAILED", error);
 

@@ -6,7 +6,7 @@ import { runInContext } from "~/server/chai-builder/state";
 import { resetActiveChaiBuilderConfigForTests } from "~/server/defaults/config-registry";
 import { stubChaiDbConfig } from "~/tests/setup/stub-chai-db";
 import type { ChaiActionContext } from "~/types";
-import { dispatchChaiAction } from "~/server/chai-actions/dispatch-action";
+import { runChaiAction } from "~/server/chai-actions/dispatch-action";
 import { touchesSeoFields, updatePagePermission } from "./seo-permission";
 
 const context = { appId: "test-app", action: "UPDATE_PAGE" } as ChaiActionContext;
@@ -20,9 +20,7 @@ function requiredFor(actionName: string, data: unknown): string[] {
 /** Runs the action and returns the ActionError code it failed with, if any. */
 async function failureCode(permissions: string[], data: unknown): Promise<string | undefined> {
   try {
-    await runInContext({ appId: "test-app", userId: "user-1", permissions }, () =>
-      dispatchChaiAction("UPDATE_PAGE", data),
-    );
+    await runInContext({ appId: "test-app", userId: "user-1", permissions }, () => runChaiAction("UPDATE_PAGE", data));
     return undefined;
   } catch (error) {
     return (error as { code?: string }).code;
@@ -89,7 +87,7 @@ describe("registered page actions", () => {
   it("refuses an SEO write from a pages:update-only session", async () => {
     await expect(
       runInContext({ appId: "test-app", userId: "user-1", permissions: ["pages:update"] }, () =>
-        dispatchChaiAction("UPDATE_PAGE", { id: "p1", seo: { title: "hijacked" } }),
+        runChaiAction("UPDATE_PAGE", { id: "p1", seo: { title: "hijacked" } }),
       ),
     ).rejects.toMatchObject({ code: "FORBIDDEN", message: "Missing permission: pages:edit_seo" });
   });

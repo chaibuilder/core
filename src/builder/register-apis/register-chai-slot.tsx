@@ -15,6 +15,7 @@ export interface ChaiSlotProps {
   fallback?: ReactNode;
 }
 
+/** @internal */
 export const SLOT_REGISTRY: Record<string, ChaiSlotComponent[]> = {};
 
 export const registerChaiSlot = (slotId: ChaiSlotId, component: ChaiSlotComponent): void => {

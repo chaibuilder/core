@@ -4,7 +4,7 @@ import { AI_OMITTED_HTML_SENTINEL } from "~/constants/AI_TOOL_HISTORY";
 import { throwAiChatError } from "~/server/chai-actions/ai/throw-ai-chat-error";
 import { AIChatError, AIChatErrorCode } from "~/server/chai-actions/classes/chai-ai-chat-handler";
 import { getEditPageToolsSystemPrompt } from "~/server/chai-actions/classes/system-prompt/edit-page-tools-system-prompt";
-import { ChaiAIActionData, ChaiBaseAIAction } from "../../base-ai-action";
+import { ChaiAIActionData, ChaiBaseAiAction } from "../../base-ai-action";
 import { fillAiEditSystemPromptContext } from "./ai-edit-page-prompt-context";
 import { buildAiEditPageTools } from "./ai-edit-page-tools";
 
@@ -76,7 +76,7 @@ const pruneHistoryToolInputs = (messages: UIMessage[]): UIMessage[] => {
  * context — the model works from the compact page outline in the system
  * prompt and reads block HTML on demand.
  */
-export class AIEditPageAction extends ChaiBaseAIAction<AIEditPageActionData, AIEditPageStreamResponse> {
+export class AIEditPageAction extends ChaiBaseAiAction<AIEditPageActionData, AIEditPageStreamResponse> {
   protected getValidationSchema() {
     return z.object({
       messages: z.array(z.any()).min(1),

@@ -19,9 +19,9 @@ import { ParentPageSelector } from "~/builder/pages/client/components/parent-pag
 import { SlugInput } from "~/builder/pages/client/components/slug-input";
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
 import { useCreatePage, useUpdatePage } from "~/builder/pages/hooks/pages/mutations";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { useUpstreamPagesEnabled } from "~/builder/pages/hooks/pages/use-upstream-pages";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { useChangePage } from "~/builder/pages/hooks/use-change-page";
 import { useSiteTags } from "~/builder/hooks/use-site-tags";
 import { PARTIAL_TAGS_METADATA_KEY } from "~/types/partial-blocks";
@@ -66,13 +66,13 @@ interface PageCreatorProps {
 export default function PageCreator({ addEditPage, close, closePanel }: PageCreatorProps) {
   const { t } = useTranslation();
   const { singular } = usePartialTypeLabel();
-  const { data: _additionalPageTypes } = usePageTypes();
+  const { data: _additionalPageTypes } = useChaiPageTypes();
   const additionalPageTypes: any[] = useMemo(() => _additionalPageTypes ?? [], [_additionalPageTypes]);
   const layoutPagesEnabled = useBuilderProp("flags.layoutPages", false);
   const chaiBrandingEnabled = useBuilderProp("flags.chaiBranding", false);
   const changePage = useChangePage();
   const isEdit = addEditPage?.id ? true : false;
-  const { data: pages } = useWebsitePrimaryPages();
+  const { data: pages } = useChaiPrimaryPages();
   const { mutate: createPage, isPending: isCreating } = useCreatePage();
   const { mutate: updatePage, isPending: isUpdating } = useUpdatePage();
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -232,7 +232,9 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
       isEmpty(slug.trim())
     ) {
       setSubmitError(
-        pageType === "page" ? 'Slug is required. Check "Make homepage" to use this page as the homepage' : "Slug is required",
+        pageType === "page"
+          ? 'Slug is required. Check "Make homepage" to use this page as the homepage'
+          : "Slug is required",
       );
       return false;
     }
@@ -473,10 +475,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
     }
   };
   const allPartials = useMemo(
-    () =>
-      additionalPageTypes.filter(
-        (t) => t.hasSlug === false && (layoutPagesEnabled || t.key !== "_layout"),
-      ),
+    () => additionalPageTypes.filter((t) => t.hasSlug === false && (layoutPagesEnabled || t.key !== "_layout")),
     [additionalPageTypes, layoutPagesEnabled],
   );
   const allPages = useMemo(() => additionalPageTypes.filter((t) => t.hasSlug !== false), [additionalPageTypes]);
@@ -519,8 +518,8 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
               </SelectContent>
             </Select>
             {showPageTypeWarning && (
-              <div className="mt-2 rounded-md border border-foreground/10 bg-surface p-3">
-                <p className="text-sm text-orange">
+              <div className="border-foreground/10 bg-surface mt-2 rounded-md border p-3">
+                <p className="text-orange text-sm">
                   Changing the type may impact the data. Are you sure you want to proceed?
                 </p>
                 <div className="mt-2 flex gap-2">
@@ -533,7 +532,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
                 </div>
               </div>
             )}
-            <p className="text-xs font-extralight italic text-muted-foreground">{currentPageType?.helpText}</p>
+            <p className="text-muted-foreground text-xs font-extralight italic">{currentPageType?.helpText}</p>
           </div>
         )}
 
@@ -656,8 +655,8 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
             </SelectContent>
           </Select>
           {showPageTypeWarning && (
-            <div className="mt-2 rounded-md border border-foreground/10 bg-surface p-3">
-              <p className="text-sm text-foreground">
+            <div className="border-foreground/10 bg-surface mt-2 rounded-md border p-3">
+              <p className="text-foreground text-sm">
                 Changing the page type may impact the page data. Are you sure you want to proceed?
               </p>
               <div className="mt-2 flex gap-2">
@@ -763,7 +762,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
             <Label htmlFor="makeHomepage">Make homepage</Label>
           </div>
           {!makeHomepage && !canReplaceHomepage && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               You don&apos;t have permission to replace the current homepage.
             </p>
           )}

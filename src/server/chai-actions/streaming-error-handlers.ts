@@ -3,7 +3,7 @@
  * Uses the --MSG= format that the client understands
  * Wrapped in --START-- and --END-- markers required by client stream processor
  */
-export function formatStreamingError(error: { code: string; message: string; statusCode: number }): string {
+export function formatChaiStreamingError(error: { code: string; message: string; statusCode: number }): string {
   return `--START--\n--MSG=${error.message}--\n--END--`;
 }
 
@@ -11,7 +11,7 @@ export function formatStreamingError(error: { code: string; message: string; sta
  * Create a streaming error response
  * Converts an error into a ReadableStream response that the client can process
  */
-export function createStreamingErrorResponse(errorCode: string, errorMessage: string): Response {
+export function createChaiStreamingErrorResponse(errorCode: string, errorMessage: string): Response {
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -35,6 +35,6 @@ export function createStreamingErrorResponse(errorCode: string, errorMessage: st
 /**
  * Check if streaming response is missing the text stream
  */
-export function isMissingTextStream(response: any): boolean {
+export function isChaiMissingTextStream(response: any): boolean {
   return response?._streamingResponse && response?._streamResult && !response._streamResult?.textStream;
 }

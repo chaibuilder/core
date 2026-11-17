@@ -30,7 +30,7 @@ describe("tailwind v4 canvas CSS", () => {
       colors: [{ group: "Base", items: { primary: "Primary", border: "Border", background: "Bg", foreground: "Fg" } }],
     } as never;
 
-    const css = `${readTailwindStyles(getIframeInitialContent({ tailwindCSS: "4" }))}\n${getChaiThemeCssTheme(themeOptions)}`;
+    const css = `${readTailwindStyles(getIframeInitialContent())}\n${getChaiThemeCssTheme(themeOptions)}`;
 
     const { compile } = (await import("tailwindcss")) as any;
     const compiler = await compile(css, { base: "/", loadStylesheet: loadTailwindStylesheet });
@@ -60,7 +60,7 @@ describe("tailwind v4 canvas CSS", () => {
       colors: [{ group: "Base", items: { border: "Border", primary: "Primary" } }],
     } as never;
 
-    const css = `${readTailwindStyles(getIframeInitialContent({ tailwindCSS: "4" }))}\n${getChaiThemeCssTheme(themeOptions)}`;
+    const css = `${readTailwindStyles(getIframeInitialContent())}\n${getChaiThemeCssTheme(themeOptions)}`;
 
     const { compile } = (await import("tailwindcss")) as any;
     const compiler = await compile(css, { base: "/", loadStylesheet: loadTailwindStylesheet });
@@ -70,48 +70,19 @@ describe("tailwind v4 canvas CSS", () => {
     expect(built).toContain("--color-primary: hsl(var(--primary));");
   });
 
-  // The canvas must render v3-authored content like the page CSS does (#4198).
-  it("keeps the v3 values of the utilities v4 rescaled", async () => {
-    const css = `${readTailwindStyles(getIframeInitialContent({ tailwindCSS: "4" }))}\n${getChaiThemeCssTheme({} as never)}`;
+  // Tailwind v4 only: the canvas theme carries no v3 value overrides, matching the page CSS.
+  it("compiles the rescaled utilities to Tailwind v4's own values", async () => {
+    const css = `${readTailwindStyles(getIframeInitialContent())}\n${getChaiThemeCssTheme({} as never)}`;
 
     const { compile } = (await import("tailwindcss")) as any;
     const compiler = await compile(css, { base: "/", loadStylesheet: loadTailwindStylesheet });
-    const built = compiler.build(["shadow-sm", "drop-shadow-sm", "blur-sm", "backdrop-blur-sm", "ring"]);
+    const built = compiler.build(["shadow-sm", "blur-sm", "ring", "outline-none"]) as string;
 
-    expect(built).toContain("--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);");
-    expect(built).toContain("--drop-shadow-sm: 0 1px 1px rgb(0 0 0 / 0.05);");
-    expect(built).toContain("--blur-sm: 4px;");
-    expect(built).toContain("calc(3px + var(--tw-ring-offset-width))");
-  });
-
-  it("keeps v3 outline-none and the bare ring color", async () => {
-    const css = `${readTailwindStyles(getIframeInitialContent({ tailwindCSS: "4" }))}\n${getChaiThemeCssTheme({} as never)}`;
-
-    const { compile } = (await import("tailwindcss")) as any;
-    const compiler = await compile(css, { base: "/", loadStylesheet: loadTailwindStylesheet });
-    // Unoptimized build: variants stay nested (`.focus\:outline-none { &:focus { … } }`); flatten them.
-    const built = (compiler.build(["outline-none", "focus:outline-none", "ring"]) as string).replace(
-      /\s*\{\s*&:focus\s*\{/g,
-      ":focus {",
-    );
-    // Cascade result: the last declaration of `prop` across every rule for `selector`.
-    const last = (selector: string, prop: string) => {
-      const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-      const bodies = Array.from(built.matchAll(new RegExp(`${escaped}\\s*\\{([^}]*)\\}`, "g")), (m) => m[1]);
-      const values = bodies.flatMap((body) =>
-        Array.from(body.matchAll(new RegExp(`(?:^|[;\\s])${prop}:\\s*([^;]+);`, "g")), (m) => m[1].trim()),
-      );
-      return values.at(-1);
-    };
-
-    for (const selector of [".outline-none", ".focus\\:outline-none:focus"]) {
-      expect(last(selector, "outline")).toBe("2px solid transparent");
-      expect(last(selector, "outline-offset")).toBe("2px");
-      expect(last(selector, "outline-style")).toBe("solid");
-      expect(last(selector, "--tw-outline-style")).toBe("solid");
-    }
-    expect(built).toContain("rgb(59 130 246 / 0.5)");
-    expect(last(".ring", "--tw-ring-shadow")).not.toContain("currentcolor");
+    expect(built).not.toContain("--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);");
+    expect(built).not.toContain("--blur-sm: 4px;");
+    expect(built).not.toContain("rgb(59 130 246 / 0.5)");
+    expect(built).toContain("calc(1px + var(--tw-ring-offset-width))");
+    expect(built).toContain("outline-style: none");
   });
 
   // The page CSS compiles with the typography and forms plugins; the browser build cannot load
@@ -120,7 +91,7 @@ describe("tailwind v4 canvas CSS", () => {
     const candidates = ["prose", "lg:prose-lg", "prose-slate", "prose-headings:underline", "max-w-none", "form-input"];
     const { compile } = (await import("tailwindcss")) as any;
 
-    const canvasCss = `${readTailwindStyles(getIframeInitialContent({ tailwindCSS: "4" }))}\n${getChaiThemeCssTheme({} as never)}`;
+    const canvasCss = `${readTailwindStyles(getIframeInitialContent())}\n${getChaiThemeCssTheme({} as never)}`;
     const canvas = (await compile(canvasCss, { base: "/", loadStylesheet: loadTailwindStylesheet })).build(candidates);
 
     const plugins: Record<string, unknown> = {

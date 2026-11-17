@@ -5,7 +5,7 @@
  */
 
 /** A row of the `roles` table as returned by the role CRUD actions. */
-export type RoleEntry = {
+export type ChaiRoleRecord = {
   id: string;
   name: string;
   permissions: string[];
@@ -13,20 +13,20 @@ export type RoleEntry = {
   createdAt: string;
 };
 
-export type GetRoleActionData = {
+export type ChaiGetRoleArgs = {
   name: string;
 };
 
-export type CreateRoleActionData = {
-  name: string;
-  permissions: string[];
-};
-
-export type UpdateRoleActionData = {
+export type ChaiCreateRoleArgs = {
   name: string;
   permissions: string[];
 };
 
-export type DeleteRoleActionData = {
+export type ChaiUpdateRoleArgs = {
+  name: string;
+  permissions: string[];
+};
+
+export type ChaiDeleteRoleArgs = {
   name: string;
 };

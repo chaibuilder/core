@@ -1,13 +1,9 @@
-import { CHAI_PERMISSION_LIST, expandGrantMap } from "./permissions";
-import type {
-  ChaiRoleGrantMap,
-  ChaiRolesAndPermissions,
-  ChaiUserPermissionOverride,
-} from "~/types/rbac";
+import { CHAI_PERMISSION_LIST, expandChaiGrantMap } from "./permissions";
+import type { ChaiRoleGrantMap, ChaiRolesAndPermissions, ChaiUserPermissionOverride } from "~/types/rbac";
 
 export type {
   ChaiRoleGrantMap,
-  ChaiRoleEntry,
+  ChaiRoleGrant,
   ChaiRolesAndPermissions,
   ChaiUserPermissionOverride,
 } from "~/types/rbac";
@@ -53,7 +49,7 @@ function expandPermissionList(list: string[], catalog: string[]): string[] {
   return [...out];
 }
 
-export function resolvePermissions({
+export function resolveChaiPermissions({
   role,
   roleMap,
   userOverride,
@@ -67,9 +63,9 @@ export function resolvePermissions({
     for (const [key, allowed] of Object.entries(overrideMap)) {
       if (allowed === true) {
         // Re-expand the single key (supports `entity:*`).
-        expandGrantMap({ [key]: true }, catalog).forEach((perm) => granted.add(perm));
+        expandChaiGrantMap({ [key]: true }, catalog).forEach((perm) => granted.add(perm));
       } else if (allowed === false) {
-        expandGrantMap({ [key]: true }, catalog).forEach((perm) => granted.delete(perm));
+        expandChaiGrantMap({ [key]: true }, catalog).forEach((perm) => granted.delete(perm));
       }
     }
   }

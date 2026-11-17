@@ -8,7 +8,7 @@ import { pubsub } from "~/builder/core/pubsub";
 import { useAddBlock } from "~/builder/hooks/use-add-block";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
-import { syncBlocksWithDefaultProps } from "~/registry";
+import { syncChaiBlocksWithDefaultProps } from "~/registry";
 
 export const CoreBlock = ({
   block,
@@ -28,7 +28,7 @@ export const CoreBlock = ({
   const addBlockToPage = () => {
     if (has(block, "blocks")) {
       const blocks = isFunction(block.blocks) ? block.blocks() : block.blocks;
-      addPredefinedBlock(syncBlocksWithDefaultProps(blocks), parentId || null, position);
+      addPredefinedBlock(syncChaiBlocksWithDefaultProps(blocks), parentId || null, position);
     } else {
       addCoreBlock(block, parentId || null, position);
     }
@@ -50,12 +50,12 @@ export const CoreBlock = ({
             onDragStart={(ev) => !isDisabled && onDragStart(ev, { ...block, label: label, icon: icon })}
             onDragEnd={onDragEnd}
             draggable={isDragAndDropEnabled && !isDisabled}
-            className={`group flex h-fit flex-col items-center justify-center gap-1 whitespace-normal py-2 ${kebabCase(`chai-block-${type}`)}`}>
+            className={`group flex h-fit flex-col items-center justify-center gap-1 py-2 whitespace-normal ${kebabCase(`chai-block-${type}`)}`}>
             {createElement(icon || BoxIcon, {
               className: "w-4 h-4 mx-auto group-hover:scale-95 transition-transform",
               "data-add-core-block-icon": type,
             })}
-            <p className="max-w-full line-clamp-1 truncate hyphens-auto break-words text-center text-xs font-light leading-tight">
+            <p className="line-clamp-1 max-w-full truncate text-center text-xs leading-tight font-light break-words hyphens-auto">
               {capitalize(t(label || type))}
             </p>
           </Button>

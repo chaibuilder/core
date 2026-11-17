@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChaiRolesConfig } from "~/types/server-config";
 import { withChaiConfig } from "~/tests/setup/chai-config";
 import { DEFAULT_ROLE_MAPS } from "./default-roles";
-import { getGlobalRoles } from "./get-role-permissions";
+import { getChaiGlobalRoles } from "./get-role-permissions";
 
 /** Sets the resolved `roles` value on the real active config. */
 const setRoles = (roles: unknown) => withChaiConfig({ roles: roles as ChaiRolesConfig | undefined });
@@ -16,14 +16,14 @@ describe("getGlobalRoles", () => {
 
   it("returns DEFAULT_ROLE_MAPS when roles config is undefined", async () => {
     setRoles(undefined);
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result).toBe(DEFAULT_ROLE_MAPS);
   });
 
   it("returns static roles map directly when provided in config", async () => {
     const staticRoles = { admin: { permissions: ["*"] }, viewer: { permissions: ["pages:read"] } };
     setRoles(staticRoles);
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result).toBe(staticRoles);
   });
 
@@ -33,20 +33,20 @@ describe("getGlobalRoles", () => {
     const loader = vi.fn(async () => loaded);
     setRoles(loader);
 
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(loader).toHaveBeenCalledOnce();
     expect(result).toBe(loaded);
   });
 
   it("falls back to defaults when the loader reports nothing stored (null)", async () => {
     setRoles(async () => null);
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result).toBe(DEFAULT_ROLE_MAPS);
   });
 
   it("keeps a loader's empty map (fail closed on loader errors)", async () => {
     setRoles(async () => ({}));
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result).toEqual({});
   });
 
@@ -55,8 +55,8 @@ describe("getGlobalRoles", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     setRoles({ source: "custom" });
 
-    const first = await getGlobalRoles();
-    await getGlobalRoles();
+    const first = await getChaiGlobalRoles();
+    await getChaiGlobalRoles();
 
     expect(first).toBe(DEFAULT_ROLE_MAPS);
     // Warn-once flag is module state, so across this file it fires at most once.
@@ -74,7 +74,7 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
     setRoles(undefined);
     setGrants({ editor: ["redirects:read", "redirects:create"] });
 
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result.editor?.permissions).toEqual(
       expect.arrayContaining([...DEFAULT_ROLE_MAPS.editor!.permissions!, "redirects:read", "redirects:create"]),
     );
@@ -84,7 +84,7 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
     setRoles(async () => null);
     setGrants({ viewer: ["revisions:read"] });
 
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result.viewer?.permissions).toContain("revisions:read");
   });
 
@@ -93,7 +93,7 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
     setRoles(staticRoles);
     setGrants({ editor: ["redirects:read"] });
 
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result).toBe(staticRoles);
     expect(result.editor?.permissions).not.toContain("redirects:read");
   });
@@ -102,7 +102,7 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
     setRoles(async () => ({ editor: { permissions: ["pages:read"] } }));
     setGrants({ editor: ["redirects:read"] });
 
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result.editor?.permissions).toEqual(["pages:read"]);
   });
 
@@ -110,7 +110,7 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
     setRoles(undefined);
     setGrants({ admin: ["redirects:read"] });
 
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result.admin?.permissions).toEqual(["*"]);
   });
 
@@ -118,7 +118,7 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
     setRoles(undefined);
     setGrants({ ghost: ["redirects:read"] });
 
-    const result = await getGlobalRoles();
+    const result = await getChaiGlobalRoles();
     expect(result.ghost).toBeUndefined();
   });
 
@@ -126,7 +126,7 @@ describe("getGlobalRoles + defaultRoleGrants (plugin-contributed)", () => {
     setRoles(undefined);
     setGrants({ editor: ["redirects:read"] });
 
-    await getGlobalRoles();
+    await getChaiGlobalRoles();
     expect(DEFAULT_ROLE_MAPS.editor?.permissions).not.toContain("redirects:read");
   });
 });

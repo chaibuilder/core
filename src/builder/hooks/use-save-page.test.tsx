@@ -6,13 +6,13 @@ import { isPageLoadedAtom } from "~/builder/hooks/use-is-page-loaded";
 import { registerChaiHook } from "~/builder/register-apis/register-chai-hooks";
 import { CHAI_HOOKS } from "~/constants/CHAI_HOOKS";
 import { renderHookInBuilder } from "~/tests/builder/render-in-builder";
-import { builderSaveStateAtom, useSavePage } from "./use-save-page";
+import { builderSaveStateAtom, useChaiSavePage } from "./use-save-page";
 
 const afterSave = vi.fn((data: unknown) => data);
 registerChaiHook(CHAI_HOOKS.AFTER_SAVE_PAGE, afterSave);
 
 const renderSave = (onSave: () => Promise<unknown>, builderProps: Record<string, unknown> = {}) =>
-  renderHookInBuilder(() => useSavePage(), {
+  renderHookInBuilder(() => useChaiSavePage(), {
     builderProps: { onSave, ...builderProps },
     seed: (store) => {
       store.set(builderSaveStateAtom, "UNSAVED");

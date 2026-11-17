@@ -2,12 +2,12 @@ import { AI_MODELS } from "~/builder/pages/panels/ai-panel/models";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { getChaiCreditProvider } from "~/server/plugin-api/credit-provider";
 import { getConfigAI } from "~/server/defaults/config-registry";
-import type { LogAiRequestParams } from "~/types/server-config";
+import type { ChaiLogAiRequestArgs } from "~/types/server-config";
 
 const getModelMultiplier = (id: string) => {
   return AI_MODELS.find((model) => model.id === id)?.multiplier || 1;
 };
-export type { LogAiRequestParams } from "~/types/server-config";
+export type { ChaiLogAiRequestArgs } from "~/types/server-config";
 
 /**
  * OPTIMIZED: Log AI request with pre-computed credit status
@@ -23,7 +23,7 @@ export async function logAiRequest({
   response,
   prompt,
   error,
-}: LogAiRequestParams) {
+}: ChaiLogAiRequestArgs) {
   const clientId = getConfigAI().logging.clientId;
   const totalDuration = startTime > 0 ? Math.floor(new Date().getTime() - startTime) : 0;
 

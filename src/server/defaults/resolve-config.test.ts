@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { defineChaiServerPlugin, setPluginFeatures, setPluginMediaManager } from "~/server/plugin-api";
-import { DEFAULT_CHAI_BUILDER_SERVER_CONFIG, resolveChaiBuilderConfig } from "./index";
+import { CHAI_DEFAULT_SERVER_CONFIG, resolveChaiBuilderConfig } from "./index";
 import { stubChaiDbSetup } from "~/tests/setup/stub-chai-db";
 
 /**
@@ -33,7 +33,7 @@ describe("resolveChaiBuilderConfig", () => {
     expect(config.pageTypes.map((p) => p.key)).toEqual(["page", "global", "_folder"]);
     // Trash entities are plugin-owned; the bare core has none.
     expect(config.trash).toEqual([]);
-    expect(config.ai.logging.logger).toBe(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.ai.logging.logger);
+    expect(config.ai.logging.logger).toBe(CHAI_DEFAULT_SERVER_CONFIG.ai.logging.logger);
     expect(config.ai.models.length).toBeGreaterThan(0);
     expect(config.debugLevel).toBe(0);
     expect(config.db).toBe(db);
@@ -77,7 +77,7 @@ describe("resolveChaiBuilderConfig", () => {
     });
 
     expect(config.ai.logging.clientId).toBe("client-1");
-    expect(config.ai.logging.logger).toBe(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.ai.logging.logger);
+    expect(config.ai.logging.logger).toBe(CHAI_DEFAULT_SERVER_CONFIG.ai.logging.logger);
   });
 
   it("applies scalar overrides", () => {
@@ -117,6 +117,21 @@ describe("resolveChaiBuilderConfig", () => {
 
     expect(config.actions.custom).toBe(customAction);
     expect(config.builderActions.custom).toBe(customAction);
+  });
+
+  it("lets `actions` win over the deprecated `builderActions` on a name clash", () => {
+    const current = { name: "current", execute: () => ({ ok: true }) };
+    const legacy = { name: "legacy", execute: () => ({ ok: true }) };
+    const legacyOnly = { name: "legacyOnly", execute: () => ({ ok: true }) };
+
+    const config = resolveChaiBuilderConfig({
+      db: stubChaiDbSetup(),
+      actions: { CUSTOM: current as any },
+      builderActions: { CUSTOM: legacy as any, LEGACY_ONLY: legacyOnly as any },
+    });
+
+    expect(config.actions.CUSTOM).toBe(current);
+    expect(config.actions.LEGACY_ONLY).toBe(legacyOnly);
   });
 
   it("derives feature flags from bare db config", () => {

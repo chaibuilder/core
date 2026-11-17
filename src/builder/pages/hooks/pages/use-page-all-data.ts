@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useCurrentActivePage, usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
-import { useFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
+import { useChaiActivePage, usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiFallbackLang } from "~/builder/pages/hooks/use-fallback-lang";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
 import { useBuilderPageProps } from "./use-builder-page-props";
@@ -13,15 +13,15 @@ import { useDynamicPageSlug } from "./use-dynamic-page-selector";
  * Consolidates GET_DRAFT_PAGE, GET_BUILDER_PAGE_DATA, and GET_LANGUAGE_PAGES
  * Uses queryClient.setQueryData to populate individual caches for backward compatibility
  */
-export const usePageAllData = () => {
+export const useChaiPageData = () => {
   const [searchParams] = useSearchParams();
   const page = searchParams.get("page");
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
   const { data: primaryPage } = usePrimaryPage();
-  const { data: activePage } = useCurrentActivePage();
-  const fallbackLang = useFallbackLang();
+  const { data: activePage } = useChaiActivePage();
+  const fallbackLang = useChaiFallbackLang();
   const dynamicPageSlug = useDynamicPageSlug();
   const pageProps = useBuilderPageProps();
 
@@ -58,7 +58,7 @@ export const usePageAllData = () => {
  * reachable now that identifiers can be typed by hand.
  */
 export const useDynamicPageDataStatus = () => {
-  const { data, isFetching } = usePageAllData();
+  const { data, isFetching } = useChaiPageData();
 
   return {
     isCheckingData: isFetching,

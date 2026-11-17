@@ -1,5 +1,5 @@
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
-import { permissionResolver } from "~/server/chai-actions/permission-keys";
+import { defineChaiPermissionResolver } from "~/server/chai-actions/permission-keys";
 import type { ChaiPermissionResolver } from "~/types/chai-action";
 
 /**
@@ -32,7 +32,7 @@ export function seoAwarePermission(
   baseline: string,
   extract: (data: unknown) => unknown = (data) => data,
 ): ChaiPermissionResolver<unknown> {
-  return permissionResolver([baseline, CHAI_PERMISSIONS["pages:edit_seo"]], (data: unknown) =>
+  return defineChaiPermissionResolver([baseline, CHAI_PERMISSIONS["pages:edit_seo"]], (data: unknown) =>
     touchesSeoFields(extract(data)) ? [baseline, CHAI_PERMISSIONS["pages:edit_seo"]] : baseline,
   );
 }

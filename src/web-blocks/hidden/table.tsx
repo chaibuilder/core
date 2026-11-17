@@ -7,7 +7,7 @@ import {
 } from "@radix-ui/react-icons";
 import { isEmpty } from "lodash-es";
 import { createElement } from "react";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "~/registry";
 import { useInnerHtml } from "~/web-blocks/use-inner-html";
 import { ChaiBlockComponentProps, ChaiStyles } from "~/types/blocks";
@@ -185,7 +185,7 @@ export default TableBlock;
 
 function getDefaultBlocks(type: string): ChaiBlock[] {
   const td = (id: string, content: string) => ({
-    _id: generateUUID(),
+    _id: generateUuid(),
     _parent: id,
     _type: "TableCell",
     styles: "#styles:,",
@@ -193,7 +193,7 @@ function getDefaultBlocks(type: string): ChaiBlock[] {
   });
 
   const tr = (id?: string) => {
-    const trId = generateUUID();
+    const trId = generateUuid();
     const rootBlock: ChaiBlock = {
       _type: "TableRow",
       _id: trId,
@@ -204,7 +204,7 @@ function getDefaultBlocks(type: string): ChaiBlock[] {
   };
 
   const thead = (id?: string) => {
-    const theadId = generateUUID();
+    const theadId = generateUuid();
     const rootBlock: ChaiBlock = {
       _id: theadId,
       _type: "TableHead",
@@ -215,7 +215,7 @@ function getDefaultBlocks(type: string): ChaiBlock[] {
   };
 
   const tbody = (id?: string) => {
-    const tbodyId = generateUUID();
+    const tbodyId = generateUuid();
     const rootBlock: ChaiBlock = {
       _id: tbodyId,
       _type: "TableBody",
@@ -226,7 +226,7 @@ function getDefaultBlocks(type: string): ChaiBlock[] {
   };
 
   if (type === "Table") {
-    const tableId = generateUUID();
+    const tableId = generateUuid();
     return [
       {
         _id: tableId,

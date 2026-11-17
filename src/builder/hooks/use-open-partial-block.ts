@@ -4,12 +4,12 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLanguages } from "~/builder/hooks/use-languages";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 
 export const useOpenPartialBlock = (partialBlockId: string) => {
   const { t } = useTranslation();
   const gotoPage = useBuilderProp("gotoPage", noop);
-  const { saveState, savePageAsync } = useSavePage();
+  const { saveState, savePageAsync } = useChaiSavePage();
   const { selectedLang, fallbackLang } = useLanguages();
   return useCallback(async () => {
     // Navigating into a partial/global requires the current page to be
@@ -28,5 +28,5 @@ export const useOpenPartialBlock = (partialBlockId: string) => {
     }
     gotoPage({ pageId: partialBlockId, lang: selectedLang || fallbackLang });
     return true;
-  },[saveState, savePageAsync, gotoPage, partialBlockId, selectedLang, fallbackLang, t]);
+  }, [saveState, savePageAsync, gotoPage, partialBlockId, selectedLang, fallbackLang, t]);
 };

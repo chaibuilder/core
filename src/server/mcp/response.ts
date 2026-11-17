@@ -1,10 +1,11 @@
-import { toActionErrorPayload } from "~/server/chai-actions/action-result";
+import { toChaiActionErrorPayload } from "~/server/chai-actions/action-result";
 import type { ChaiMcpToolResult } from "~/types/mcp";
 
 /**
  * A tool result. MCP clients treat a result as success unless `isError` is set, and the
  * tools signal failure with an `Error:`-prefixed message, so that convention is
  * auto-flagged. An explicit `isError` always wins.
+ * @internal
  */
 export function createChaiMcpResponse(text: string, opts?: { isError?: boolean }): ChaiMcpToolResult {
   const isError = opts?.isError ?? text.startsWith("Error:");
@@ -25,7 +26,7 @@ export function createChaiMcpResponse(text: string, opts?: { isError?: boolean }
  * error reaches the host through the audit hook.
  */
 export function toSafeChaiMcpError(error: unknown, fallback = "The request could not be completed."): string {
-  const payload = toActionErrorPayload(error);
+  const payload = toChaiActionErrorPayload(error);
   if (payload.status >= 400 && payload.status < 500 && payload.message) {
     return `Error: ${payload.message}`;
   }

@@ -5,7 +5,7 @@ import { AlertTriangle, Bot, ChevronDown, ChevronUp } from "lucide-react";
 import { Fragment, lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import { usePubSubListener } from "~/builder/hooks/use-pub-sub";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
 import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
@@ -81,30 +81,33 @@ const UserPromptBubble = ({ message }: { message: UIMessage }) => {
     return () => clearTimeout(timer);
   }, [metadata?.isAutoMode]);
 
-  const displayText =
-    canExpand && !expanded ? `${fullText.slice(0, MAX_USER_MESSAGE_CHARS)}…` : fullText;
+  const displayText = canExpand && !expanded ? `${fullText.slice(0, MAX_USER_MESSAGE_CHARS)}…` : fullText;
 
   return (
     <div className={cn("relative")}>
-      <div className={cn("absolute inset-0 z-0", highlight ? "animate-pulse bg-gradient-to-t from-primary/30 to-primary/5" : "")}></div>
-    <div
-      className={cn(
-        "max-w-lg rounded-sm z-20 p-2 text-xs whitespace-pre-wrap transition-colors duration-300",
-        false ? "animate-pulse bg-primary text-primary-foreground" : "bg-accent",
-      )}>
-      {displayText}
-    </div>
-    {canExpand && !highlight ? (
-      <Button
-         aria-label={expanded ? "Show less" : "Show more"}
-         aria-expanded={expanded}
-         onClick={() => setExpanded((prev) => !prev)}
-         className={cn(
-           "z-20 absolute bottom-0 flex w-full bg-gradient-to-t from-accent via-accent to-transparent hover:bg-gradient-to-t text-muted-foreground items-center justify-center h-6 border-0 rounded-t-none transition-colors cursor-pointer"
-         )}>
-         {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
-      </Button>
-     ) : null}
+      <div
+        className={cn(
+          "absolute inset-0 z-0",
+          highlight ? "from-primary/30 to-primary/5 animate-pulse bg-gradient-to-t" : "",
+        )}></div>
+      <div
+        className={cn(
+          "z-20 max-w-lg rounded-sm p-2 text-xs whitespace-pre-wrap transition-colors duration-300",
+          false ? "bg-primary text-primary-foreground animate-pulse" : "bg-accent",
+        )}>
+        {displayText}
+      </div>
+      {canExpand && !highlight ? (
+        <Button
+          aria-label={expanded ? "Show less" : "Show more"}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((prev) => !prev)}
+          className={cn(
+            "from-accent via-accent text-muted-foreground absolute bottom-0 z-20 flex h-6 w-full cursor-pointer items-center justify-center rounded-t-none border-0 bg-gradient-to-t to-transparent transition-colors hover:bg-gradient-to-t",
+          )}>
+          {expanded ? <ChevronUp className="size-3.5" /> : <ChevronDown className="size-3.5" />}
+        </Button>
+      ) : null}
     </div>
   );
 };
@@ -248,17 +251,23 @@ const AiPanelPageChat = ({
     const text = reverted
       ? t("Generation stopped. The page was restored to how it was before this prompt.")
       : t("Generation stopped.");
-    setMessages((prev: UIMessage[]) => [...prev, { id: generateUUID(), role: "assistant", parts: [{ type: "text", text }] }]);
+    setMessages((prev: UIMessage[]) => [
+      ...prev,
+      { id: generateUuid(), role: "assistant", parts: [{ type: "text", text }] },
+    ]);
   };
 
   // Popup handoff: typewriter + send on AI_AUTO_MODE (Option A: event fires after panel mounted).
   const handleSendRef = useRef(handleSend);
   handleSendRef.current = handleSend;
 
-  useEffect(() => () => {
-    autoModeCleanupRef.current?.();
-    autoModeCleanupRef.current = null;
-  }, []);
+  useEffect(
+    () => () => {
+      autoModeCleanupRef.current?.();
+      autoModeCleanupRef.current = null;
+    },
+    [],
+  );
 
   const onAiAutoMode = useCallback((data?: AiAutoModeData) => {
     if (!data?.homePagePrompt) return;
@@ -350,7 +359,7 @@ const AiPanelPageChat = ({
                         isStopped={wasStopped && part.state === "streaming"}
                         defaultOpen={true}
                         className="gap-0 space-y-0">
-                        <ReasoningTrigger className="text-xs [&_p]:text-muted-foreground" />
+                        <ReasoningTrigger className="[&_p]:text-muted-foreground text-xs" />
                         <ReasoningContent className="p-0 text-xs" showLastLinesOnly={2}>
                           {reasoningText}
                         </ReasoningContent>
@@ -378,7 +387,7 @@ const AiPanelPageChat = ({
             </Fragment>
           ))}
           {queuedSections.length > 0 && (
-            <div className="is-assistant flex w-full max-w-[94%] flex-col gap-1 text-xs text-muted-foreground/50">
+            <div className="is-assistant text-muted-foreground/50 flex w-full max-w-[94%] flex-col gap-1 text-xs">
               {queuedSections.map((name, i) => (
                 <div key={`queued-${completedSections}-${i}`} className="truncate">
                   {name}
@@ -392,8 +401,8 @@ const AiPanelPageChat = ({
               the real Reasoning trigger below, not a boxed pill — they're both "thinking",
               so they should look identical rather than like two different designs. */}
           {status === "submitted" && (
-            <div className="is-assistant flex w-full max-w-[94%] items-center gap-2 text-sm text-muted-foreground">
-              <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary" />
+            <div className="is-assistant text-muted-foreground flex w-full max-w-[94%] items-center gap-2 text-sm">
+              <span className="bg-primary size-1.5 shrink-0 animate-pulse rounded-full" />
               <span>Thinking...</span>
             </div>
           )}
@@ -417,9 +426,9 @@ const AiPanelPageChat = ({
             </AiMessage>
           )}
           {showTokenWarning && (
-            <div className="is-assistant flex w-full items-center gap-2 rounded-md border-l-2 border-amber-500/50 bg-amber-500/5 py-1.5 pl-2.5 pr-2.5 text-xs">
+            <div className="is-assistant flex w-full items-center gap-2 rounded-md border-l-2 border-amber-500/50 bg-amber-500/5 py-1.5 pr-2.5 pl-2.5 text-xs">
               <AlertTriangle className="size-3.5 shrink-0 text-amber-500" />
-              <p className="min-w-0 flex-1 text-muted-foreground">
+              <p className="text-muted-foreground min-w-0 flex-1">
                 {t("This conversation has a lot of context built up.")}{" "}
                 <Button
                   type="button"
@@ -462,7 +471,6 @@ const AiPanelPageChat = ({
           />
         </Suspense>
       </div>
-
     </>
   );
 };

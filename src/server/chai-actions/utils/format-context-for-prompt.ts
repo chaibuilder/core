@@ -1,11 +1,11 @@
-import { AIContext } from "~/types";
+import { ChaiAiContext } from "~/types";
 import { stripDesignContextKeys } from "~/utils/design-context";
 
 /**
  * Format context data for AI prompt
  * Converts context object (site/page) into formatted string
  */
-export function formatContextForPrompt(rawContext?: AIContext): string {
+export function formatContextForPrompt(rawContext?: ChaiAiContext): string {
   // The design-system keys are objects and not part of these prompts (see ~/utils/design-context).
   const context = stripDesignContextKeys(rawContext);
   let contextInfo = "";
@@ -32,7 +32,7 @@ if (import.meta.vitest) {
   describe("formatContextForPrompt", () => {
     describe("With full context", () => {
       it("should format both site and page context", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "My Website",
             description: "A great website",
@@ -58,7 +58,7 @@ if (import.meta.vitest) {
       });
 
       it("should format site context with multiple fields", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "E-commerce Store",
             tagline: "Best products online",
@@ -78,7 +78,7 @@ if (import.meta.vitest) {
       });
 
       it("should format page context with multiple fields", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           page: {
             title: "Product Details",
             slug: "product-123",
@@ -100,7 +100,7 @@ if (import.meta.vitest) {
 
     describe("With partial context", () => {
       it("should handle only site context", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "Blog Site",
             author: "John Doe",
@@ -116,7 +116,7 @@ if (import.meta.vitest) {
       });
 
       it("should handle only page context", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           page: {
             title: "About Us",
             type: "static",
@@ -132,7 +132,7 @@ if (import.meta.vitest) {
       });
 
       it("should handle empty site object", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {},
           page: {
             title: "Contact",
@@ -147,7 +147,7 @@ if (import.meta.vitest) {
       });
 
       it("should handle empty page object", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "Company Site",
           },
@@ -170,7 +170,7 @@ if (import.meta.vitest) {
       });
 
       it("should return empty string when context is empty object", () => {
-        const context: AIContext = {};
+        const context: ChaiAiContext = {};
 
         const result = formatContextForPrompt(context);
 
@@ -178,7 +178,7 @@ if (import.meta.vitest) {
       });
 
       it("should return empty string when both site and page are undefined", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: undefined,
           page: undefined,
         };
@@ -191,7 +191,7 @@ if (import.meta.vitest) {
 
     describe("Formatting details", () => {
       it("should separate fields with commas", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             field1: "value1",
             field2: "value2",
@@ -205,7 +205,7 @@ if (import.meta.vitest) {
       });
 
       it("should start with newline for site context", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "Test",
           },
@@ -217,7 +217,7 @@ if (import.meta.vitest) {
       });
 
       it("should start with newline for page context when no site", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           page: {
             title: "Test",
           },
@@ -229,7 +229,7 @@ if (import.meta.vitest) {
       });
 
       it("should have both contexts on separate lines", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "Site",
           },
@@ -249,7 +249,7 @@ if (import.meta.vitest) {
 
     describe("Special characters and values", () => {
       it("should handle special characters in values", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "Site & Company",
             description: "We're #1!",
@@ -263,7 +263,7 @@ if (import.meta.vitest) {
       });
 
       it("should handle numeric values", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           page: {
             views: 1000,
             rating: 4.5,
@@ -277,7 +277,7 @@ if (import.meta.vitest) {
       });
 
       it("should handle boolean values", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           page: {
             published: true,
             featured: false,
@@ -291,7 +291,7 @@ if (import.meta.vitest) {
       });
 
       it("should handle null values", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "Test",
             logo: null,
@@ -305,7 +305,7 @@ if (import.meta.vitest) {
       });
 
       it("should handle empty string values", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           page: {
             title: "Page",
             subtitle: "",
@@ -319,7 +319,7 @@ if (import.meta.vitest) {
       });
 
       it("should handle URLs and special paths", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             url: "https://example.com/path?query=value",
             api: "https://api.example.com/v1",
@@ -335,8 +335,8 @@ if (import.meta.vitest) {
 
     describe("Design-system keys", () => {
       it("formats a context carrying a design system exactly like one without it", () => {
-        const plain: AIContext = { site: { siteContext: "Bakery", tone: "Warm" }, page: { pageContext: "Menu" } };
-        const withDesign: AIContext = {
+        const plain: ChaiAiContext = { site: { siteContext: "Bakery", tone: "Warm" }, page: { pageContext: "Menu" } };
+        const withDesign: ChaiAiContext = {
           site: { ...plain.site, designSystem: { northStar: "Flour and fire", enabled: true } },
           page: { ...plain.page, designBrief: { mode: "persuade", thesis: "Bread first" } },
         };
@@ -347,7 +347,7 @@ if (import.meta.vitest) {
 
     describe("Real-world scenarios", () => {
       it("should format e-commerce site context", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "TechStore",
             category: "Electronics",
@@ -370,7 +370,7 @@ if (import.meta.vitest) {
       });
 
       it("should format blog site context", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "Tech Blog",
             author: "Jane Smith",
@@ -392,7 +392,7 @@ if (import.meta.vitest) {
       });
 
       it("should format landing page context", () => {
-        const context: AIContext = {
+        const context: ChaiAiContext = {
           site: {
             name: "SaaS Product",
             industry: "Marketing",

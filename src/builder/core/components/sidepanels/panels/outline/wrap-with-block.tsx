@@ -4,7 +4,7 @@ import { Package } from "lucide-react";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { canAcceptChildBlock, canAcceptInto, canMoveBlock } from "~/builder/core/functions/block-helpers";
-import { generateUUID } from "~/builder/core/functions/common-functions";
+import { generateUuid } from "~/builder/core/functions/common-functions";
 import {
   useBlocksStore,
   useBlocksStoreUndoableActions,
@@ -23,7 +23,7 @@ import {
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
 } from "~/components/ui/dropdown-menu";
-import { getBlockDefaultProps } from "~/registry";
+import { getChaiBlockDefaultProps } from "~/registry";
 
 export const useWrapWithBlock = () => {
   const selectedBlock = useSelectedBlock();
@@ -38,12 +38,12 @@ export const useWrapWithBlock = () => {
       const siblings = blocks.filter((b) => (!parentId ? !b._parent : b._parent === parentId));
       const position = siblings.findIndex((b) => b._id === selectedBlock._id);
 
-      const defaultProps = getBlockDefaultProps(wrapperType) as Record<string, any>;
+      const defaultProps = getChaiBlockDefaultProps(wrapperType) as Record<string, any>;
       // Remove text content when wrapping so it doesn't leave stray text blocks/strings behind
       if (has(defaultProps, "content")) {
         defaultProps.content = "";
       }
-      const wrapperId = generateUUID();
+      const wrapperId = generateUuid();
       const wrapperBlock: any = {
         _id: wrapperId,
         _type: wrapperType,
@@ -106,14 +106,14 @@ export const WrapWithComponent = ({ type }: { type: string }) => {
             {canWrapInBox && (
               <ContextMenuItem
                 onClick={() => wrapInBlock("Box")}
-                className="flex cursor-pointer items-center gap-x-2 px-2 py-1 text-xs hover:bg-accent">
+                className="hover:bg-accent flex cursor-pointer items-center gap-x-2 px-2 py-1 text-xs">
                 <BoxIcon className="h-3.5 w-3.5" /> {t("Box")}
               </ContextMenuItem>
             )}
             {canWrapInLink && (
               <ContextMenuItem
                 onClick={() => wrapInBlock("Link")}
-                className="flex cursor-pointer items-center gap-x-2 px-2 py-1 text-xs hover:bg-accent">
+                className="hover:bg-accent flex cursor-pointer items-center gap-x-2 px-2 py-1 text-xs">
                 <Link2Icon className="h-3.5 w-3.5" /> {t("Link")}
               </ContextMenuItem>
             )}
@@ -129,7 +129,7 @@ export const WrapWithComponent = ({ type }: { type: string }) => {
         <Package className="h-3.5 w-3.5" /> {t("Wrap with")}
       </DropdownMenuSubTrigger>
       <DropdownMenuPortal>
-        <DropdownMenuSubContent className="isolate w-32 rounded-md border-border text-xs shadow-lg">
+        <DropdownMenuSubContent className="border-border isolate w-32 rounded-md text-xs shadow-lg">
           {canWrapInBox && (
             <DropdownMenuItem onClick={() => wrapInBlock("Box")} className="flex items-center gap-x-2 text-xs">
               <BoxIcon className="h-3.5 w-3.5" /> {t("Box")}

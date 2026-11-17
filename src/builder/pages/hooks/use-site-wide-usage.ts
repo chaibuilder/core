@@ -1,6 +1,6 @@
 import { isEmpty } from "lodash-es";
 import { useMemo } from "react";
-import { useWebsitePages } from "../..";
+import { useChaiPrimaryPages } from "../..";
 
 type BlocksWithDesignTokens = Record<string, string>;
 export interface SiteWideUsage {
@@ -28,7 +28,7 @@ function deriveSiteWideUsage(defaultLangPages: any[]): SiteWideUsage {
 }
 
 export const useSiteWideUsage = () => {
-  const { data: websitePages } = useWebsitePages();
+  const { data: websitePages } = useChaiPrimaryPages();
   const data = useMemo(() => deriveSiteWideUsage(websitePages ?? []), [websitePages]);
   return { data };
 };

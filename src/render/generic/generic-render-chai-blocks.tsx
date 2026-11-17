@@ -1,8 +1,8 @@
 import { isEmpty } from "lodash-es";
-import { setChaiBlockComponent } from "~/registry";
+import { registerChaiBlockComponent } from "~/registry";
 import type { ChaiFullPage } from "~/types/pages";
 import { ChaiBlockComponentProps, ChaiDesignTokens, ChaiPageProps, ChaiStyles } from "~/types";
-import { applyDesignTokens } from "~/utils";
+import { applyChaiDesignTokens } from "~/utils";
 import { RenderChaiBlocksSDK } from "../render-chai-blocks-sdk";
 import { GenericButtonBlock } from "./button-block";
 import { GenericImageBlock } from "./image-block";
@@ -67,14 +67,12 @@ export const GenericRenderChaiBlocks = async ({
   withRenderPhase?: <T>(label: string, fn: () => T | Promise<T>, detail?: string) => Promise<T>;
   dataProviders?: Record<string, Promise<Record<string, any>>>;
 }) => {
-  const phase =
-    withRenderPhase ??
-    (async <T,>(_label: string, fn: () => T | Promise<T>) => fn());
+  const phase = withRenderPhase ?? (async <T,>(_label: string, fn: () => T | Promise<T>) => fn());
 
   await phase("RenderChaiBlocks.registerComponents", async () => {
-    setChaiBlockComponent("Link", await linkComponent);
-    setChaiBlockComponent("Image", await imageComponent);
-    setChaiBlockComponent("Button", await buttonComponent);
+    registerChaiBlockComponent("Link", await linkComponent);
+    registerChaiBlockComponent("Image", await imageComponent);
+    registerChaiBlockComponent("Button", await buttonComponent);
   });
 
   const tokens = settings?.designTokens ?? designTokens;
@@ -82,7 +80,7 @@ export const GenericRenderChaiBlocks = async ({
 
   const blocks = await phase(
     "RenderChaiBlocks.applyDesignTokens",
-    async () => (!isEmpty(tokens) ? applyDesignTokens(page.blocks, tokens) : page.blocks),
+    async () => (!isEmpty(tokens) ? applyChaiDesignTokens(page.blocks, tokens) : page.blocks),
     `blocks=${blockCount}`,
   );
 

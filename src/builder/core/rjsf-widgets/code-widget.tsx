@@ -8,7 +8,7 @@ import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
 import { Textarea } from "~/components/ui/textarea";
-import { LANGUAGES } from "~/constants/LANGUAGES";
+import { CHAI_LANGUAGES } from "~/constants/LANGUAGES";
 import { getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlockConfig } from "~/types";
 import { ChaiBlock } from "~/types/common";
@@ -24,7 +24,7 @@ const CodeEditor = ({ id, placeholder }: WidgetProps) => {
   const hasI18n = includes(get(registeredBlock, "i18nProps", []), blockProp);
   const blockPropWithLang = hasI18n ? (selectedLang ? `${blockProp}-${selectedLang}` : blockProp) : blockProp;
   const value = get(selectedBlock, blockPropWithLang, "");
-  const currentLanguage = useMemo(() => get(LANGUAGES, selectedLang, selectedLang), [selectedLang]);
+  const currentLanguage = useMemo(() => get(CHAI_LANGUAGES, selectedLang, selectedLang), [selectedLang]);
 
   const openCodeEditor = () => {
     const blockId = selectedBlock?._id;

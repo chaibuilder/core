@@ -3,11 +3,11 @@ import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { map, noop, sum } from "lodash-es";
-import { useApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 
 export const useUploadAsset = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
 
@@ -53,7 +53,7 @@ export const useUploadAsset = () => {
  *
  * `XMLHttpRequest` rather than `fetch` for one reason: only XHR exposes
  * `upload.onprogress`. The multipart body matches the format the server's
- * `parseMultipartActionBody` expects: `action`, `meta` (JSON), `file` and an optional `thumbnail`.
+ * `parseChaiMultipartActionBody` expects: `action`, `meta` (JSON), `file` and an optional `thumbnail`.
  */
 const putFile = (
   url: string,
@@ -110,7 +110,7 @@ const putFile = (
  *
  * Uses XHR for upload progress tracking. The multipart body carries the
  * `CREATE_ASSET` action and metadata alongside the file bytes, matching the
- * format `parseMultipartActionBody` already parses on the server. No separate
+ * format `parseChaiMultipartActionBody` already parses on the server. No separate
  * `/upload` route is needed — everything goes through the main action endpoint.
  *
  * Returns `progress` alongside the mutation: the fraction of bytes sent across the whole
@@ -118,7 +118,7 @@ const putFile = (
  * last byte is sent while the server is still storing the file.
  */
 export const useStreamUploadAsset = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const getAccessToken = usePagesProp("getAccessToken", noop) as () => Promise<string | undefined>;
   const [progress, setProgress] = useState<number | null>(null);
@@ -200,7 +200,7 @@ export const useStreamUploadAsset = () => {
 };
 
 export const useDeleteAsset = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
   const flags = usePagesProp("flags", {}) as Record<string, boolean>;
@@ -237,7 +237,7 @@ export const useDeleteAsset = () => {
 };
 
 export const useUpdateAsset = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
 

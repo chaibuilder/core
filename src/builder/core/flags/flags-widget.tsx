@@ -3,7 +3,7 @@ import { useAtom } from "jotai";
 import { atomWithStorage } from "jotai/utils";
 import { useEffect, useMemo, useState } from "react";
 import { useHotkeys } from "react-hotkeys-hook";
-import { useChaiFeatureFlag, useChaiFeatureFlags, useToggleChaiFeatureFlag } from "~/builder/register-apis";
+import { useChaiFeatureFlag, useChaiFeatureFlags, useChaiFeatureFlagToggle } from "~/builder/register-apis";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Switch } from "~/components/ui/switch";
@@ -15,7 +15,7 @@ const FeatureToggle = ({
   featureKey: string;
   options: { key: string; title?: string; description?: string };
 }) => {
-  const toggleFlag = useToggleChaiFeatureFlag(featureKey);
+  const toggleFlag = useChaiFeatureFlagToggle(featureKey);
   const flag = useChaiFeatureFlag(featureKey);
   return (
     <div className="flex items-center space-x-3 rounded-md p-2 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800">
@@ -111,7 +111,7 @@ const ChaiFeatureFlagsWidgetComponent = ({
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
-      className="fixed z-[9999999] select-none rounded-md border border-gray-300 bg-white p-3 shadow-2xl"
+      className="fixed z-[9999999] rounded-md border border-gray-300 bg-white p-3 shadow-2xl select-none"
       style={{
         left: position.x,
         top: position.y,
@@ -132,12 +132,12 @@ const ChaiFeatureFlagsWidgetComponent = ({
             variant="ghost"
             size="sm"
             onClick={close}
-            className="absolute -right-2 -top-2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
+            className="absolute -top-2 -right-2 p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
             <Cross1Icon className="h-4 w-4" />
           </Button>
         </div>
         <div className="relative">
-          <MagnifyingGlassIcon className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+          <MagnifyingGlassIcon className="absolute top-2.5 left-2.5 h-4 w-4 text-gray-400" />
           <Input
             type="search"
             placeholder="Search features..."

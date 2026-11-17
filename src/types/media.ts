@@ -4,7 +4,7 @@
  * importing plugin code; the plugin's zod schema stays the source of
  * validation.
  */
-export type SearchImagesInput = {
+export type ChaiSearchImagesArgs = {
   query: string;
   page?: number;
   limit?: number;
@@ -17,11 +17,11 @@ export type SearchImagesInput = {
  * arrangement as SearchImagesInput above: core declares the shape, the
  * plugin's zod schema stays the source of validation.
  */
-export type GetAssetInput = {
+export type ChaiGetAssetArgs = {
   id: string;
 };
 
-export type UpdateAssetInput = {
+export type ChaiUpdateAssetArgs = {
   id: string;
   file?: string | Uint8Array;
   description?: Record<string, string>;

@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useFeatureLabel } from "~/builder/hooks/use-feature-label";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import type { ChaiUpstreamPageOption } from "~/types/chaibuilder-config";
 
@@ -20,7 +20,7 @@ export const isLinkedPage = (page: { upstream?: string | null; useUpstream?: boo
 
 /** The upstream pages this site may link, from the host's LIST_UPSTREAM_PAGES action. */
 export const useUpstreamPages = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   return useQuery({
     // The list depends on the site, and `apiUrl` is the same relative path on every site's editor.
@@ -33,7 +33,7 @@ export const useUpstreamPages = () => {
 };
 
 const useUpstreamMutation = (action: string, successMessage: string) => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
   return useMutation({

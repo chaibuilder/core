@@ -1,8 +1,8 @@
 import { memo } from "react";
 import { registerChaiBlockProps, stylesProp } from "../..";
 import {
-  getBlockDefaultProps,
-  getBlockFormSchemas,
+  getChaiBlockDefaultProps,
+  getChaiBlockFormSchemas,
   getChaiBlockVariantProps,
   getRegisteredChaiBlock,
   registerChaiBlock,
@@ -32,7 +32,10 @@ describe("block variants registration", () => {
     });
 
     const registered = getRegisteredChaiBlock("VariantBlock");
-    expect(registered?.variants).toEqual({ minimal: { component: MinimalComponent }, hero: { component: HeroComponent } });
+    expect(registered?.variants).toEqual({
+      minimal: { component: MinimalComponent },
+      hero: { component: HeroComponent },
+    });
     expect(registered?.component).toBe(DefaultComponent);
   });
 
@@ -49,7 +52,9 @@ describe("block variants registration", () => {
     });
     registerChaiBlock(DefaultComponent, baseConfig("StickyVariantBlock"));
 
-    expect(getRegisteredChaiBlock("StickyVariantBlock")?.variants).toEqual({ minimal: { component: MinimalComponent } });
+    expect(getRegisteredChaiBlock("StickyVariantBlock")?.variants).toEqual({
+      minimal: { component: MinimalComponent },
+    });
   });
 });
 
@@ -192,7 +197,7 @@ describe("variant props", () => {
       variants: { minimal: { component: MinimalComponent }, boxed: { props: { props: { styles: "border p-6" } } } },
     });
 
-    const { schema } = getBlockFormSchemas("MixedVariantBlock") as any;
+    const { schema } = getChaiBlockFormSchemas("MixedVariantBlock") as any;
     expect(schema.properties._variant.oneOf.map((option: any) => option.const)).toEqual(["", "minimal", "boxed"]);
   });
 });
@@ -284,7 +289,7 @@ describe("variant dropdown in the settings form schema", () => {
       variants: { minimal: { component: MinimalComponent }, heroCentered: { component: HeroComponent } },
     });
 
-    const { schema } = getBlockFormSchemas("FormVariantBlock") as any;
+    const { schema } = getChaiBlockFormSchemas("FormVariantBlock") as any;
 
     expect(schema.properties._variant).toEqual({
       type: "string",
@@ -306,14 +311,14 @@ describe("variant dropdown in the settings form schema", () => {
       variants: { minimal: { component: MinimalComponent } },
     });
 
-    const { uiSchema } = getBlockFormSchemas("WidgetVariantBlock") as any;
+    const { uiSchema } = getChaiBlockFormSchemas("WidgetVariantBlock") as any;
     expect(uiSchema._variant).toEqual({ "ui:widget": "variant", "ui:label": false });
   });
 
   it("does not inject _variant for blocks without variants", () => {
     registerChaiBlock(DefaultComponent, baseConfig("FormPlainBlock"));
 
-    const { schema } = getBlockFormSchemas("FormPlainBlock") as any;
+    const { schema } = getChaiBlockFormSchemas("FormPlainBlock") as any;
     expect(schema.properties._variant).toBeUndefined();
   });
 
@@ -322,14 +327,14 @@ describe("variant dropdown in the settings form schema", () => {
       ...baseConfig("RefreshVariantBlock"),
       variants: { minimal: { component: MinimalComponent } },
     });
-    expect((getBlockFormSchemas("RefreshVariantBlock") as any).schema.properties._variant.oneOf).toHaveLength(2);
+    expect((getChaiBlockFormSchemas("RefreshVariantBlock") as any).schema.properties._variant.oneOf).toHaveLength(2);
 
     registerChaiBlock(DefaultComponent, {
       ...baseConfig("RefreshVariantBlock"),
       variants: { minimal: { component: MinimalComponent }, hero: { component: HeroComponent } },
     });
 
-    const oneOf = (getBlockFormSchemas("RefreshVariantBlock") as any).schema.properties._variant.oneOf;
+    const oneOf = (getChaiBlockFormSchemas("RefreshVariantBlock") as any).schema.properties._variant.oneOf;
     expect(oneOf.map((option: any) => option.const)).toEqual(["", "minimal", "hero"]);
   });
 
@@ -343,7 +348,7 @@ describe("variant dropdown in the settings form schema", () => {
       variants: { minimal: { component: MinimalComponent } },
     });
 
-    const { uiSchema } = getBlockFormSchemas("OrderedVariantBlock") as any;
+    const { uiSchema } = getChaiBlockFormSchemas("OrderedVariantBlock") as any;
     expect(uiSchema["ui:order"]).toEqual(["_variant", "title"]);
   });
 
@@ -357,8 +362,8 @@ describe("variant dropdown in the settings form schema", () => {
       variants: { minimal: { component: MinimalComponent } },
     });
 
-    getBlockFormSchemas("StableOrderBlock");
-    const { uiSchema } = getBlockFormSchemas("StableOrderBlock") as any;
+    getChaiBlockFormSchemas("StableOrderBlock");
+    const { uiSchema } = getChaiBlockFormSchemas("StableOrderBlock") as any;
     expect(uiSchema["ui:order"]).toEqual(["_variant", "title"]);
   });
 
@@ -368,6 +373,6 @@ describe("variant dropdown in the settings form schema", () => {
       variants: { minimal: { component: MinimalComponent } },
     });
 
-    expect(getBlockDefaultProps("DefaultsVariantBlock")).toEqual({ title: "Hello" });
+    expect(getChaiBlockDefaultProps("DefaultsVariantBlock")).toEqual({ title: "Hello" });
   });
 });

@@ -1,4 +1,3 @@
-import twContainer from "@tailwindcss/container-queries";
 import twForms from "@tailwindcss/forms";
 import twTypography from "@tailwindcss/typography";
 import { ChaiBlock } from "~/types/common";
@@ -6,7 +5,7 @@ import { ChaiBlock } from "~/types/common";
 // consumers of the published package.
 import { blocksToStylesMarkup } from "../server/chai-builder/public/styles-markup";
 import { compileTailwindCss } from "../utils/tailwind-css-compat";
-import { chaiBuilderPlugin, getChaiBuilderTheme } from "../utils";
+import { chaiTailwindPlugin, getChaiTailwindTheme } from "../utils";
 
 async function getTailwindCSS(markupString: string[], safelist: string[] = [], includeBaseStyles: boolean = false) {
   return compileTailwindCss({
@@ -17,7 +16,7 @@ async function getTailwindCSS(markupString: string[], safelist: string[] = [], i
       darkMode: "class",
       theme: {
         extend: {
-          ...getChaiBuilderTheme(),
+          ...getChaiTailwindTheme(),
           keyframes: {
             "accordion-down": {
               from: {
@@ -42,7 +41,7 @@ async function getTailwindCSS(markupString: string[], safelist: string[] = [], i
           },
         },
       },
-      plugins: [twForms, twTypography, twContainer, chaiBuilderPlugin],
+      plugins: [twForms, twTypography, chaiTailwindPlugin],
       corePlugins: { preflight: includeBaseStyles },
     },
   });
@@ -64,7 +63,7 @@ const getBlocksTailwindCSS = (blocks: ChaiBlock[], includeBaseStyles: boolean) =
  * @param includeBaseStyles - Whether to include the base styles
  * @returns The tailwind css for the blocks
  */
-export const getStylesForBlocks = async (blocks: ChaiBlock[], includeBaseStyles: boolean = false): Promise<string> => {
+export const getChaiBlocksStyles = async (blocks: ChaiBlock[], includeBaseStyles: boolean = false): Promise<string> => {
   return await getBlocksTailwindCSS(blocks, includeBaseStyles);
 };
 
@@ -72,26 +71,26 @@ if (import.meta.vitest) {
   describe("getStylesForBlocks", () => {
     it("should generate CSS for a class in a #styles: string", async () => {
       const blocks: ChaiBlock[] = [{ _id: "b1", _type: "div", styles: "#styles:,bg-red-500", _name: "T" }];
-      const css = await getStylesForBlocks(blocks);
+      const css = await getChaiBlocksStyles(blocks);
       expect(css).toContain("bg-red-500");
     });
 
     it("should pick up classes from the standard #styles: format", async () => {
       const blocks: ChaiBlock[] = [{ _id: "b1", _type: "div", styles: "#styles:,py-4 text-white", _name: "T" }];
-      const css = await getStylesForBlocks(blocks);
+      const css = await getChaiBlocksStyles(blocks);
       expect(css).toContain("py-4");
       expect(css).toContain("text-white");
     });
 
     it("should not include preflight when includeBaseStyles is false", async () => {
       const blocks: ChaiBlock[] = [{ _id: "b1", _type: "div", styles: "#styles:,text-sm", _name: "T" }];
-      const css = await getStylesForBlocks(blocks, false);
+      const css = await getChaiBlocksStyles(blocks, false);
       expect(css).not.toContain("box-sizing");
     });
 
     it("should include preflight when includeBaseStyles is true", async () => {
       const blocks: ChaiBlock[] = [{ _id: "b1", _type: "div", styles: "#styles:,text-sm", _name: "T" }];
-      const css = await getStylesForBlocks(blocks, true);
+      const css = await getChaiBlocksStyles(blocks, true);
       expect(css).toContain("box-sizing");
     });
 
@@ -105,7 +104,7 @@ if (import.meta.vitest) {
           _name: "T",
         },
       ];
-      const css = await getStylesForBlocks(blocks);
+      const css = await getChaiBlocksStyles(blocks);
       expect(css).toContain("background-image");
       expect(css).toContain(
         "linear-gradient(to right,#80808012 1px,transparent 1px),linear-gradient(to bottom,#80808012 1px,transparent 1px)",
@@ -116,7 +115,7 @@ if (import.meta.vitest) {
 
     it("splits #styles media,base commas so both candidates compile", async () => {
       const blocks: ChaiBlock[] = [{ _id: "b1", _type: "div", styles: "#styles:md:flex,hidden", _name: "T" }];
-      const css = await getStylesForBlocks(blocks);
+      const css = await getChaiBlocksStyles(blocks);
       expect(css).toMatch(/(?:^|[^\w-])\.hidden\s*\{/);
       expect(css).toContain("md\\:flex");
     });

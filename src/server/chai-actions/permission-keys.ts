@@ -3,10 +3,10 @@ import type { ChaiActionContext, ChaiPermissionResolver, ChaiRequiredPermission 
 /**
  * Tags a payload-aware permission resolver with every key it may ever return, so
  * static audits (MCP tool-permission superset, role-reach test, docs) that cannot
- * call the resolver can still see what it may demand. `wp` / `withActionPermission`
+ * call the resolver can still see what it may demand. `wp` / `withChaiActionPermission`
  * refuse an untagged function — use this instead of assigning the property by hand.
  */
-export function permissionResolver<T = any>(
+export function defineChaiPermissionResolver<T = any>(
   declaredPermissionKeys: string[],
   resolve: (data: T, context: ChaiActionContext) => string | string[] | null | undefined,
 ): ChaiPermissionResolver<T> {
@@ -20,7 +20,7 @@ export function permissionResolver<T = any>(
  * it — the superset, not the requirement for a given call. An ungated action
  * returns `[]`.
  */
-export function declaredPermissionKeysOf(permission: ChaiRequiredPermission | undefined | null): string[] {
+export function getDeclaredChaiPermissionKeys(permission: ChaiRequiredPermission | undefined | null): string[] {
   if (!permission) return [];
   if (typeof permission === "string") return [permission];
   if (Array.isArray(permission)) return permission.filter(Boolean);

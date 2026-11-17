@@ -34,7 +34,6 @@ const StaticCanvas = () => {
   const [, setCanvasIframe] = useCanvasIframe();
   const loadingCanvas = useBuilderProp("loading", false);
   const htmlDir = useBuilderProp("htmlDir", "ltr");
-  const tailwindCSS = useBuilderProp<"3" | "4">("tailwindCSS", "4");
   const { onDragOver, onDrop, onDragEnd } = useDragAndDrop();
   const dropIndicator = useDropIndicator();
 
@@ -51,10 +50,7 @@ const StaticCanvas = () => {
     setDimension({ width: clientWidth, height: clientHeight });
   }, [wrapperRef, width]);
 
-  const iframeContent: string = useMemo(
-    () => getIframeInitialContent({ htmlDir, tailwindCSS }),
-    [htmlDir, tailwindCSS],
-  );
+  const iframeContent: string = useMemo(() => getIframeInitialContent({ htmlDir }), [htmlDir]);
 
   return (
     <ResizableCanvasWrapper onMount={setNewWidth} onResize={setNewWidth}>
@@ -115,7 +111,7 @@ const StaticCanvas = () => {
                 id="placeholder"
                 className={`pointer-events-none absolute z-[99999] max-w-full ${
                   dropIndicator.isEmpty
-                    ? "bg-purple-500/10 outline-dashed outline-2 -outline-offset-4 outline-purple-500"
+                    ? "bg-purple-500/10 outline-2 -outline-offset-4 outline-purple-500 outline-dashed"
                     : "rounded-full bg-green-500"
                 }`}
                 style={{

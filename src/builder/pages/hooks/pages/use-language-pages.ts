@@ -1,12 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { reverse, sortBy } from "lodash-es";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
 
-export const useLanguagePages = (pageId?: string | undefined) => {
-  const apiUrl = useApiUrl();
+export const useChaiLanguagePages = (pageId?: string | undefined) => {
+  const apiUrl = useChaiApiUrl();
   const [searchParams] = useSearchParams();
   const page = pageId ?? searchParams.get("page");
   const fetchAPI = useFetch();

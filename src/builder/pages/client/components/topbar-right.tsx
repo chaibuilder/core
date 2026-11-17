@@ -19,24 +19,24 @@ import { useIsPageLoaded } from "~/builder/hooks/use-is-page-loaded";
 import { requestChaiPanelClose } from "~/builder/hooks/use-panel-close-guard";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
-import { useSavePage, type UntranslatedBlock } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage, type UntranslatedBlock } from "~/builder/hooks/use-save-page";
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useStructureValidation } from "~/builder/hooks/use-structure-validation";
 import { useRightPanel } from "~/builder/hooks/use-theme";
 import { useGlobalStylesTitle } from "~/builder/core/components/sidepanels/panels/global-styles/global-styles-panel";
 import { useValidationSnooze } from "~/builder/hooks/use-validation-snooze";
-import PermissionChecker from "~/builder/pages/client/components/permission-checker";
+import IfChaiPermission from "~/builder/pages/client/components/permission-checker";
 
 import { usePublishPages } from "~/builder/pages/hooks/pages/mutations";
 import {
-  useCurrentActivePage,
+  useChaiActivePage,
   useGetPageFullSlug,
   useGetPagePreviewUrl,
   usePrimaryPage,
 } from "~/builder/pages/hooks/pages/use-current-page";
 import { useGetUnpublishedPartialBlocks } from "~/builder/pages/hooks/pages/use-get-unpublished-partial-blocks";
 import { useIsLanguagePageCreated } from "~/builder/pages/hooks/pages/use-is-languagep-page-created";
-import { useLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
+import { useChaiLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
 
 import { useUnpublishedWebsiteSettings } from "~/builder/pages/hooks/project/use-unpublished-website-settings";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
@@ -54,7 +54,7 @@ import {
 import { Loading } from "~/components/ui/loader";
 import { CHAI_SLOT_IDS } from "~/constants/CHAI_SLOT_IDS";
 import { CHAI_PERMISSIONS } from "~/constants/PERMISSIONS";
-import { usePageLockStatus } from "~/builder/pages/client/realtime";
+import { useChaiPageLockStatus } from "~/builder/pages/client/realtime";
 
 const UnpublishPage = lazy(() => import("~/builder/pages/client/components/unpublish-page"));
 const TranslationWarningModal = lazy(
@@ -114,8 +114,8 @@ const ThemeButton = () => {
 const SaveButton = () => {
   const { t } = useTranslation();
   const [isSaving, setIsSaving] = useState(false);
-  const { isLocked } = usePageLockStatus();
-  const { savePageAsync, saveState } = useSavePage();
+  const { isLocked } = useChaiPageLockStatus();
+  const { savePageAsync, saveState } = useChaiSavePage();
   const { errors, hasErrors, hasWarnings } = useStructureValidation();
   const { isSnoozed, snoozeForDays } = useValidationSnooze("save");
   const [showValidationModal, setShowValidationModal] = useState(false);
@@ -211,14 +211,14 @@ const SaveButton = () => {
 const PublishButton = () => {
   const { t } = useTranslation();
   const { selectedLang } = useLanguages();
-  const { data: activePage } = useCurrentActivePage();
-  const { data: languagePages } = useLanguagePages();
+  const { data: activePage } = useChaiActivePage();
+  const { data: languagePages } = useChaiLanguagePages();
   const languagePageIds = map(languagePages, "id");
   const getUnpublishedPartialBlocks = useGetUnpublishedPartialBlocks();
   const [, setIsHovered] = useState(false);
   const [unpublishPage, setUnpublishPage] = useState(null);
   const [showCompareModal, setShowCompareModal] = useState(false);
-  const { savePageAsync } = useSavePage();
+  const { savePageAsync } = useChaiSavePage();
   const [showTranslationWarning, setShowTranslationWarning] = useState(false);
   const [untranslatedBlocks, setUntranslatedBlocks] = useState<UntranslatedBlock[]>([]);
   const [, setSelectedBlockIds] = useSelectedBlockIds();
@@ -240,7 +240,7 @@ const PublishButton = () => {
   const { data: currentPage } = usePrimaryPage();
   const [isPageLoaded] = useIsPageLoaded();
   const { mutate: publishPage, isPending } = usePublishPages();
-  const { getUntranslatedBlocks, arePartialsLoading } = useSavePage();
+  const { getUntranslatedBlocks, arePartialsLoading } = useChaiSavePage();
   // The blocks store is empty until the page has finished loading, so the pre-publish
   // checks (unpublished partials, missing translations, structure validation) would all
   // pass vacuously. Keep publishing unavailable until the page and its partials are loaded.
@@ -510,7 +510,7 @@ const LiveLinkButton = () => {
 };
 
 export default function TopbarRight() {
-  const { isLocked } = usePageLockStatus();
+  const { isLocked } = useChaiPageLockStatus();
   const [searchParams] = useSearchParams();
   const lang = searchParams.get("lang");
   const isLanguagePageCreated = useIsLanguagePageCreated(lang as string);
@@ -522,19 +522,19 @@ export default function TopbarRight() {
     <div className="flex items-center justify-end gap-1">
       <ChaiSlot slotId={CHAI_SLOT_IDS.TOPBAR_RIGHT_START} />
       {!readOnly && (
-        <PermissionChecker permissions={[CHAI_PERMISSIONS["theme:edit"], CHAI_PERMISSIONS["design_tokens:read"]]}>
+        <IfChaiPermission permissions={[CHAI_PERMISSIONS["theme:edit"], CHAI_PERMISSIONS["design_tokens:read"]]}>
           <ThemeButton />
-        </PermissionChecker>
+        </IfChaiPermission>
       )}
       <PreviewButton />
       {!readOnly && (
-        <PermissionChecker permission={CHAI_PERMISSIONS["pages:update"]}>
+        <IfChaiPermission permission={CHAI_PERMISSIONS["pages:update"]}>
           <SaveButton />
-        </PermissionChecker>
+        </IfChaiPermission>
       )}
-      <PermissionChecker permission={CHAI_PERMISSIONS["pages:publish"]}>
+      <IfChaiPermission permission={CHAI_PERMISSIONS["pages:publish"]}>
         <PublishButton />
-      </PermissionChecker>
+      </IfChaiPermission>
       <LiveLinkButton />
       <ChaiSlot slotId={CHAI_SLOT_IDS.TOPBAR_RIGHT} />
     </div>

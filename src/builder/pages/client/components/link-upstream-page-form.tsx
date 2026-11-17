@@ -8,9 +8,9 @@ import { DynamicSlugInput } from "~/builder/pages/client/components/dynamic-slug
 import { ParentPageSelector } from "~/builder/pages/client/components/parent-page-selector";
 import { SlugInput } from "~/builder/pages/client/components/slug-input";
 import { useCreatePage } from "~/builder/pages/hooks/pages/mutations";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { type UpstreamPage, useUpstreamPages } from "~/builder/pages/hooks/pages/use-upstream-pages";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { combineParentChildSlugs, slugify } from "~/builder/pages/utils/slug-utils";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -59,14 +59,14 @@ export const LinkUpstreamPageForm = ({ onCreated }: { onCreated: (pageId: string
   const isPending = isCreating || isSuccess;
   const [upstream, setUpstream] = useState<UpstreamPage | null>(null);
   const [name, setName] = useState("");
-  const { data: sitePages } = useWebsitePrimaryPages();
+  const { data: sitePages } = useChaiPrimaryPages();
   const [parentId, setParentId] = useState("");
   const [slug, setSlug] = useState("");
   const [isSlugValid, setIsSlugValid] = useState(true);
   const [dynamicSlugCustom, setDynamicSlugCustom] = useState("");
   const [isDynamicSlugValid, setIsDynamicSlugValid] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const byGroup = groupBy(pages, (page) => page.group ?? "");
   const parent = parentId && parentId !== "none" ? sitePages?.find((page) => page.id === parentId) : undefined;
   const isDynamic = Boolean(upstream?.dynamic);
@@ -116,9 +116,7 @@ export const LinkUpstreamPageForm = ({ onCreated }: { onCreated: (pageId: string
   };
 
   if (!isLoading && pages.length === 0) {
-    return (
-      <p className="text-muted-foreground py-4 text-sm">{t("No {{label}} is available to link.", { label })}</p>
-    );
+    return <p className="text-muted-foreground py-4 text-sm">{t("No {{label}} is available to link.", { label })}</p>;
   }
 
   return (

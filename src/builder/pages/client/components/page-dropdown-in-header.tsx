@@ -5,14 +5,14 @@ import { lazy, ReactNode, Suspense, useState } from "react";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { addNewLangAtom } from "~/builder/pages/atom/add-new-lang";
-import { useCurrentActivePage } from "~/builder/pages/hooks/pages/use-current-page";
+import { useChaiActivePage } from "~/builder/pages/hooks/pages/use-current-page";
 import { useDynamicPageSelector } from "~/builder/pages/hooks/pages/use-dynamic-page-selector";
-import { useLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
+import { useChaiLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
 import { useDynamicPageDataStatus } from "~/builder/pages/hooks/pages/use-page-all-data";
 import { Button } from "~/components/ui/button";
 import { Loading } from "~/components/ui/loader";
 import { PageActionsDropdown } from "./page-action-dropdown";
-import { usePageLockStatus } from "~/builder/pages/client/realtime";
+import { useChaiPageLockStatus } from "~/builder/pages/client/realtime";
 import ScreenOverlay from "./screen-overlay";
 
 const AddNewPage = lazy(() => import("./add-new-page"));
@@ -74,11 +74,11 @@ export const PageDropdownInHeader = ({
   const [duplicatePageModal, setDuplicatePageModal] = useState<any>(null);
   const [addEditPageModal, setAddEditPageModal] = useState<any>(null);
 
-  const { data: page, isFetching } = useCurrentActivePage();
+  const { data: page, isFetching } = useChaiActivePage();
   const { selectedLang, fallbackLang } = useLanguages();
-  const { data: languagePages } = useLanguagePages();
+  const { data: languagePages } = useChaiLanguagePages();
   const currentLangPage = languagePages?.find((langPage) => langPage.lang === selectedLang);
-  const { isLocked } = usePageLockStatus();
+  const { isLocked } = useChaiPageLockStatus();
   const isPartial = !page?.slug;
   const setAddNewLang = useSetAtom(addNewLangAtom);
   const dynamic = get(page, "dynamic", false);
@@ -110,7 +110,9 @@ export const PageDropdownInHeader = ({
               // Nested flex: without min-w-0 on both levels the name is clipped with no ellipsis.
               <div className="flex h-7 min-w-0 items-center gap-1 rounded-[min(var(--radius-md),12px)] text-[0.8rem]">
                 {isPartial ? <Hash className="!h-3.5 !w-3.5" /> : <File className="!h-3.5 !w-3.5" />}
-                <span className="min-w-0 truncate" title={pageName}>{pageName}</span>
+                <span className="min-w-0 truncate" title={pageName}>
+                  {pageName}
+                </span>
               </div>
             )}
           </div>

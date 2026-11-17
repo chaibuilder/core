@@ -1,5 +1,5 @@
 import "~/server/only-server";
-import { declaredPermissionKeysOf } from "~/server/chai-actions/permission-keys";
+import { getDeclaredChaiPermissionKeys } from "~/server/chai-actions/permission-keys";
 import type { ChaiAction, ChaiRequiredPermission } from "~/types/chai-action";
 import type { ChaiServerPlugin } from "~/types/plugin";
 import type {
@@ -47,14 +47,14 @@ export function setPluginMediaManager(
 /**
  * Assigns `requiredPermission` on an action instance and returns it (same as core's
  * `wp`). Also records `declaredPermissionKeys`; a payload-aware resolver must be
- * built with `permissionResolver()` or this throws.
+ * built with `defineChaiPermissionResolver()` or this throws.
  */
-export function withActionPermission<T extends ChaiAction<any, any>>(
+export function withChaiActionPermission<T extends ChaiAction<any, any>>(
   action: T,
   permission: ChaiRequiredPermission<any>,
 ): T {
   action.requiredPermission = permission;
-  action.declaredPermissionKeys = declaredPermissionKeysOf(permission);
+  action.declaredPermissionKeys = getDeclaredChaiPermissionKeys(permission);
   return action;
 }
 
@@ -67,7 +67,10 @@ export function withActionPermission<T extends ChaiAction<any, any>>(
  * defaultRoleGrants: mergeDefaultRoleGrants(config.defaultRoleGrants, { editor: ["widgets:*"] }),
  * ```
  */
-export function mergeDefaultRoleGrants(a: ChaiDefaultRoleGrants = {}, b: ChaiDefaultRoleGrants): ChaiDefaultRoleGrants {
+export function mergeChaiDefaultRoleGrants(
+  a: ChaiDefaultRoleGrants = {},
+  b: ChaiDefaultRoleGrants,
+): ChaiDefaultRoleGrants {
   const out: ChaiDefaultRoleGrants = { ...a };
   for (const [role, keys] of Object.entries(b)) {
     out[role] = [...new Set([...(out[role] ?? []), ...keys])];

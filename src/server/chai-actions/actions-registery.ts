@@ -42,9 +42,6 @@ export { ChaiActionsRegistry };
 
 const chaiActionsRegistry = ChaiActionsRegistry.getInstance();
 
-/** @deprecated Use the default export / `ChaiActionsRegistry.getInstance()` instead */
-export const BuilderActionsRegistry = chaiActionsRegistry;
-
 /** The shared registered instance. To run an action, use {@link getChaiActionInstance}. */
 export const getChaiAction = (action: string): ChaiAction<any, any> | undefined => {
   const legacyOverride = chaiActionsRegistry.getAction(action);

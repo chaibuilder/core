@@ -4,18 +4,18 @@ import { chaiDesignTokensAtom } from "~/builder/atoms/builder";
 import { builderStore } from "~/builder/atoms/store";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useTheme } from "~/builder/hooks/use-theme";
-import { ChaiDesignTokens, ChaiSaveWebsiteData, ChaiTheme } from "~/types";
+import { ChaiDesignTokens, ChaiSaveSiteArgs, ChaiTheme } from "~/types";
 
 export const useSaveWebsiteData = () => {
-  const onSaveWebsiteData = useBuilderProp<(data: ChaiSaveWebsiteData) => Promise<boolean | Error>>(
+  const onSaveWebsiteData = useBuilderProp<(data: ChaiSaveSiteArgs) => Promise<boolean | Error>>(
     "onSaveWebsiteData",
-    async (_data: ChaiSaveWebsiteData) => true,
+    async (_data: ChaiSaveSiteArgs) => true,
   );
   const [theme] = useTheme();
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const saveWebsiteData = useCallback(
-    (data: ChaiSaveWebsiteData) => {
+    (data: ChaiSaveSiteArgs) => {
       const save = saveQueueRef.current
         .catch(() => undefined)
         .then(async () => {

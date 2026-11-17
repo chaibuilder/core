@@ -21,19 +21,19 @@ type LooseRelationalQueryBuilder = {
  * and the actual shape depends on the registered schema (including plugin
  * tables) anyway.
  */
-export type DbInstance = Omit<PgDatabase<any, any>, "query"> & {
+export type ChaiDbInstance = Omit<PgDatabase<any, any>, "query"> & {
   query: Record<string, LooseRelationalQueryBuilder>;
 };
 
 /** SQLite/D1/libsql drizzle instances are erased to the shared DbInstance at config boundaries. */
-export function asDbInstance<T>(drizzle: T): DbInstance {
-  return drizzle as unknown as DbInstance;
+export function asDbInstance<T>(drizzle: T): ChaiDbInstance {
+  return drizzle as unknown as ChaiDbInstance;
 }
 
 export type ChaiDbDialect = "pg" | "sqlite";
 
 export type ChaiDbSetup = {
-  drizzle: DbInstance;
+  drizzle: ChaiDbInstance;
   schema: Record<string, unknown>;
   /**
    * Default table objects used to rebind plugin relations to host tables. A `schema` entry that is
@@ -49,10 +49,10 @@ export type ChaiDbSetup = {
    * schema. Set by adapters that own their client; used when plugins merge
    * extra tables so `db.query.<pluginTable>` works too.
    */
-  withSchema?: (schema: Record<string, unknown>) => DbInstance;
+  withSchema?: (schema: Record<string, unknown>) => ChaiDbInstance;
 };
 
-let _db: DbInstance | null = null;
+let _db: ChaiDbInstance | null = null;
 let _activeSchema: Record<string, unknown> | null = null;
 let _dialect: ChaiDbDialect = "pg";
 let _teardown: (() => void) | null = null;
@@ -68,7 +68,7 @@ function teardownSingletonDb(): void {
 }
 
 /** Registers the ChaiBuilder DB singleton from `buildChaiBuilderConfig({ db })`. */
-export function registerDb(setup: ChaiDbSetup): void {
+export function registerChaiDb(setup: ChaiDbSetup): void {
   if (!setup?.drizzle) {
     throw new Error("ChaiBuilder: invalid `db` setup. Pass `db: createPostgresDB(...)` (or libsql/d1/better-sqlite3).");
   }
@@ -87,17 +87,17 @@ export function registerDb(setup: ChaiDbSetup): void {
   _teardown = setup.teardown ?? null;
 }
 
-export function getDbDialect(): ChaiDbDialect {
+export function getChaiDbDialect(): ChaiDbDialect {
   return _dialect;
 }
 
 /** Drops the singleton and runs teardown when ChaiBuilder opened the connection. */
-export function resetDbForTests(): void {
+export function resetChaiDbForTests(): void {
   teardownSingletonDb();
 }
 
 /** Ensures the database singleton is registered (sync — no lazy init). */
-export async function ensureDbReady(): Promise<void> {
+export async function ensureChaiDbReady(): Promise<void> {
   if (!_db) {
     throw new Error(
       "ChaiBuilder database was not initialized. Pass `db` to `buildChaiBuilderConfig` " +
@@ -107,7 +107,7 @@ export async function ensureDbReady(): Promise<void> {
 }
 
 /** Chai Drizzle singleton; configured only through `buildChaiBuilderConfig({ db: … })`. */
-export function getDb(): DbInstance {
+export function getChaiDb(): ChaiDbInstance {
   if (!_db) {
     throw new Error(
       "ChaiBuilder database was not initialized. Pass `db` to `buildChaiBuilderConfig` " +
@@ -117,20 +117,20 @@ export function getDb(): DbInstance {
   return _db;
 }
 
-export const db: DbInstance = new Proxy({} as DbInstance, {
+export const db: ChaiDbInstance = new Proxy({} as ChaiDbInstance, {
   get(_, prop) {
-    return (getDb() as any)[prop];
+    return (getChaiDb() as any)[prop];
   },
 });
 
 export type ChaiDbContext = {
-  db: DbInstance;
+  db: ChaiDbInstance;
   schema: ChaiCoreSchema;
 };
 
-export type DbResult<T> = { data: T; error: null } | { data: null; error: Error };
+export type ChaiDbResult<T> = { data: T; error: null } | { data: null; error: Error };
 
-export async function safeQuery<T>(queryFn: () => Promise<T>): Promise<DbResult<T>> {
+export async function safeQuery<T>(queryFn: () => Promise<T>): Promise<ChaiDbResult<T>> {
   try {
     const data = await queryFn();
     return { data, error: null };

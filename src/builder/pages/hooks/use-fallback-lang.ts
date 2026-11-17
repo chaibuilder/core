@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { useWebsiteSetting } from "./project/use-website-settings";
+import { useChaiSiteSettings } from "./project/use-website-settings";
 
-export const useFallbackLang = () => {
-  const { data: websiteConfig } = useWebsiteSetting();
+export const useChaiFallbackLang = () => {
+  const { data: websiteConfig } = useChaiSiteSettings();
   const fallbackLang = useMemo(() => websiteConfig?.fallbackLang || "en", [websiteConfig]);
   return fallbackLang;
 };

@@ -15,12 +15,11 @@ export * from "~/types/ai-config";
 export * from "~/types/blocks";
 export * from "~/types/chai-action";
 export * from "~/types/chaibuilder-config";
-export * from "~/types/collection-config";
 export * from "~/types/chaibuilder-editor-props";
-export * from "~/types/collections";
 export * from "~/types/common";
 export type { ChaiPageProps } from "~/types/common";
 export * from "~/types/db";
+export * from "~/types/deprecated";
 export * from "~/types/design-system";
 export * from "~/types/media";
 export * from "~/types/page-metadata";
@@ -39,3 +38,6 @@ export type ChaiRuntimeProp<T> = {
   type: "runtime";
   value: T;
 };
+
+// Deprecated names, kept for compatibility. See ./deprecated.ts.
+export * from "./deprecated";

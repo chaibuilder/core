@@ -1,6 +1,6 @@
 import { CHAI_BUILT_IN_DESIGN_TOKENS } from "~/constants/BUILTIN_TOKENS";
 import { isBlockAvailableForPageType } from "~/builder/core/functions/block-helpers";
-import { getAllRegisteredChaiBlocks } from "~/registry";
+import { getRegisteredChaiBlocks } from "~/registry";
 import { getRegisteredChaiPipes } from "~/registry/pipes";
 import { serializePipeLiteral } from "~/render/binding-pipes";
 import { getResolvedPageType } from "~/server/defaults/config-registry";
@@ -48,7 +48,7 @@ export const buildDesignTokensList = (designTokens: ChaiAIActionData["designToke
     .join("\n");
 };
 
-type RegisteredCustomBlock = ReturnType<typeof getAllRegisteredChaiBlocks>[string];
+type RegisteredCustomBlock = ReturnType<typeof getRegisteredChaiBlocks>[string];
 
 /**
  * True for a registry entry the AI treats as a custom block: not a core
@@ -64,7 +64,7 @@ export const isCustomCatalogBlock = (registryKey: string, block: RegisteredCusto
 
 /** The custom blocks available on a page type, as `[registryKey, block]` in registry order. */
 export const getCustomCatalogBlocks = (pageType?: string): [string, RegisteredCustomBlock][] =>
-  Object.entries(getAllRegisteredChaiBlocks()).filter(
+  Object.entries(getRegisteredChaiBlocks()).filter(
     ([registryKey, block]) =>
       isCustomCatalogBlock(registryKey, block) && isBlockAvailableForPageType(block, pageType || "page"),
   );

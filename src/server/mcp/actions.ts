@@ -1,4 +1,4 @@
-import { dispatchChaiAction } from "~/server/chai-actions/dispatch-action";
+import { runChaiAction } from "~/server/chai-actions/dispatch-action";
 import { applyChaiActionCacheEffects, type ChaiActionCacheOptions } from "~/server/chai-builder/action-cache-effects";
 
 /**
@@ -17,7 +17,7 @@ export async function runChaiMcpAction<TResult = unknown>(
   input: unknown,
   options: ChaiActionCacheOptions = {},
 ): Promise<TResult> {
-  const result = (await dispatchChaiAction(name, input)) as TResult;
+  const result = (await runChaiAction(name, input)) as TResult;
   try {
     await applyChaiActionCacheEffects(name, result, options);
   } catch (error) {

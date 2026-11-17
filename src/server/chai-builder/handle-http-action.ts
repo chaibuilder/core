@@ -1,19 +1,19 @@
 import {
   isStreamingChaiAction,
-  toActionErrorPayload,
+  toChaiActionErrorPayload,
   type ChaiActionFailure,
   type ChaiActionSuccess,
 } from "~/server/chai-actions/action-result";
-import { dispatchChaiAction } from "~/server/chai-actions/dispatch-action";
+import { runChaiAction } from "~/server/chai-actions/dispatch-action";
 import {
-  createStreamingErrorResponse,
-  formatStreamingError,
-  isMissingTextStream,
+  createChaiStreamingErrorResponse,
+  formatChaiStreamingError,
+  isChaiMissingTextStream,
 } from "~/server/chai-actions/streaming-error-handlers";
 import { applyChaiActionCacheEffects, DEFAULT_CATCH_ALL_ROUTE } from "~/server/chai-builder/action-cache-effects";
 import { runChaiResponseDecorators } from "~/server/plugin-api/response-decorator";
 
-export type HttpChaiActionBody = {
+export type ChaiHttpActionBody = {
   action: string;
   data?: unknown;
 };
@@ -34,15 +34,15 @@ function withExtras<T extends object>(body: T, extras: Record<string, unknown>):
 }
 
 function httpActionErrorResponse(action: string, error: unknown, extras: Record<string, unknown>): Response {
-  const payload = toActionErrorPayload(error);
+  const payload = toChaiActionErrorPayload(error);
 
   if (isStreamingChaiAction(action)) {
-    const errorMessage = formatStreamingError({
+    const errorMessage = formatChaiStreamingError({
       code: payload.code,
       message: payload.message,
       statusCode: payload.status,
     });
-    return createStreamingErrorResponse(payload.code, errorMessage);
+    return createChaiStreamingErrorResponse(payload.code, errorMessage);
   }
 
   const body: ChaiActionFailure = { ok: false, error: payload };
@@ -55,7 +55,7 @@ function httpActionSuccessResponse(data: unknown, extras: Record<string, unknown
 }
 
 export async function handleHttpAction(
-  body: HttpChaiActionBody,
+  body: ChaiHttpActionBody,
   options: HandleHttpChaiActionOptions = {},
 ): Promise<Response> {
   const { catchAllRoute = DEFAULT_CATCH_ALL_ROUTE } = options;
@@ -65,7 +65,7 @@ export async function handleHttpAction(
   // overlaps with the action instead of adding to it. Never gates the action.
   const extrasPromise = runChaiResponseDecorators().catch(() => ({}) as Record<string, unknown>);
   try {
-    const result = await dispatchChaiAction(action, data);
+    const result = await runChaiAction(action, data);
 
     if (result && typeof result === "object" && "_streamingResponse" in result && "_streamResult" in result) {
       const streamingResult = result as {
@@ -91,7 +91,7 @@ export async function handleHttpAction(
         return streamingResult._streamResult.dataStream;
       }
 
-      if (isMissingTextStream(streamingResult)) {
+      if (isChaiMissingTextStream(streamingResult)) {
         return httpActionErrorResponse(
           action,
           {

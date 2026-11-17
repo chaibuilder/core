@@ -8,18 +8,18 @@
 import { renderToReadableStream } from "react-dom/server.browser";
 import { describe, expect, it } from "vitest";
 import { registerChaiBlock } from "~/registry";
-import { NextJSRenderChaiBlocks } from "./next-render-chai-blocks";
+import { ChaiBlocksRenderer } from "./next-render-chai-blocks";
 
 const TestText = ({ content }: { content?: string }) => <p data-testid="text">{content}</p>;
 
 // A plain block in the real registry; `NextJSRenderChaiBlocks` also swaps in the real
-// Link/Image/Button components through `setChaiBlockComponent`.
+// Link/Image/Button components through `registerChaiBlockComponent`.
 registerChaiBlock(TestText as any, { type: "TestText", label: "TestText", group: "test" } as any);
 
 const render = async (pageData: Record<string, any>) => {
   const stream = await renderToReadableStream(
     <div>
-      <NextJSRenderChaiBlocks
+      <ChaiBlocksRenderer
         pageData={pageData}
         settings={{}}
         page={

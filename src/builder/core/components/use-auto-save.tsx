@@ -2,10 +2,10 @@ import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect } from "react";
 import { userActionsCountAtom } from "~/builder/atoms/builder";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
-import { builderSaveStateAtom, useSavePage } from "~/builder/hooks/use-save-page";
+import { builderSaveStateAtom, useChaiSavePage } from "~/builder/hooks/use-save-page";
 
 export const useAutoSave = () => {
-  const { savePage, saveState } = useSavePage();
+  const { savePage, saveState } = useChaiSavePage();
   const autoSave = useBuilderProp("autoSave", true);
   const autoSaveActionsCount = useBuilderProp("autoSaveActionsCount", 10);
   const [actionsCount] = useAtom(userActionsCountAtom);

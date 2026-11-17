@@ -17,7 +17,7 @@ import { useIsPageLoaded } from "~/builder/hooks/use-is-page-loaded";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { usePermissions } from "~/builder/hooks/use-permissions";
 import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
-import { executeChaiHooks } from "~/builder/register-apis/register-chai-hooks";
+import { runChaiHooks } from "~/builder/register-apis/register-chai-hooks";
 import { CHAI_HOOKS } from "~/constants/CHAI_HOOKS";
 import { getRegisteredChaiBlock } from "~/registry";
 import { ChaiBlock } from "~/types/common";
@@ -101,7 +101,7 @@ export const getBlocksWithMissingTranslations = (
   });
 };
 
-export const useSavePage = () => {
+export const useChaiSavePage = () => {
   const [saveState, setSaveState] = useAtom(builderSaveStateAtom);
   const onSave = useBuilderProp("onSave", async (_error: any) => {});
   const onSaveStateChange = useBuilderProp("onSaveStateChange", noop);
@@ -211,7 +211,7 @@ export const useSavePage = () => {
       }
 
       // Execute before-save hooks (can transform blocks)
-      const hookedBlocks = await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, pageData.blocks as ChaiBlock[], {
+      const hookedBlocks = await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, pageData.blocks as ChaiBlock[], {
         pageId: (pageData.currentPage as any)?.id,
         operation: "update",
       });
@@ -235,7 +235,7 @@ export const useSavePage = () => {
       });
 
       // Execute after-save hooks (side effects only)
-      await executeChaiHooks(
+      await runChaiHooks(
         CHAI_HOOKS.AFTER_SAVE_PAGE,
         { pageId: (pageData.currentPage as any)?.id, blocks: transformedBlocks },
         { operation: "update" },
@@ -273,7 +273,7 @@ export const useSavePage = () => {
     const pageData = getPageData();
 
     // Execute before-save hooks (can transform blocks)
-    const transformedBlocks = await executeChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, pageData.blocks as ChaiBlock[], {
+    const transformedBlocks = await runChaiHooks(CHAI_HOOKS.BEFORE_SAVE_PAGE, pageData.blocks as ChaiBlock[], {
       pageId: (pageData.currentPage as any)?.id,
       operation: "update",
     });
@@ -300,7 +300,7 @@ export const useSavePage = () => {
     }
 
     // Execute after-save hooks (side effects only)
-    await executeChaiHooks(
+    await runChaiHooks(
       CHAI_HOOKS.AFTER_SAVE_PAGE,
       { pageId: (pageData.currentPage as any)?.id, blocks: transformedBlocks },
       { operation: "update" },

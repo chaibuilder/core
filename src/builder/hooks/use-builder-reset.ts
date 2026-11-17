@@ -5,7 +5,7 @@ import { useBlockRepeaterDataAtom } from "~/builder/hooks/async-props/use-async-
 import { useUndoManager } from "~/builder/hooks/history/use-undo-manager";
 import { useBlockHighlight } from "~/builder/hooks/use-block-highlight";
 import { usePartialBlocksStore } from "~/builder/hooks/use-partial-blocks-store";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import { useSelectedStylingBlocks } from "~/builder/hooks/use-selected-styling-blocks";
 
@@ -16,7 +16,7 @@ export const useBuilderReset = () => {
   const [, setStylingHighlighted] = useSelectedStylingBlocks();
   const [, setAiAssistantActive] = useAtom(aiAssistantActiveAtom);
   const { reset: resetPartialBlocks } = usePartialBlocksStore();
-  const { setSaveState } = useSavePage();
+  const { setSaveState } = useChaiSavePage();
   const [, setBlockRepeaterDataAtom] = useBlockRepeaterDataAtom();
   const [, setActionsCount] = useAtom(userActionsCountAtom);
 

@@ -4,7 +4,7 @@ import { CORE_DEFAULT_CHAI_BUILDER_SERVER_CONFIG } from "./core-default-server-c
 import type { ResolvedChaiBuilderServerConfig } from "./types";
 
 /** Public server defaults, including the builtin chai actions. */
-export const DEFAULT_CHAI_BUILDER_SERVER_CONFIG: ResolvedChaiBuilderServerConfig = {
+export const CHAI_DEFAULT_SERVER_CONFIG: ResolvedChaiBuilderServerConfig = {
   ...CORE_DEFAULT_CHAI_BUILDER_SERVER_CONFIG,
   actions: BUILTIN_CHAI_ACTIONS,
   builderActions: BUILTIN_CHAI_ACTIONS,

@@ -5,10 +5,10 @@ import { act, waitFor } from "@testing-library/react";
 import { builderStore } from "~/builder/atoms/store";
 import { selectedLanguageAtom } from "~/builder/hooks/use-languages";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { mockChaiAction, type MockedChaiAction } from "~/tests/builder/msw";
 import { createTestQueryClient, renderHookInBuilder } from "~/tests/builder/render-in-builder";
-import { useWebsitePrimaryPages } from "../use-project-pages";
+import { useChaiPrimaryPages } from "../use-project-pages";
 import { useDynamicPageSelector } from "../use-dynamic-page-selector";
 
 type Item = { id: string; slug: string; name: string; lang: string };
@@ -77,7 +77,7 @@ const setup = async ({
 
   const queryClient = createTestQueryClient();
   const builderProps = { fallbackLang: "en", languages: ["en", "fr", "es"] };
-  const warm = renderHookInBuilder(() => ({ types: usePageTypes(), pages: useWebsitePrimaryPages() }), {
+  const warm = renderHookInBuilder(() => ({ types: useChaiPageTypes(), pages: useChaiPrimaryPages() }), {
     queryClient,
     builderProps,
   });

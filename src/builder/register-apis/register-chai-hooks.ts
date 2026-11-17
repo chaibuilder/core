@@ -29,7 +29,7 @@ export const registerChaiHook = <T>(hookName: ChaiHookName, hookFn: ChaiHook<T>)
  * Each hook receives the output from the previous hook
  * Errors in hooks are caught and logged but don't break the pipeline
  */
-export const executeChaiHooks = async <T>(
+export const runChaiHooks = async <T>(
   hookName: ChaiHookName,
   initialData: T,
   context?: ChaiHookContext,
@@ -55,14 +55,14 @@ export const executeChaiHooks = async <T>(
 /**
  * Get all registered hooks for a given hook name (for testing)
  */
-export const getRegisteredHooks = (hookName: ChaiHookName): ChaiHook<any>[] => {
+export const getRegisteredChaiHooks = (hookName: ChaiHookName): ChaiHook<any>[] => {
   return HOOK_REGISTRY[hookName] || [];
 };
 
 /**
  * Clear all hooks for a given hook name (for testing)
  */
-export const clearHooks = (hookName?: ChaiHookName): void => {
+export const unregisterChaiHooks = (hookName?: ChaiHookName): void => {
   if (hookName) {
     delete HOOK_REGISTRY[hookName];
   } else {

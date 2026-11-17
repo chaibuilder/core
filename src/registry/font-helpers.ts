@@ -1,11 +1,13 @@
 import { compact, filter, has, map, sortBy, uniq, uniqBy } from "lodash-es";
-import { getRegisteredFont, resolveFont } from "~/registry/fonts";
+import { getRegisteredChaiFont, resolveChaiFont } from "~/registry/fonts";
 import { ChaiFont, ChaiFontBySrc, ChaiFontByUrl } from "~/types";
 
 const getThemeFontFaceCSS = (fonts: string[]) => {
-  const resolved = compact(map(fonts, resolveFont));
+  const resolved = compact(map(fonts, resolveChaiFont));
   const imports = uniq(
-    (filter(resolved, (font: ChaiFont) => has(font, "url")) as ChaiFontByUrl[]).map((font) => `@import url("${font.url}");`),
+    (filter(resolved, (font: ChaiFont) => has(font, "url")) as ChaiFontByUrl[]).map(
+      (font) => `@import url("${font.url}");`,
+    ),
   ).join("\n");
   const faces = getThemeCustomFontFaceStyle(filter(resolved, (font: ChaiFont) => has(font, "src")) as ChaiFontBySrc[]);
   // @import must precede every other rule.
@@ -56,7 +58,7 @@ const weightRank = (fontWeight = "normal") => {
   return rank === -1 ? PRELOAD_WEIGHT_ORDER.length : rank;
 };
 
-export const getFontStyles = async (
+export const getChaiFontStyles = async (
   headingFont: string,
   bodyFont: string,
 ): Promise<{ fontStyles: string; preloads: string[] }> => {
@@ -66,7 +68,7 @@ export const getFontStyles = async (
   // Upright faces only: italics rarely render above the fold.
   const families = fonts
     .map((fontName) =>
-      ((getRegisteredFont(fontName) as ChaiFontBySrc | undefined)?.src ?? []).filter(
+      ((getRegisteredChaiFont(fontName) as ChaiFontBySrc | undefined)?.src ?? []).filter(
         (source) => (source.fontStyle ?? "normal") === "normal",
       ),
     )

@@ -5,6 +5,7 @@
 # Read by scripts/sync-src.mjs and scripts/sync-check.mjs. Edit in both repos in the same change.
 /edition/
 /payload/
+/plugins/ai-advanced/
 /plugins/ai-pro/
 /plugins/animation/
 /plugins/bulk-publish/

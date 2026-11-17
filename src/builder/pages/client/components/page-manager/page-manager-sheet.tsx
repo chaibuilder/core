@@ -3,7 +3,7 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePageManagerAtom } from "~/builder/pages/atom/page-manager";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "~/components/ui/sheet";
 
@@ -14,7 +14,7 @@ const PagesManagerSheet = () => {
   const [searchParams] = useSearchParams();
   const page = searchParams.get("page");
   const { data: primaryPage, isFetching } = usePrimaryPage();
-  const { data: allPages, isFetching: isPagesLoading } = useWebsitePrimaryPages();
+  const { data: allPages, isFetching: isPagesLoading } = useChaiPrimaryPages();
   const [pageManagerOpen, setPageManager] = usePageManagerAtom();
   const canClose = !!page && !isEmpty(primaryPage);
 
@@ -38,7 +38,7 @@ const PagesManagerSheet = () => {
       <SheetContent
         side={"left"}
         aria-describedby="pages-manager-description"
-        className={`z-50 !min-w-[600px] !max-w-[600px] border-border p-0 ${!canClose ? "sheet-hide-close-btn" : ""}`}>
+        className={`border-border z-50 !max-w-[600px] !min-w-[600px] p-0 ${!canClose ? "sheet-hide-close-btn" : ""}`}>
         <SheetHeader className="p-3 px-4">
           <SheetTitle>{t("Pages Manager")}</SheetTitle>
           <SheetDescription className="sr-only">{t("Manage your site structure")}</SheetDescription>

@@ -1,6 +1,6 @@
 import { canDeleteBlock } from "~/builder/core/functions/block-helpers";
-import { generateUUID } from "~/builder/core/functions/common-functions";
-import { getAllRegisteredChaiBlocks, getRegisteredChaiBlock } from "~/registry";
+import { generateUuid } from "~/builder/core/functions/common-functions";
+import { getRegisteredChaiBlocks, getRegisteredChaiBlock } from "~/registry";
 import { hasOnlyRegisteredChaiPipes, isValidBindingTemplate, parseBindingExpression } from "~/render/binding-pipes";
 import type { ChaiBlock } from "~/types/common";
 import {
@@ -318,7 +318,7 @@ export const applyAddBlocks = async (
 };
 
 const validCustomBlockTypes = (): string[] =>
-  Object.entries(getAllRegisteredChaiBlocks())
+  Object.entries(getRegisteredChaiBlocks())
     .map(([registryKey, block]) => block.type ?? registryKey)
     .filter((type): type is string => typeof type === "string" && type.length > 0)
     .sort();
@@ -345,7 +345,7 @@ export const applyAddCustomBlock = (
 
   const sanitizedProps = sanitizeAiProps(props);
   const block: ChaiBlock = {
-    _id: generateUUID(),
+    _id: generateUuid(),
     _type: type,
     _parent: target.parentId,
     ...(options.resolveInternalLink

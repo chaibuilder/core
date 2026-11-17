@@ -5,7 +5,7 @@ import { undoManager, useUndoManager } from "~/builder/hooks/history/use-undo-ma
 import { useBlockKeyboardCommands } from "~/builder/hooks/use-block-keyboard-commands";
 import { useReadOnlyMode } from "~/builder/hooks/use-read-only-mode";
 import { isTextEntryTarget } from "~/builder/hooks/keyboard-target";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 
 const shouldUseNativeClipboard = (event: KeyboardEvent) => {
@@ -30,7 +30,7 @@ export const useKeyEventWatcher = (doc?: Document) => {
   const [ids, setIds] = useSelectedBlockIds();
   const commands = useBlockKeyboardCommands();
   const { undo, redo } = useUndoManager();
-  const { savePage } = useSavePage();
+  const { savePage } = useChaiSavePage();
   const readOnly = useReadOnlyMode() !== null;
 
   const getOptions = useCallback(

@@ -1,9 +1,9 @@
 import { isEmpty, isPlainObject } from "lodash-es";
 import type { ReactNode } from "react";
-import { setChaiBlockComponent } from "~/registry";
+import { registerChaiBlockComponent } from "~/registry";
 import { ChaiBlockComponentProps, ChaiDesignTokens, ChaiPageProps, ChaiStyles } from "~/types";
 import type { ChaiFullPage } from "~/types/pages";
-import { applyDesignTokens } from "~/utils";
+import { applyChaiDesignTokens } from "~/utils";
 import { buildPageBindingData } from "~/utils/page-binding-data";
 import { BlockErrorBoundaryComponent, RenderChaiBlocksSDK } from "../render-chai-blocks-sdk";
 import { ButtonBlock } from "./button-block";
@@ -50,7 +50,7 @@ type LinkBlockProps = {
 
 type ComponentType<T> = React.ComponentType<T> | Promise<React.ComponentType<T>>;
 
-export const NextJSRenderChaiBlocks = async ({
+export const ChaiBlocksRenderer = async ({
   pageData,
   settings,
   page,
@@ -86,14 +86,12 @@ export const NextJSRenderChaiBlocks = async ({
   /** Draft mode for block data providers (e.g. Next.js `draftMode().isEnabled`). */
   draft?: boolean;
 }) => {
-  const phase =
-    withRenderPhase ??
-    (async <T,>(_label: string, fn: () => T | Promise<T>) => fn());
+  const phase = withRenderPhase ?? (async <T,>(_label: string, fn: () => T | Promise<T>) => fn());
 
   await phase("RenderChaiBlocks.registerComponents", async () => {
-    setChaiBlockComponent("Link", await linkComponent);
-    setChaiBlockComponent("Image", await imageComponent);
-    setChaiBlockComponent("Button", await buttonComponent);
+    registerChaiBlockComponent("Link", await linkComponent);
+    registerChaiBlockComponent("Image", await imageComponent);
+    registerChaiBlockComponent("Button", await buttonComponent);
   });
 
   const tokens = settings?.designTokens ?? designTokens;
@@ -101,7 +99,7 @@ export const NextJSRenderChaiBlocks = async ({
 
   const blocks = await phase(
     "RenderChaiBlocks.applyDesignTokens",
-    async () => (!isEmpty(tokens) ? applyDesignTokens(page.blocks, tokens) : page.blocks),
+    async () => (!isEmpty(tokens) ? applyChaiDesignTokens(page.blocks, tokens) : page.blocks),
     `blocks=${blockCount}`,
   );
 
@@ -111,7 +109,10 @@ export const NextJSRenderChaiBlocks = async ({
       <RenderChaiBlocksSDK
         externalData={{
           ...pageData,
-          page: { ...(isPlainObject(pageData.page) ? (pageData.page as Record<string, unknown>) : {}), ...buildPageBindingData(pageProps) },
+          page: {
+            ...(isPlainObject(pageData.page) ? (pageData.page as Record<string, unknown>) : {}),
+            ...buildPageBindingData(pageProps),
+          },
         }}
         designTokens={tokens}
         blocks={blocks}

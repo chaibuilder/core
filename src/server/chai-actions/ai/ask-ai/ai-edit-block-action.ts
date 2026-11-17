@@ -2,13 +2,13 @@ import { ModelMessage } from "ai";
 import { z } from "zod";
 import { isBlockAvailableForPageType } from "~/builder/core/functions/block-helpers";
 import { CHAI_BUILT_IN_DESIGN_TOKENS } from "~/constants/BUILTIN_TOKENS";
-import { getAllRegisteredChaiBlocks } from "~/registry";
+import { getRegisteredChaiBlocks } from "~/registry";
 import { getResolvedPageType } from "~/server/defaults/config-registry";
 import { throwAiChatError } from "~/server/chai-actions/ai/throw-ai-chat-error";
 import { AIChatError, AIChatErrorCode } from "~/server/chai-actions/classes/chai-ai-chat-handler";
 import { getAskAiSystemPrompt } from "~/server/chai-actions/classes/system-prompt";
 import { stripDesignContextKeys } from "~/utils/design-context";
-import { ChaiAIActionData, ChaiBaseAIAction, CoreMessage } from "../../base-ai-action";
+import { ChaiAIActionData, ChaiBaseAiAction, CoreMessage } from "../../base-ai-action";
 import { buildDataBindingPathsText, buildDataBindingPipesText } from "./ai-edit-page-prompt-context";
 
 const designTokensSchema = z
@@ -33,7 +33,7 @@ export type AIEditBlockStreamResponse = {
 /**
  * Action to handle AI_EDIT_BLOCK requests
  */
-export class AIEditBlockAction extends ChaiBaseAIAction<AIEditBlockActionData, AIEditBlockStreamResponse> {
+export class AIEditBlockAction extends ChaiBaseAiAction<AIEditBlockActionData, AIEditBlockStreamResponse> {
   protected getValidationSchema() {
     return z.object({
       messages: z.array(z.any()),
@@ -106,7 +106,7 @@ export class AIEditBlockAction extends ChaiBaseAIAction<AIEditBlockActionData, A
     // below and to build the page type context section further down.
     const pageTypeKey: string | undefined = data?.options?.pageType;
 
-    const allBlocks = getAllRegisteredChaiBlocks();
+    const allBlocks = getRegisteredChaiBlocks();
     const customBlockEntries = Object.values(allBlocks).filter(
       (b) => !CORE_BLOCK_TYPES.has(b.type) && isBlockAvailableForPageType(b, pageTypeKey || "page"),
     );

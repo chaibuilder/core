@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
-import { useApiUrl } from "./use-builder-prop";
+import { useChaiApiUrl } from "./use-builder-prop";
 
 export interface AppSharedJsonLD {
   id: string;
@@ -12,7 +12,7 @@ export interface AppSharedJsonLD {
 }
 
 export const useAppSharedJsonLD = () => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
 
   return useQuery({

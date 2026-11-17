@@ -11,7 +11,7 @@ import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { usePubSubListener } from "~/builder/hooks/use-pub-sub";
-import { useSavePage } from "~/builder/hooks/use-save-page";
+import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
 import {
   Conversation,
@@ -89,7 +89,7 @@ const AiPanelForDefaultLang = ({
   const blocksHtmlForAi = useBlocksHtmlForAi();
   const [isContextModalOpen, setIsContextModalOpen] = useState(false);
   const [contextModalTab, setContextModalTab] = useState<"site" | "page">("page");
-  const { savePageAsync } = useSavePage();
+  const { savePageAsync } = useChaiSavePage();
   const designTokens = useAtomValue(chaiDesignTokensAtom);
   const pageExternalData = usePageExternalData();
   const { data: currentPage } = usePrimaryPage();

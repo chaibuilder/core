@@ -1,8 +1,8 @@
 import { and, eq, isNull, or, sql } from "drizzle-orm";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
-import { getGlobalRoles } from "./get-role-permissions";
-import { getPermissionCatalog } from "./permission-catalog";
-import { resolvePermissions } from "./resolve-permissions";
+import { getChaiGlobalRoles } from "./get-role-permissions";
+import { getChaiPermissionCatalog } from "./permission-catalog";
+import { resolveChaiPermissions } from "./resolve-permissions";
 
 export type ChaiAppUserAccess = {
   /** Role name as stored on the membership row. */
@@ -32,9 +32,7 @@ export async function isChaiGlobalSuperAdmin(userId: string): Promise<boolean> {
     db
       .select({ id: schema.appUsers.id })
       .from(schema.appUsers)
-      .where(
-        and(isNull(schema.appUsers.app), eq(schema.appUsers.user, userId), eq(schema.appUsers.status, "active")),
-      )
+      .where(and(isNull(schema.appUsers.app), eq(schema.appUsers.user, userId), eq(schema.appUsers.status, "active")))
       .limit(1),
   );
 
@@ -94,17 +92,17 @@ export async function resolveChaiAppUserAccess({
   if (!row) return null;
 
   const role = row.role || "user";
-  const roleMap = await getGlobalRoles();
+  const roleMap = await getChaiGlobalRoles();
 
   return {
     role,
-    permissions: resolvePermissions({
+    permissions: resolveChaiPermissions({
       role,
       roleMap,
-      userOverride: row.permissions as Parameters<typeof resolvePermissions>[0]["userOverride"],
+      userOverride: row.permissions as Parameters<typeof resolveChaiPermissions>[0]["userOverride"],
       // Runtime catalog, not the static list — plugin-contributed keys must
       // survive wildcard expansion.
-      catalog: getPermissionCatalog(),
+      catalog: getChaiPermissionCatalog(),
     }),
   };
 }

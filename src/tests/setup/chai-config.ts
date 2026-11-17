@@ -1,9 +1,9 @@
 import { editionTestServerPlugins } from "~/edition/test-harness";
-import { getAllRegisteredChaiBlocks } from "~/registry/v2/runtime/core";
+import { getRegisteredChaiBlocks } from "~/registry/v2/runtime/core";
 import type { ChaiDbSetup } from "~/db/core";
 import { buildChaiBuilderConfig } from "~/server/build-config";
 import { resetChaiBuilderCoreForTests } from "~/server/get-chaibuilder";
-import { resetChaiContextResolverForTests, setChaiContextResolver } from "~/server/chai-context-resolver";
+import { resetChaiContextResolverForTests, registerChaiContextResolver } from "~/server/chai-context-resolver";
 import { getActiveChaiBuilderConfig, setActiveChaiBuilderConfig } from "~/server/defaults/config-registry";
 import type { ChaiBuilderServerConfigInput, ResolvedChaiBuilderServerConfig } from "~/server/defaults/types";
 import {
@@ -24,7 +24,7 @@ const blockEntriesBeforeConfig = new Map<string, unknown>();
  * harness restores the worker database after the test.
  */
 export function useTestChaiConfig(input: Partial<ChaiBuilderServerConfigInput> & { db?: ChaiDbSetup } = {}) {
-  const registry = getAllRegisteredChaiBlocks() as Record<string, unknown>;
+  const registry = getRegisteredChaiBlocks() as Record<string, unknown>;
   const before = { ...registry };
   const config = buildChaiBuilderConfig({
     ...input,
@@ -54,7 +54,7 @@ blockEntriesBeforeConfig.clear();
 
 /** Undoes the process-global runtime a test's `useTestChaiConfig` registered beyond the baseline. */
 function restoreBaseRuntime(): void {
-  const registry = getAllRegisteredChaiBlocks() as Record<string, unknown>;
+  const registry = getRegisteredChaiBlocks() as Record<string, unknown>;
   for (const [type, entry] of blockEntriesBeforeConfig) {
     if (entry === undefined) delete registry[type];
     else registry[type] = entry;
@@ -62,7 +62,7 @@ function restoreBaseRuntime(): void {
   blockEntriesBeforeConfig.clear();
 
   resetChaiContextResolverForTests();
-  if (baseConfig.contextResolver) setChaiContextResolver(baseConfig.contextResolver);
+  if (baseConfig.contextResolver) registerChaiContextResolver(baseConfig.contextResolver);
   resetChaiRequestMiddlewareForTests();
   for (const { name, handler } of baseConfig.requestMiddlewares) registerChaiRequestMiddleware(name, handler);
 }

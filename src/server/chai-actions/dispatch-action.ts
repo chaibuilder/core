@@ -1,9 +1,9 @@
 import { getInitializedState, getInitializedStateWithUser } from "~/server/chai-builder/state";
 import { resolveEffectivePermissions } from "~/server/rbac/effective-permissions";
-import { hasPermission } from "~/server/rbac/permissions";
+import { hasChaiPermission } from "~/server/rbac/permissions";
 import { ActionError } from "./action-error";
 import { getActionAuthPolicy } from "./action-policies";
-import { type ChaiActionResult, toActionError, toActionErrorPayload } from "./action-result";
+import { type ChaiActionResult, toChaiActionError, toChaiActionErrorPayload } from "./action-result";
 import { getChaiActionInstance } from "./actions-registery";
 import type { ChaiAction, ChaiActionContext, ChaiUserAccess } from "./chai-action-interface";
 
@@ -36,13 +36,13 @@ export function resolveRequiredPermissions(
 function enforcePermission(action: ChaiAction<any, any>, data: unknown, context: ChaiActionContext): void {
   const granted = context.userAccess?.permissions ?? null;
   for (const required of resolveRequiredPermissions(action, data, context)) {
-    if (!hasPermission(granted, required)) {
+    if (!hasChaiPermission(granted, required)) {
       throw new ActionError(`Missing permission: ${required}`, "FORBIDDEN", 403);
     }
   }
 }
 
-export async function dispatchChaiAction(name: string, data: unknown): Promise<unknown> {
+export async function runChaiAction(name: string, data: unknown): Promise<unknown> {
   try {
     const action = getChaiActionInstance(name);
     if (!action) {
@@ -90,15 +90,15 @@ export async function dispatchChaiAction(name: string, data: unknown): Promise<u
     return await action.run(data);
   } catch (error) {
     console.error(`[dispatchChaiAction] Error executing action "${name}":`, error);
-    throw toActionError(error);
+    throw toChaiActionError(error);
   }
 }
 
 export async function tryChaiAction<T>(name: string, data: unknown): Promise<ChaiActionResult<T>> {
   try {
-    const result = await dispatchChaiAction(name, data);
+    const result = await runChaiAction(name, data);
     return { ok: true, data: result as T };
   } catch (error) {
-    return { ok: false, error: toActionErrorPayload(error) };
+    return { ok: false, error: toChaiActionErrorPayload(error) };
   }
 }

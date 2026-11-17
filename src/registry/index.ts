@@ -99,7 +99,7 @@ export const groupProps = ({
     };
   });
 
-export const builderProp =(options: ChaiBlockPropsSchema): ChaiBlockPropsSchema => {
+export const builderProp = (options: ChaiBlockPropsSchema): ChaiBlockPropsSchema => {
   return {
     builderProp: true,
     ...options,
@@ -110,3 +110,6 @@ export const defaultChaiStyles = (classes: string) => `${STYLES_KEY},${classes}`
 
 export * from "./v2/runtime";
 export { getRegisteredChaiPipes, registerChaiPipe } from "./pipes";
+
+// Deprecated names, kept for compatibility. See ./deprecated.ts.
+export * from "./deprecated";

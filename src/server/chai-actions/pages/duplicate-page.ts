@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { ActionError } from "~/server/chai-actions/action-error";
 import { ChaiBaseAction } from "~/server/chai-actions/base-action";
-import { db, type DbInstance, getDbDialect, safeQuery, schema } from "~/server/chai-actions/db";
+import { db, type ChaiDbInstance, getChaiDbDialect, safeQuery, schema } from "~/server/chai-actions/db";
 import { routingTagsForMutation } from "~/server/chai-builder/public/page-routing-cache";
 
 /**
@@ -113,7 +113,7 @@ export class DuplicatePageAction extends ChaiBaseAction<DuplicatePageActionData,
       createdBy: userId,
     });
 
-    const writes = async (q: DbInstance) => {
+    const writes = async (q: ChaiDbInstance) => {
       const [primary] = await q
         .insert(schema.appPages)
         .values({ ...copyOf(originalPage), name: data.name, ...(data.slug && { slug: data.slug }) })
@@ -139,7 +139,7 @@ export class DuplicatePageAction extends ChaiBaseAction<DuplicatePageActionData,
     };
 
     const { data: created, error } = await safeQuery(() =>
-      getDbDialect() === "pg" ? db.transaction((tx) => writes(tx as unknown as DbInstance)) : writes(db),
+      getChaiDbDialect() === "pg" ? db.transaction((tx) => writes(tx as unknown as ChaiDbInstance)) : writes(db),
     );
     if (error) {
       throw error instanceof ActionError

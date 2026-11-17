@@ -35,12 +35,13 @@ export const registerChaiFetchInterceptor = (name: string, interceptor: ChaiFetc
   REGISTRY.set(name, interceptor);
 };
 
-export const getChaiFetchInterceptors = (): ChaiFetchInterceptor[] => Array.from(REGISTRY.values());
+export const getRegisteredChaiFetchInterceptors = (): ChaiFetchInterceptor[] => Array.from(REGISTRY.values());
 
 /**
  * Merges header groups, later ones winning, matching names the way HTTP does — case-insensitively.
  * Without that, a caller's `Authorization` would sit next to an interceptor's `authorization`
  * and both would reach the server instead of the later one replacing the earlier.
+ * @internal
  */
 export const mergeChaiFetchHeaders = (
   ...groups: (Record<string, string> | null | undefined)[]
@@ -58,7 +59,7 @@ export const mergeChaiFetchHeaders = (
   return merged;
 };
 
-/** Request headers contributed by every interceptor, later registrations winning on conflicts. */
+/** Request headers contributed by every interceptor, later registrations winning on conflicts. @internal */
 export const collectChaiFetchInterceptorHeaders = (ctx: ChaiFetchInterceptorContext): Record<string, string> => {
   let headers: Record<string, string> = {};
   for (const interceptor of REGISTRY.values()) {
@@ -72,7 +73,7 @@ export const collectChaiFetchInterceptorHeaders = (ctx: ChaiFetchInterceptorCont
 };
 
 /** Hands a parsed response body to every interceptor; a throwing interceptor is logged and skipped. */
-export const notifyChaiFetchInterceptors = (
+export const runChaiFetchInterceptors = (
   ctx: ChaiFetchInterceptorContext & { status: number; body: unknown },
 ): void => {
   for (const interceptor of REGISTRY.values()) {

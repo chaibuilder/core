@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
-import { useApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
+import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import { captureVideoPoster, posterToDataUrl } from "./upload-files";
 
@@ -27,14 +27,12 @@ let queue: Promise<void> = Promise.resolve();
 type VideoRow = { id: string; url: string; type: string; thumbnailUrl?: string | null };
 
 export const useVideoPosterBackfill = (assets: VideoRow[]) => {
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const pending = assets.filter(
-      (asset) => asset.type === "video" && !asset.thumbnailUrl && !attempted.has(asset.id),
-    );
+    const pending = assets.filter((asset) => asset.type === "video" && !asset.thumbnailUrl && !attempted.has(asset.id));
     for (const asset of pending) {
       attempted.add(asset.id);
       queue = queue.then(async () => {

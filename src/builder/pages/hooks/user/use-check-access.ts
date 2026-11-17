@@ -6,7 +6,7 @@ import {
   parseChaiHttpActionResponse,
 } from "~/builder/pages/utils/parse-chai-http-action-response";
 import { fetchAPI } from "~/builder/pages/utils/fetch-api";
-import { useApiUrl, usePagesProp } from "../project/use-builder-prop";
+import { useChaiApiUrl, usePagesProp } from "../project/use-builder-prop";
 
 type CheckUserAccessResponse = {
   access: boolean;
@@ -20,10 +20,10 @@ type CheckUserAccessResponse = {
  * @param checkInterval Interval in seconds (default 300 = 5 mins)
  * @returns Object with access, role, permissions, and loading states
  */
-export const useCheckUserAccess = (checkInterval: number = 300) => {
+export const useChaiUserPermissions = (checkInterval: number = 300) => {
   const logout = usePagesProp("onLogout", noop);
   const getAccessToken = usePagesProp("getAccessToken");
-  const apiUrl = useApiUrl();
+  const apiUrl = useChaiApiUrl();
 
   return useQuery<CheckUserAccessResponse>({
     queryKey: ["check-user-access"],

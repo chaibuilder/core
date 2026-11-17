@@ -1,7 +1,7 @@
 import { Editor } from "@tiptap/react";
 import React from "react";
 import { usePageExternalData } from "~/builder/atoms/builder";
-import { NestedPathSelector } from "~/builder/core/components/nested-path-selector";
+import { ChaiNestedPathSelector } from "~/builder/core/components/nested-path-selector";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
 
@@ -80,9 +80,9 @@ const RTEModal = ({
             <span>Rich Text Editor</span>
             {pageExternalData && Object.keys(pageExternalData).length > 0 && (
               <div className="flex items-center">
-                <span className="mr-2 text-xs text-foreground/50">Add field:</span>
+                <span className="text-foreground/50 mr-2 text-xs">Add field:</span>
                 <div className="rte-path-selector">
-                  <NestedPathSelector data={pageExternalData} onSelect={handlePathSelect} />
+                  <ChaiNestedPathSelector data={pageExternalData} onSelect={handlePathSelect} />
                 </div>
               </div>
             )}

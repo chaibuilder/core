@@ -1,6 +1,6 @@
 import { ChaiLibrary, ChaiLibraryBlock } from "~/types/chaibuilder-editor-props";
 
-export const defaultChaiLibrary = ({
+export const createDefaultChaiLibrary = ({
   baseUrl = "https://chaibuilder-sdk.vercel.app",
 }: {
   baseUrl?: string;

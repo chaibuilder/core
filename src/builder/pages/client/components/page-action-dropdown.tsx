@@ -7,7 +7,7 @@ import { usePermissions } from "~/builder/hooks/use-permissions";
 import { getTrashLabels } from "~/builder/pages/constants/trash-config";
 import { useUpdatePage } from "~/builder/pages/hooks/pages/mutations";
 import { usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
-import { usePageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
 import { useUpstreamPagesEnabled } from "~/builder/pages/hooks/pages/use-upstream-pages";
 import { CHAI_SLOT_IDS, ChaiSlot } from "~/builder/register-apis";
 import {
@@ -42,7 +42,7 @@ export const PageActionsDropdown = ({
   const { hasPermission } = usePermissions();
   const flags = usePagesProp("flags", {}) as Record<string, boolean>;
 
-  const { data: pageTypes } = usePageTypes();
+  const { data: pageTypes } = useChaiPageTypes();
   const pageType = useMemo(() => find(pageTypes, { key: page.pageType }), [pageTypes, page.pageType]);
   const isFolder = page?.pageType === "_folder";
   // The homepage owns "/" — the site needs a root route, so it can only be
@@ -67,84 +67,84 @@ export const PageActionsDropdown = ({
 
   return (
     <>
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-        {children}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="text-sm">
-        {hasUpstream && upstreamMenu.items}
-        {hasPermission(CHAI_PERMISSIONS["pages:create"]) && !isLanguagePage && !isFolder && !isLinked && (
-          <DropdownMenuItem
-            className="flex cursor-pointer items-center gap-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDuplicatePage(page);
-            }}>
-            <CopyPlusIcon className="size-3" />
-            Duplicate page
-          </DropdownMenuItem>
-        )}
-        {isFolder && hasPermission(CHAI_PERMISSIONS["pages:change_type"]) && (
-          <DropdownMenuItem
-            className="flex cursor-pointer items-center gap-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              updatePage(
-                { id: page.id, pageType: "page" },
-                { onSuccess: () => toast.success(t("Folder converted to page")) },
-              );
-            }}>
-            <FileText className="size-3" />
-            {t("Convert to page")}
-          </DropdownMenuItem>
-        )}
-        {hasPermission(CHAI_PERMISSIONS["pages:update"]) && (
-          <DropdownMenuItem
-            className="flex cursor-pointer items-center gap-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              setAddEditPage({
-                ...page,
-                global: !pageType?.hasSlug,
-              });
-            }}>
-            <Pencil className="size-3" />
-            Edit
-          </DropdownMenuItem>
-        )}
-        {page?.online && hasPermission(CHAI_PERMISSIONS["pages:unpublish"]) && (
-          <DropdownMenuItem
-            className="flex cursor-pointer items-center gap-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              setUnpublishPage(page);
-            }}>
-            <Power className="size-3" />
-            {t("Unpublish")}
-          </DropdownMenuItem>
-        )}
-        {hasPermission(CHAI_PERMISSIONS["pages:delete"]) && !isHomePage && (
-          <DropdownMenuItem
-            className="flex cursor-pointer items-center gap-2"
-            onClick={(e) => {
-              e.stopPropagation();
-              setDeletePage(page);
-            }}>
-            {flags?.trash ? (
-              <>
-                <Archive className="size-3" />
-                {t(getTrashLabels().sidebarButton)}
-              </>
-            ) : (
-              <>
-                <Trash className="size-3" />
-                {t("Delete")}
-              </>
-            )}
-          </DropdownMenuItem>
-        )}
-        <ChaiSlot slotId={CHAI_SLOT_IDS.AFTER_PAGE_MORE_OPTIONS} context={{ page }} />
-        {/* HIDDEN: Mark as template feature 
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+          {children}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="text-sm">
+          {hasUpstream && upstreamMenu.items}
+          {hasPermission(CHAI_PERMISSIONS["pages:create"]) && !isLanguagePage && !isFolder && !isLinked && (
+            <DropdownMenuItem
+              className="flex cursor-pointer items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDuplicatePage(page);
+              }}>
+              <CopyPlusIcon className="size-3" />
+              Duplicate page
+            </DropdownMenuItem>
+          )}
+          {isFolder && hasPermission(CHAI_PERMISSIONS["pages:change_type"]) && (
+            <DropdownMenuItem
+              className="flex cursor-pointer items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                updatePage(
+                  { id: page.id, pageType: "page" },
+                  { onSuccess: () => toast.success(t("Folder converted to page")) },
+                );
+              }}>
+              <FileText className="size-3" />
+              {t("Convert to page")}
+            </DropdownMenuItem>
+          )}
+          {hasPermission(CHAI_PERMISSIONS["pages:update"]) && (
+            <DropdownMenuItem
+              className="flex cursor-pointer items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAddEditPage({
+                  ...page,
+                  global: !pageType?.hasSlug,
+                });
+              }}>
+              <Pencil className="size-3" />
+              Edit
+            </DropdownMenuItem>
+          )}
+          {page?.online && hasPermission(CHAI_PERMISSIONS["pages:unpublish"]) && (
+            <DropdownMenuItem
+              className="flex cursor-pointer items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setUnpublishPage(page);
+              }}>
+              <Power className="size-3" />
+              {t("Unpublish")}
+            </DropdownMenuItem>
+          )}
+          {hasPermission(CHAI_PERMISSIONS["pages:delete"]) && !isHomePage && (
+            <DropdownMenuItem
+              className="flex cursor-pointer items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+                setDeletePage(page);
+              }}>
+              {flags?.trash ? (
+                <>
+                  <Archive className="size-3" />
+                  {t(getTrashLabels().sidebarButton)}
+                </>
+              ) : (
+                <>
+                  <Trash className="size-3" />
+                  {t("Delete")}
+                </>
+              )}
+            </DropdownMenuItem>
+          )}
+          <ChaiSlot slotId={CHAI_SLOT_IDS.AFTER_PAGE_MORE_OPTIONS} context={{ page }} />
+          {/* HIDDEN: Mark as template feature 
         {hasPermission(PAGES_PERMISSIONS.MARK_AS_TEMPLATE) && hasSlug && !isLanguagePage && (
           <>
             {isTemplate ? (
@@ -171,9 +171,9 @@ export const PageActionsDropdown = ({
           </>
         )}
         */}
-      </DropdownMenuContent>
-    </DropdownMenu>
-    {hasUpstream && upstreamMenu.dialog}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {hasUpstream && upstreamMenu.dialog}
     </>
   );
 };

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useWebsitePrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
+import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { PARTIAL_TAGS_METADATA_KEY } from "~/types/partial-blocks";
 
 /**
@@ -15,7 +15,7 @@ export const DEFAULT_SITE_TAGS = ["Section", "CTA"];
  * wins), sorted alphabetically.
  */
 export const useSiteTags = (): string[] => {
-  const { data: projectPages } = useWebsitePrimaryPages();
+  const { data: projectPages } = useChaiPrimaryPages();
 
   return useMemo(() => {
     const seen = new Set<string>();

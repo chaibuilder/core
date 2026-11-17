@@ -1,9 +1,14 @@
-import { generateImage as aiGenerateImage, generateText as aiGenerateText, streamText as aiStreamText, stepCountIs } from "ai";
+import {
+  generateImage as aiGenerateImage,
+  generateText as aiGenerateText,
+  streamText as aiStreamText,
+  stepCountIs,
+} from "ai";
 import { removeBraces } from "~/builder/core/utils/remove-braces";
 import { shouldDebug } from "~/server/debug/debug-level";
 import { sanitizeAiLogText, summarizeAiMessages } from "~/server/debug/debug-ai";
 import { logAi, logAiPhaseStart, logAiStreamEvent, logAiToolCall, logAiVerbose } from "~/server/debug/debug-log";
-import { AIContext } from "~/types";
+import { ChaiAiContext } from "~/types";
 import { ChaiDesignTokens } from "~/types/types";
 import { ActionError } from "./action-error";
 import { ensureAiProvider } from "./ai-providers";
@@ -11,15 +16,11 @@ import { ChaiBaseAction } from "./base-action";
 import { getAiLogger, isAiCreditsEnabled, resolveImageModel, resolveLanguageModel } from "./lib";
 import { isFeatureEnabled } from "~/server/defaults/config-registry";
 import { getChaiCreditProvider } from "~/server/plugin-api/credit-provider";
-import {
-  resolveChaiAiPrompt,
-  resolveChaiAiTools,
-  type ChaiAiActionInfo,
-} from "~/server/plugin-api/ai-customization";
+import { resolveChaiAiPrompt, resolveChaiAiTools, type ChaiAiActionInfo } from "~/server/plugin-api/ai-customization";
 import type { CreditStatus } from "~/types/credits";
 
 // Re-export for convenience
-export type { ChaiAIGlobalConfig } from "~/types/ai-config";
+export type { ChaiAiGlobalConfig } from "~/types/ai-config";
 
 /** `messageMetadata` callback for `toUIMessageStreamResponse` — puts the run's
  * token usage on the finished assistant message so the client can warn (cbpl#161). */
@@ -42,7 +43,7 @@ export type CoreMessage = {
 export type ChaiAIActionData = {
   messages: CoreMessage[];
   model?: string;
-  context?: AIContext;
+  context?: ChaiAiContext;
   designTokens?: ChaiDesignTokens;
   images?: string[];
   attachments?: { url?: string; mediaType?: string; filename?: string }[];
@@ -74,7 +75,7 @@ export type PromptVariant = {
   weight?: number;
 };
 
-export abstract class ChaiBaseAIAction<T, R> extends ChaiBaseAction<T, R> {
+export abstract class ChaiBaseAiAction<T, R> extends ChaiBaseAction<T, R> {
   protected model?: string;
   protected prompts?: PromptVariant[];
 
@@ -128,10 +129,7 @@ export abstract class ChaiBaseAIAction<T, R> extends ChaiBaseAction<T, R> {
     return { ...(baseTools ?? {}), ...contributed };
   }
 
-  private logTokenUsage(
-    usage?: { totalTokens?: number } | null,
-    totalUsage?: { totalTokens?: number } | null,
-  ): void {
+  private logTokenUsage(usage?: { totalTokens?: number } | null, totalUsage?: { totalTokens?: number } | null): void {
     if (!shouldDebug(2)) return;
     const tokens = totalUsage?.totalTokens ?? usage?.totalTokens;
     if (tokens !== undefined) {
@@ -477,11 +475,7 @@ export abstract class ChaiBaseAIAction<T, R> extends ChaiBaseAction<T, R> {
   }
 
   /** Tools with no server execute() — results must be applied on the client. */
-  private static readonly CLIENT_ONLY_AI_TOOLS = new Set([
-    "remove_blocks",
-    "add_custom_block",
-    "bind_prop",
-  ]);
+  private static readonly CLIENT_ONLY_AI_TOOLS = new Set(["remove_blocks", "add_custom_block", "bind_prop"]);
 
   /**
    * Multiplexes AI SDK fullStream into a mixed wire format:
@@ -524,10 +518,7 @@ export abstract class ChaiBaseAIAction<T, R> extends ChaiBaseAction<T, R> {
               }
 
               controller.enqueue(encoder.encode(part.text));
-            } else if (
-              part.type === "tool-call" &&
-              ChaiBaseAIAction.CLIENT_ONLY_AI_TOOLS.has(part.toolName)
-            ) {
+            } else if (part.type === "tool-call" && ChaiBaseAiAction.CLIENT_ONLY_AI_TOOLS.has(part.toolName)) {
               logAiToolCall(part.toolName, sanitizeAiLogText(JSON.stringify(part.input)));
               controller.enqueue(
                 encoder.encode(
