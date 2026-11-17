@@ -1,4 +1,3 @@
-import { V3_COMPAT_CSS } from "./tailwind-v3-compat";
 import { TAILWIND_V4_STYLESHEETS } from "./tailwind-v4-stylesheets.generated";
 
 type TailwindConfig = {
@@ -135,8 +134,8 @@ const processWithTailwindV4 = async ({
   extraCss?: string;
 }) => {
   const baseCss = includeBaseStyles
-    ? `@config "${TAILWIND_CONFIG_ID}";\n@import "tailwindcss";\n${V3_COMPAT_CSS}`
-    : `@config "${TAILWIND_CONFIG_ID}";\n@import "tailwindcss/theme";\n@import "tailwindcss/utilities";\n${V3_COMPAT_CSS}`;
+    ? `@config "${TAILWIND_CONFIG_ID}";\n@import "tailwindcss";`
+    : `@config "${TAILWIND_CONFIG_ID}";\n@import "tailwindcss/theme";\n@import "tailwindcss/utilities";`;
   const css = extraCss ? `${baseCss}\n${extraCss}` : baseCss;
 
   const createCompiler = () =>

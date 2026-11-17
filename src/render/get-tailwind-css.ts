@@ -1,4 +1,3 @@
-import twContainer from "@tailwindcss/container-queries";
 import twForms from "@tailwindcss/forms";
 import twTypography from "@tailwindcss/typography";
 import { ChaiBlock } from "~/types/common";
@@ -42,7 +41,7 @@ async function getTailwindCSS(markupString: string[], safelist: string[] = [], i
           },
         },
       },
-      plugins: [twForms, twTypography, twContainer, chaiBuilderPlugin],
+      plugins: [twForms, twTypography, chaiBuilderPlugin],
       corePlugins: { preflight: includeBaseStyles },
     },
   });

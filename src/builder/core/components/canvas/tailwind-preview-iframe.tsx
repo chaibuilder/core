@@ -1,16 +1,7 @@
-import containerQueries from "@tailwindcss/container-queries";
-import forms from "@tailwindcss/forms";
-import typography from "@tailwindcss/typography";
 import { compact, filter, get, has, uniq } from "lodash-es";
 import React, { useEffect, useMemo } from "react";
-import plugin from "tailwindcss/plugin";
 import { getIframeInitialContent } from "~/builder/core/components/canvas/IframeInitialContent";
-import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
-import {
-  getChaiThemeOptions,
-  getThemeCustomFontFace,
-  getThemeFontsUrls,
-} from "~/builder/core/components/canvas/static/chai-theme-helpers";
+import { getThemeCustomFontFace, getThemeFontsUrls } from "~/builder/core/components/canvas/static/chai-theme-helpers";
 import { TailwindV4Theme } from "~/builder/core/components/canvas/static/head-tags";
 import { CssThemeVariables } from "~/builder/core/components/css-theme-var";
 import { ChaiFrame, useFrame } from "~/builder/core/frame";
@@ -24,56 +15,19 @@ const PreviewHeadTags = () => {
   const [chaiTheme] = useTheme();
   const chaiThemeOptions = useThemeOptions();
   const [darkMode] = useDarkMode();
-  const { document: iframeDoc, window: iframeWin } = useFrame();
-  const tailwindCSS = useBuilderProp<"3" | "4">("tailwindCSS", "4");
+  const { document: iframeDoc } = useFrame();
 
   useEffect(() => {
     if (darkMode) iframeDoc?.documentElement.classList.add("dark");
     else iframeDoc?.documentElement.classList.remove("dark");
   }, [darkMode, iframeDoc]);
 
-  useEffect(() => {
-    const win = iframeWin as any;
-    if (tailwindCSS !== "3" || !win || !win.tailwind) return;
-    const tailwindConfig = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          container: {
-            center: true,
-            padding: "1rem",
-            screens: {
-              "2xl": "1400px",
-            },
-          },
-          ...getChaiThemeOptions(chaiThemeOptions),
-        },
-      },
-      plugins: [
-        typography,
-        forms,
-        containerQueries,
-        plugin(function ({ addBase, theme }: any) {
-          addBase({
-            "h1,h2,h3,h4,h5,h6": {
-              fontFamily: theme("fontFamily.heading"),
-            },
-            body: {
-              fontFamily: theme("fontFamily.body"),
-              color: theme("colors.foreground"),
-              backgroundColor: theme("colors.background"),
-            },
-          });
-        }),
-      ],
-    };
-    Object.assign(win.tailwind, { config: tailwindConfig });
-  }, [chaiTheme, chaiThemeOptions, iframeWin, tailwindCSS]);
-
   const pickedFonts = useMemo(() => {
     const heading = get(chaiTheme, "fontFamily.heading");
     const body = get(chaiTheme, "fontFamily.body");
-    return uniq(compact([heading, body])).map(resolveFont).filter(Boolean) as ChaiFont[];
+    return uniq(compact([heading, body]))
+      .map(resolveFont)
+      .filter(Boolean) as ChaiFont[];
   }, [chaiTheme]);
 
   const fontUrls = useMemo(
@@ -88,7 +42,7 @@ const PreviewHeadTags = () => {
   return (
     <>
       <CssThemeVariables theme={chaiTheme as ChaiTheme} />
-      {tailwindCSS === "4" ? <TailwindV4Theme chaiThemeOptions={chaiThemeOptions} /> : null}
+      <TailwindV4Theme chaiThemeOptions={chaiThemeOptions} />
       {fontUrls.map((url) => (
         <link key={url} rel="stylesheet" href={url} />
       ))}
@@ -116,8 +70,7 @@ export const TailwindPreviewIframe = ({
   title = "Preview",
   wrapperClassName = "",
 }: TailwindPreviewIframeProps) => {
-  const tailwindCSS = useBuilderProp<"3" | "4">("tailwindCSS", "4");
-  const initialContent = useMemo(() => getIframeInitialContent({ htmlDir: "ltr", tailwindCSS }), [tailwindCSS]);
+  const initialContent = useMemo(() => getIframeInitialContent({ htmlDir: "ltr" }), []);
   const innerHtml = useInnerHtml(content);
 
   return (

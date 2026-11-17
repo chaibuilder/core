@@ -47,10 +47,12 @@ export function resolveChaiBuilderConfig(rawInput: ChaiBuilderServerConfigInput)
     contextResolver: appContextResolver ?? afterPlugins.contextResolver,
   };
   const ai = resolveAiConfig(input.ai);
+  // `builderActions` is the deprecated spelling of `actions`: it is merged first, so on a name
+  // clash the current key wins and a host mid-migration can pass either.
   const actions = {
     ...DEFAULT_CHAI_BUILDER_SERVER_CONFIG.actions,
-    ...input.actions,
     ...input.builderActions,
+    ...input.actions,
   };
   const trash = mergeByKey(DEFAULT_CHAI_BUILDER_SERVER_CONFIG.trash, input.trash, (entry) => entry.key);
   const defaultFeatures = DEFAULT_CHAI_BUILDER_SERVER_CONFIG.features;

@@ -88,8 +88,6 @@ export const IframeInitialContent: string = `<!doctype html>
   </body>
 </html>`;
 
-export type TailwindCSSVersion = "3" | "4";
-
 export const TAILWIND_THEME_STYLE_ID = "chai-tailwind-theme";
 
 const RTE_UTILITIES = `
@@ -147,36 +145,12 @@ const screenHeightValue = (unit: (typeof SCREEN_UNITS)[number]) =>
   `var(${SCREEN_HEIGHT_VAR}, ${unit === "screen" ? "100vh" : `100${unit}`})`;
 const SCREEN_HEIGHT_PROPERTIES = { h: "height", "min-h": "min-height", "max-h": "max-height" } as const;
 
-// v4: an @utility named like a core utility appends its declaration after the core one, so it wins.
-const V4_SCREEN_HEIGHT_UTILITIES = Object.entries(SCREEN_HEIGHT_PROPERTIES)
+// An @utility named like a core utility appends its declaration after the core one, so it wins.
+const SCREEN_HEIGHT_UTILITIES = Object.entries(SCREEN_HEIGHT_PROPERTIES)
   .flatMap(([prefix, property]) =>
     SCREEN_UNITS.map((unit) => `@utility ${prefix}-${unit} { ${property}: ${screenHeightValue(unit)}; }`),
   )
   .join("\n      ");
-
-// v3: the same values as theme keys, merged into the Play CDN config by HeadTags.
-export const V3_SCREEN_HEIGHT_THEME = Object.fromEntries(
-  (["height", "minHeight", "maxHeight"] as const).map((key) => [
-    key,
-    Object.fromEntries(SCREEN_UNITS.map((unit) => [unit, screenHeightValue(unit)])),
-  ]),
-);
-
-// v3 Play CDN resolves `border-border` from the config pushed via `window.tailwind.config`.
-const TAILWIND_V3_STYLE = `<style type="text/tailwindcss">
-      @layer base {
-        * {
-          @apply border-border;
-        }
-        /* Seed the canvas default text/background from the theme (mirrors the v4
-           sheet below), so that after .typeset switched to currentColor, unstyled
-           Paragraph/Heading text still matches the published page in the v3 canvas
-           instead of falling back to browser default black-on-white. */
-        body {
-          @apply bg-background text-foreground;
-        }
-      }${RTE_UTILITIES}
-    </style>`;
 
 // The v4 browser build concatenates every `style[type="text/tailwindcss"]` into a single
 // compile. One unknown utility fails the whole sheet, so base styles here stay on plain CSS
@@ -184,9 +158,9 @@ const TAILWIND_V3_STYLE = `<style type="text/tailwindcss">
 // below. The typography and forms plugins the page CSS compiles with arrive pre-rewritten as
 // `@utility` / `@custom-variant` rules (the browser build cannot load npm plugins). No `@import "tailwindcss"` here on purpose: the build prepends it when no @import is
 // present, and spelling it out makes the browser fetch the bare specifier as a relative URL.
-const TAILWIND_V4_STYLE = `<style type="text/tailwindcss">
+const TAILWIND_STYLE = `<style type="text/tailwindcss">
       @custom-variant dark (&:where(.dark, .dark *));
-      ${V4_SCREEN_HEIGHT_UTILITIES}
+      ${SCREEN_HEIGHT_UTILITIES}
       @layer base {
         *,
         ::after,
@@ -212,23 +186,9 @@ const TAILWIND_V4_STYLE = `<style type="text/tailwindcss">
     -->
     <style type="text/tailwindcss" id="${TAILWIND_THEME_STYLE_ID}"></style>`;
 
-export const TAILWIND_CDN_URLS: Record<TailwindCSSVersion, string> = {
-  "3": "https://cdn.tailwindcss.com/3.4.17?plugins=forms@0.5.9,typography@0.5.15,aspect-ratio@0.4.2",
-  "4": "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4",
-};
+export const TAILWIND_CDN_URL = "https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4";
 
-const TAILWIND_STYLES: Record<TailwindCSSVersion, string> = {
-  "3": TAILWIND_V3_STYLE,
-  "4": TAILWIND_V4_STYLE,
-};
-
-export const getIframeInitialContent = ({
-  htmlDir = "ltr",
-  tailwindCSS = "4",
-}: {
-  htmlDir?: "ltr" | "rtl" | string;
-  tailwindCSS?: TailwindCSSVersion;
-} = {}): string =>
+export const getIframeInitialContent = ({ htmlDir = "ltr" }: { htmlDir?: "ltr" | "rtl" | string } = {}): string =>
   IframeInitialContent.replace("__HTML_DIR__", htmlDir)
-    .replace("__TAILWIND_CDN__", TAILWIND_CDN_URLS[tailwindCSS])
-    .replace("__TAILWIND_STYLE__", TAILWIND_STYLES[tailwindCSS]);
+    .replace("__TAILWIND_CDN__", TAILWIND_CDN_URL)
+    .replace("__TAILWIND_STYLE__", TAILWIND_STYLE);

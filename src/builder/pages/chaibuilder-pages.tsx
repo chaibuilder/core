@@ -167,9 +167,12 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
     () =>
       isLinked && currentPageId
         ? {
-            reason: t("This page shows {{label}} content, which can't be edited here. Duplicate it to edit your own copy.", {
-              label: upstreamLabel,
-            }),
+            reason: t(
+              "This page shows {{label}} content, which can't be edited here. Duplicate it to edit your own copy.",
+              {
+                label: upstreamLabel,
+              },
+            ),
             action: <UpstreamCloneButton pageId={currentPageId} />,
           }
         : null,
@@ -267,7 +270,6 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
         translations={props.translations || {}}
         locale={props.locale || "en"}
         htmlDir={props.htmlDir || "ltr"}
-        tailwindCSS={props.tailwindCSS ?? "4"}
         canvasStyles={props.canvasStyles}
         internalLinkHosts={props.internalLinkHosts}
         autoSave={!tabHidden && isEditing && !isLinked && (props.autoSave ?? true)}

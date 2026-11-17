@@ -8,7 +8,6 @@ export { applyRepeaterQuery } from "./apply-repeater-query";
 export { applyDesignTokens } from "./apply-design-tokens";
 export { convertHTMLToChaiBlocks } from "./convert-html-to-chai-blocks";
 export { convertToBlocks } from "./convert-to-blocks";
-export { getChaiBuilderTailwindConfig } from "./get-chai-builder-tailwind-config";
 export { getChaiBuilderTheme } from "./get-chai-builder-theme";
 export { getCleanHostname } from "./get-hostname";
 export { chaiBuilderPlugin };

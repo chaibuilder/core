@@ -2,20 +2,6 @@ import { flatten, get, keys, uniq, uniqBy } from "lodash-es";
 import { resolveFont } from "~/registry/fonts";
 import type { ChaiFontBySrc, ChaiFontByUrl } from "~/types";
 import type { ChaiTheme, ChaiThemeOptions } from "~/types/chaibuilder-editor-props";
-import { V3_COMPAT_CSS } from "~/utils/tailwind-v3-compat";
-
-/**
- * Tailwind v3 values for the utilities v4 rescaled, so content authored under v3 renders
- * unchanged: `shadow-sm`, `drop-shadow-sm`, `blur-sm`/`backdrop-blur-sm` and a bare `ring`'s
- * width. Applied to both the page CSS (JS theme below) and the canvas (`@theme` in
- * getChaiThemeCssTheme). The rest of the v3 deltas need CSS: see V3_COMPAT_CSS.
- */
-export const V3_SCALE = {
-  shadowSm: "0 1px 2px 0 rgb(0 0 0 / 0.05)",
-  dropShadowSm: "0 1px 1px rgb(0 0 0 / 0.05)",
-  blurSm: "4px",
-  ringWidth: "3px",
-};
 
 export const getChaiThemeOptions = (chaiThemeOptions: ChaiThemeOptions) => {
   const theme = {
@@ -41,11 +27,6 @@ export const getChaiThemeOptions = (chaiThemeOptions: ChaiThemeOptions) => {
           {},
         )
       : {},
-    boxShadow: { sm: V3_SCALE.shadowSm },
-    dropShadow: { sm: V3_SCALE.dropShadowSm },
-    blur: { sm: V3_SCALE.blurSm },
-    backdropBlur: { sm: V3_SCALE.blurSm },
-    ringWidth: { DEFAULT: V3_SCALE.ringWidth },
   };
   return theme;
 };
@@ -74,10 +55,6 @@ export const getChaiThemeCssTheme = (chaiThemeOptions: ChaiThemeOptions): string
         ]
       : []),
     ...colorKeys.map((key) => `--color-${key}: hsl(var(--${key}));`),
-    `--shadow-sm: ${V3_SCALE.shadowSm};`,
-    `--drop-shadow-sm: ${V3_SCALE.dropShadowSm};`,
-    `--blur-sm: ${V3_SCALE.blurSm};`,
-    `--default-ring-width: ${V3_SCALE.ringWidth};`,
   ];
 
   return `:root {
@@ -106,8 +83,7 @@ export const getChaiThemeCssTheme = (chaiThemeOptions: ChaiThemeOptions): string
       color: hsl(var(--foreground));
       background-color: hsl(var(--background));
     }
-  }
-  ${V3_COMPAT_CSS}`;
+  }`;
 };
 
 export function hexToHSL(hex: string) {

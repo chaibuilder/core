@@ -56,6 +56,8 @@ export { buildChaiBuilderConfig, getChaiBuilderConfigOnInit } from "~/server/bui
 export type { BuildChaiBuilderConfigOptions } from "~/server/build-config";
 export {
   defineChaiServerPlugin,
+  mergeDefaultRoleGrants,
+  withActionPermission,
   getChaiRequestHeader,
   registerChaiActionHook,
   registerChaiPageVersionSource,

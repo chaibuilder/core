@@ -45,7 +45,11 @@ export type ChaiSetupHook = (ctx: { config: Readonly<ResolvedChaiBuilderServerCo
  * pre-declared by the core.
  *
  * Plugins run in array order, each seeing the previous one's output.
- * Registering a plugin enables its feature; the plugin's options carry the
+ *
+ * The rest of this comment is how ChaiBuilder's own plugins own a feature flag.
+ * `setPluginFeatures` and the `~/types/server-config` augmentation are internal
+ * to the package; a host plugin reads its own options instead. Registering a
+ * built-in plugin enables its feature; the plugin's options carry the
  * fine-grained config, and the plugin sets its own flag unconditionally:
  *
  * ```ts

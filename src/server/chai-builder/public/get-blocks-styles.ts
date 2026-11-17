@@ -1,4 +1,3 @@
-import twContainer from "@tailwindcss/container-queries";
 import twForms from "@tailwindcss/forms";
 import twTypography from "@tailwindcss/typography";
 import type { ChaiBlock } from "~/types";
@@ -37,7 +36,7 @@ const getPageTailwindConfig = () => ({
       },
     },
   },
-  plugins: [twForms, twTypography, twContainer],
+  plugins: [twForms, twTypography],
   corePlugins: { preflight: false },
 });
 

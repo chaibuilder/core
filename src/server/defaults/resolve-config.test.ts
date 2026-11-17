@@ -119,6 +119,21 @@ describe("resolveChaiBuilderConfig", () => {
     expect(config.builderActions.custom).toBe(customAction);
   });
 
+  it("lets `actions` win over the deprecated `builderActions` on a name clash", () => {
+    const current = { name: "current", execute: () => ({ ok: true }) };
+    const legacy = { name: "legacy", execute: () => ({ ok: true }) };
+    const legacyOnly = { name: "legacyOnly", execute: () => ({ ok: true }) };
+
+    const config = resolveChaiBuilderConfig({
+      db: stubChaiDbSetup(),
+      actions: { CUSTOM: current as any },
+      builderActions: { CUSTOM: legacy as any, LEGACY_ONLY: legacyOnly as any },
+    });
+
+    expect(config.actions.CUSTOM).toBe(current);
+    expect(config.actions.LEGACY_ONLY).toBe(legacyOnly);
+  });
+
   it("derives feature flags from bare db config", () => {
     const config = resolveChaiBuilderConfig({ db: stubChaiDbSetup() });
 

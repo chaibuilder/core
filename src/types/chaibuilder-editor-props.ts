@@ -230,12 +230,6 @@ export interface ChaiBuilderEditorProps {
   htmlDir?: "ltr" | "rtl";
 
   /**
-   * Tailwind CSS major version for the canvas iframe Play CDN.
-   * `"3"` → cdn.tailwindcss.com/3.x; `"4"` → @tailwindcss/browser@4. Default `"4"`.
-   */
-  tailwindCSS?: "3" | "4";
-
-  /**
    * Plain CSS injected into the canvas iframe `<head>` (as a regular `<style>`, not compiled by the
    * Tailwind browser build). The canvas never loads the host site's stylesheet, so rules the
    * published page gets from there (e.g. styling for HTML produced by data bindings) can be mirrored

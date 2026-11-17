@@ -83,7 +83,6 @@ export type ChaiWebsiteBuilderProps = {
   | "translations"
   | "locale"
   | "htmlDir"
-  | "tailwindCSS"
   | "canvasStyles"
   | "internalLinkHosts"
   | "autoSave"

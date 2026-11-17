@@ -1,19 +1,11 @@
-import containerQueries from "@tailwindcss/container-queries";
-import forms from "@tailwindcss/forms";
-import typography from "@tailwindcss/typography";
 import { compact, filter, get, has, map, uniq } from "lodash-es";
 import { memo, useEffect, useMemo } from "react";
-import plugin from "tailwindcss/plugin";
 import {
   getChaiThemeCssTheme,
-  getChaiThemeOptions,
   getThemeCustomFontFace,
   getThemeFontsUrls,
 } from "~/builder/core/components/canvas/static/chai-theme-helpers";
-import {
-  TAILWIND_THEME_STYLE_ID,
-  V3_SCREEN_HEIGHT_THEME,
-} from "~/builder/core/components/canvas/IframeInitialContent";
+import { TAILWIND_THEME_STYLE_ID } from "~/builder/core/components/canvas/IframeInitialContent";
 import { CssThemeVariables } from "~/builder/core/components/css-theme-var";
 import { useFrame } from "~/builder/core/frame";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
@@ -31,48 +23,6 @@ const useDarkModeEffect = (darkMode: boolean, iframeDoc: Document | undefined) =
     if (darkMode) iframeDoc?.documentElement.classList.add("dark");
     else iframeDoc?.documentElement.classList.remove("dark");
   }, [darkMode, iframeDoc]);
-};
-
-const useTailwindConfig = (chaiTheme: any, chaiThemeOptions: any, iframeWin: Window | undefined, enabled: boolean) => {
-  useEffect(() => {
-    const win = iframeWin as any;
-    if (!enabled || !win || !win.tailwind) return;
-    const newConfig = {
-      darkMode: "class",
-      theme: {
-        extend: {
-          container: {
-            center: true,
-            padding: "1rem",
-            screens: {
-              "2xl": "1400px",
-            },
-          },
-          ...V3_SCREEN_HEIGHT_THEME,
-          ...getChaiThemeOptions(chaiThemeOptions),
-        },
-      },
-
-      plugins: [
-        typography,
-        forms,
-        containerQueries,
-        plugin(function ({ addBase, theme }: any) {
-          addBase({
-            "h1,h2,h3,h4,h5,h6": {
-              fontFamily: theme("fontFamily.heading"),
-            },
-            body: {
-              fontFamily: theme("fontFamily.body"),
-              color: theme("colors.foreground"),
-              backgroundColor: theme("colors.background"),
-            },
-          });
-        }),
-      ],
-    };
-    Object.assign(win.tailwind.config, newConfig);
-  }, [chaiTheme, chaiThemeOptions, iframeWin, enabled]);
 };
 
 /**
@@ -131,7 +81,9 @@ const useThemeFonts = () => {
       heading: get(chaiTheme, "fontFamily.heading"),
       body: get(chaiTheme, "fontFamily.body"),
     };
-    return uniq(compact([heading, body])).map(resolveFont).filter(Boolean) as ChaiFont[];
+    return uniq(compact([heading, body]))
+      .map(resolveFont)
+      .filter(Boolean) as ChaiFont[];
   }, [chaiTheme]);
 
   const fonts = useMemo(
@@ -182,18 +134,16 @@ export const HeadTags = () => {
   const [chaiTheme] = useTheme();
   const chaiThemeOptions = useThemeOptions();
   const [darkMode] = useDarkMode();
-  const { document: iframeDoc, window: iframeWin } = useFrame();
-  const tailwindCSS = useBuilderProp<"3" | "4">("tailwindCSS", "4");
+  const { document: iframeDoc } = useFrame();
   const canvasStyles = useBuilderProp<string>("canvasStyles", "");
   const layoutCss = useMemo(() => getSiteContentWidthCss(chaiTheme), [chaiTheme]);
 
   useDarkModeEffect(darkMode, iframeDoc);
-  useTailwindConfig(chaiTheme, chaiThemeOptions, iframeWin, tailwindCSS === "3");
 
   return (
     <>
       <CssThemeVariables theme={chaiTheme as ChaiTheme} />
-      {tailwindCSS === "4" ? <TailwindV4Theme chaiThemeOptions={chaiThemeOptions} layoutCss={layoutCss} /> : null}
+      <TailwindV4Theme chaiThemeOptions={chaiThemeOptions} layoutCss={layoutCss} />
       <Fonts />
       {/* Text child (not innerHTML): the canvas is client-rendered so this lands as textContent — no
           `</style>` breakout if a host ever passes untrusted CSS, and selectors like `a > b` are intact. */}
