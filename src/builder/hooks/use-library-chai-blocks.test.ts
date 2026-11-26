@@ -32,4 +32,20 @@ describe("getLibraryChaiBlocks", () => {
     expect(getLibraryChaiBlocks(blocks, "page")).toEqual([]);
     expect(getLibraryChaiBlocks(blocks, "vdp").map((b) => b.type)).toEqual(["Listing"]);
   });
+
+  it("applies canShowBlock with pageType context", () => {
+    const blocks = {
+      AgentOnly: block("AgentOnly", { showInLibrary: true, metadata: { siteTypes: ["Agent"] } }),
+      Everyone: block("Everyone", { showInLibrary: true }),
+    };
+    const seenPageTypes: Array<string | undefined> = [];
+    const filter = (b: { metadata?: Record<string, unknown> }, ctx: { pageType?: string }) => {
+      seenPageTypes.push(ctx.pageType);
+      const types = b.metadata?.siteTypes as string[] | undefined;
+      return !types || types.includes("Company");
+    };
+
+    expect(getLibraryChaiBlocks(blocks, "landing", filter).map((b) => b.type)).toEqual(["Everyone"]);
+    expect(seenPageTypes).toEqual(["landing", "landing"]);
+  });
 });

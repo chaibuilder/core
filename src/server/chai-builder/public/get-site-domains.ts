@@ -18,7 +18,15 @@ async function fetchSiteDomains(appId: string): Promise<SiteDomains> {
 
   if (error || !data?.subdomain) {
     console.error("Error fetching site domains", error);
-    throw new Error("SITE_DOMAINS_NOT_FOUND");
+    const detail =
+      error instanceof Error
+        ? error.message
+        : error
+          ? String(error)
+          : !resolver
+            ? "no site domain resolver registered"
+            : "no subdomain found for site";
+    throw new Error(`SITE_DOMAINS_NOT_FOUND (${detail})`, error ? { cause: error } : undefined);
   }
 
   return data;

@@ -113,7 +113,7 @@ export function ParentPageSelector({
 
   return (
     <div className='space-y-0.5'>
-      <Label htmlFor={id}>Parent</Label>
+      <Label htmlFor={id}>{t("Parent")}</Label>
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           <Button
@@ -151,7 +151,7 @@ export function ParentPageSelector({
             </div>
             <ChaiCommandList className='h-full flex-1 overflow-y-auto p-1'>
               <CommandEmpty className='flex min-h-[300px] items-center justify-center py-6 text-center text-xs text-muted-foreground'>
-                No pages found.
+                {t("No pages found.")}
               </CommandEmpty>
               <div className='flex flex-col'>
                 {/* Select None Option */}

@@ -1,6 +1,7 @@
 import { Cross1Icon, FileIcon, IdCardIcon } from "@radix-ui/react-icons";
 import { WidgetProps } from "@rjsf/utils";
 import { find, upperFirst } from "lodash-es";
+import { useTranslation } from "react-i18next";
 import { useRepeaterSource } from "~/builder/core/rjsf-widgets/repeater-data/use-repeater-source";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { Button } from "~/components/ui/button";
@@ -9,13 +10,14 @@ import { COLLECTION_PREFIX } from "~/constants/STRINGS";
 import type { ChaiCollection } from "~/types/deprecated";
 
 export const RepeaterBindingWidget = ({ value, onChange }: WidgetProps) => {
+  const { t } = useTranslation();
   const source = useRepeaterSource();
   const collections = useBuilderProp<ChaiCollection[]>("collections", []);
 
   if (!value) {
     return (
       <div className="border-input bg-muted/50 text-muted-foreground mt-1 flex h-8 items-center gap-2 rounded-md border px-2 py-1 text-xs">
-        <FileIcon className="h-3.5 w-3.5" /> Choose a data source
+        <FileIcon className="h-3.5 w-3.5" /> {t("Choose a data source")}
       </div>
     );
   }
@@ -58,7 +60,7 @@ export const RepeaterBindingWidget = ({ value, onChange }: WidgetProps) => {
               <Cross1Icon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="left">Remove binding</TooltipContent>
+          <TooltipContent side="left">{t("Remove binding")}</TooltipContent>
         </Tooltip>
       </div>
     </div>

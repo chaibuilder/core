@@ -1,3 +1,4 @@
+import { type ClassValue } from "cnfast";
 import { cn } from "~/builder/core/functions/common-functions";
 import { ChaiStyles } from "~/types/blocks";
 
@@ -17,10 +18,36 @@ export const getAriaLabel = (attrs: Record<string, unknown> | undefined | null):
   return trimmed || undefined;
 };
 
-export const addForcedClasses = (styles: ChaiStyles, ...classes: string[]) => {
-  // get all the classes from the blockStateClasses if the value is true
-  return {
-    ...styles,
-    className: cn(styles.className, ...classes),
-  };
+export const addForcedClasses = (
+  styles: ChaiStyles | undefined,
+  ...classes: ClassValue[]
+): ChaiStyles => {
+  const className = cn(styles?.className, ...classes);
+  const next: ChaiStyles = { ...styles };
+  if (className) {
+    next.className = className;
+  } else {
+    delete next.className;
+  }
+  return next;
+};
+
+// Classes combine in order; for any other attribute the first style that sets it wins, so the editor still selects the main style.
+export const mergeChaiStyles = (
+  ...stylesList: Array<ChaiStyles | false | null | undefined>
+): ChaiStyles => {
+  let merged: ChaiStyles = {};
+  const classes: ClassValue[] = [];
+  for (const item of stylesList) {
+    if (!item) continue;
+    merged = { ...item, ...merged };
+    classes.push(item.className);
+  }
+  const className = cn(...classes);
+  if (className) {
+    merged.className = className;
+  } else {
+    delete merged.className;
+  }
+  return merged;
 };

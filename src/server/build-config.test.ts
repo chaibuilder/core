@@ -33,6 +33,25 @@ describe("buildChaiBuilderConfig", () => {
     expect(getChaiDb()).toBe(setup.drizzle);
   });
 
+  it("ignores stale re-registration of a torn-down db setup when a live db is active", () => {
+    const teardownA = vi.fn();
+    const teardownB = vi.fn();
+    const base = stubChaiDbSetup();
+    const setupA = { ...base, drizzle: { ...base.drizzle, _tag: "a" } as any, teardown: teardownA };
+    const setupB = { ...base, drizzle: { ...base.drizzle, _tag: "b" } as any, teardown: teardownB };
+
+    resetChaiDbForTests();
+    buildChaiBuilderConfig({ db: setupA });
+    buildChaiBuilderConfig({ db: setupB });
+    expect(teardownA).toHaveBeenCalledTimes(1);
+    expect(getChaiDb()).toBe(setupB.drizzle);
+
+    // Simulates a stale route chunk calling registerChaiDb(setupA) after setupB replaced it.
+    buildChaiBuilderConfig({ db: setupA });
+    expect(teardownB).not.toHaveBeenCalled();
+    expect(getChaiDb()).toBe(setupB.drizzle);
+  });
+
   it("requires db in resolve step", () => {
     expect(() => resolveChaiBuilderConfig({} as any)).toThrow(/`db` is required/);
   });

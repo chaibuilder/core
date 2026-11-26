@@ -16,6 +16,14 @@ export const THEME_HEX_RE = /^#[0-9a-fA-F]{6}$/;
 const hex = z.string().regex(THEME_HEX_RE, "must be a #RRGGBB hex colour");
 const fontFamily = z.string().trim().regex(THEME_FONT_FAMILY_RE, "is not a font family name");
 
+const colorPair = z.tuple([hex, hex]);
+// Explicit optional properties instead of z.partialRecord so AI SDK's zodSchema()
+// emits usable per-key JSON Schema properties rather than `additionalProperties: false`
+// with no properties (which forces strict models to send only `{}`).
+const themeColorsPatchShape = Object.fromEntries(
+  CHAI_THEME_COLOR_KEYS.map((key) => [key, colorPair.optional()]),
+) as Record<(typeof CHAI_THEME_COLOR_KEYS)[number], z.ZodOptional<typeof colorPair>>;
+
 export const chaiThemePatchShape = {
   fontFamily: z
     .strictObject({
@@ -30,7 +38,7 @@ export const chaiThemePatchShape = {
     .optional()
     .describe("Base radius in px or rem, e.g. 8px; rounded-lg uses it, rounded-md and rounded-sm step down."),
   colors: z
-    .partialRecord(z.enum(CHAI_THEME_COLOR_KEYS), z.tuple([hex, hex]))
+    .strictObject(themeColorsPatchShape)
     .optional()
     .describe(
       "Colours to change, keyed by theme role (background, foreground, primary, primary-foreground, muted, muted-foreground, card, border…), each a [light, dark] pair of #RRGGBB values.",

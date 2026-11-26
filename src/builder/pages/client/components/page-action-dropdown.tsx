@@ -81,7 +81,7 @@ export const PageActionsDropdown = ({
                 setDuplicatePage(page);
               }}>
               <CopyPlusIcon className="size-3" />
-              Duplicate page
+              {t("Duplicate page")}
             </DropdownMenuItem>
           )}
           {isFolder && hasPermission(CHAI_PERMISSIONS["pages:change_type"]) && (
@@ -109,7 +109,7 @@ export const PageActionsDropdown = ({
                 });
               }}>
               <Pencil className="size-3" />
-              Edit
+              {t("Edit")}
             </DropdownMenuItem>
           )}
           {page?.online && hasPermission(CHAI_PERMISSIONS["pages:unpublish"]) && (

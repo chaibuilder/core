@@ -39,7 +39,7 @@ const CodeEditor = ({ id, placeholder }: WidgetProps) => {
   return (
     <div className={"mt-2 flex flex-col gap-y-1"}>
       <Label htmlFor={id}>
-        HTML Code
+        {t("HTML Code")}
         {currentLanguage && <small className="text-[9px] text-zinc-400">&nbsp;{currentLanguage}</small>}
       </Label>
       <Textarea

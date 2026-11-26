@@ -1,6 +1,6 @@
 import type { ChaiBlockPropsSchema } from "~/types/common";
 import { groupProps, registerChaiBlockProps, stylesProp } from "../..";
-import { getChaiBlockFormSchemas, registerChaiBlock } from "../runtime/core";
+import { getChaiBlockFormSchemas, getRegisteredChaiBlocks, registerChaiBlock } from "../runtime/core";
 
 describe("registerChaiBlockProps", () => {
   it("should handle empty props", () => {
@@ -289,5 +289,32 @@ describe("groupProps", () => {
 
     const { schema } = getChaiBlockFormSchemas("GroupPropsBlock") as { schema: any };
     expect(schema.properties).toEqual({ columns: { type: "number", default: 3, group: "Layout" } });
+  });
+});
+
+describe("getRegisteredChaiBlocks", () => {
+  it("stores metadata and narrows blocks when a filter is supplied", () => {
+    registerChaiBlock(() => null, {
+      type: "MetaAgentOnly",
+      label: "Agent Only",
+      group: "custom",
+      metadata: { siteTypes: ["Agent"] },
+    });
+    registerChaiBlock(() => null, {
+      type: "MetaUnrestricted",
+      label: "Unrestricted",
+      group: "custom",
+    });
+
+    const all = getRegisteredChaiBlocks();
+    expect(all.MetaAgentOnly?.metadata).toEqual({ siteTypes: ["Agent"] });
+    expect(all.MetaUnrestricted?.metadata).toBeUndefined();
+
+    const filtered = getRegisteredChaiBlocks((block) => {
+      const siteTypes = block.metadata?.siteTypes as string[] | undefined;
+      return !siteTypes || siteTypes.includes("Company");
+    });
+    expect(filtered.MetaAgentOnly).toBeUndefined();
+    expect(filtered.MetaUnrestricted).toBeDefined();
   });
 });

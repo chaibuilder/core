@@ -2,6 +2,7 @@ import { useAtom } from "jotai";
 import { map } from "lodash-es";
 import { Laptop, LaptopMinimal, Smartphone, Tablet } from "lucide-react";
 import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { previewUrlAtom } from "~/builder/pages/atom/preview-url";
 import Tooltip from "~/builder/pages/utils/tooltip";
 import { Button } from "~/components/ui/button";
@@ -58,6 +59,7 @@ const BreakpointCard = ({ currentWidth, width, icon, setIframeWidth }: Breakpoin
 };
 
 const PreviewWeb = () => {
+  const { t } = useTranslation();
   const [width, setWidth] = useState(1200);
   const setIframeWidth = (newWidth: number) => setWidth(newWidth);
   const [previewUrl, setPreviewUrl] = useAtom(previewUrlAtom);
@@ -75,7 +77,7 @@ const PreviewWeb = () => {
           ))}
         </div>
         &nbsp;
-        <Tooltip content={"Exit Preview"} delayDuration={0}>
+        <Tooltip content={t("Exit Preview")} delayDuration={0}>
           <Button variant="destructive" size="sm" onClick={handleClosePreview}>
             <svg width="15" height="15" viewBox="0 0 15 15" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path

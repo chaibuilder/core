@@ -79,20 +79,24 @@ const GROUP_CLASSES = [
   },
 ];
 
-const renderSegments = (segments: Segment[]) =>
+const renderSegments = (segments: Segment[], t: (key: string) => string) =>
   segments.map((segment) => {
     if (segment.kind === "prop") return <Fragment key={segment.prop.name}>{segment.prop.content}</Fragment>;
     const id = groupId(segment.path);
+    const label = last(segment.path) ?? "";
     const classes = GROUP_CLASSES[segment.path.length - 1];
     return (
       <AccordionItem key={`group:${id}`} value={id} className={classes.item}>
-        <AccordionTrigger className={classes.trigger}>{last(segment.path)}</AccordionTrigger>
-        <AccordionContent className="flex flex-col gap-3 px-3 pb-3 pt-3">{renderSegments(segment.segments)}</AccordionContent>
+        <AccordionTrigger className={classes.trigger}>{label ? t(label) : ""}</AccordionTrigger>
+        <AccordionContent className="flex flex-col gap-3 px-3 pb-3 pt-3">
+          {renderSegments(segment.segments, t)}
+        </AccordionContent>
       </AccordionItem>
     );
   });
 
 const GroupedProperties = (props: ObjectFieldTemplateProps) => {
+  const { t } = useTranslation();
   const blockType: string = get(props.registry, "formContext.blockType", "");
   const [collapsedByType, setCollapsedByType] = useAtom(collapsedSettingsGroupsAtom);
 
@@ -124,7 +128,7 @@ const GroupedProperties = (props: ObjectFieldTemplateProps) => {
       value={openLabels}
       onValueChange={setOpenLabels}
       className="flex flex-col gap-2">
-      {renderSegments(segments)}
+      {renderSegments(segments, t)}
     </Accordion>
   );
 

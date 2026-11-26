@@ -24,6 +24,7 @@ export const useBlocksStoreManager = () => {
       postMessage({ type: "blocks-updated", blocks: newBlocks });
       // Deletes come through here, so re-check the page like the other edits do.
       runValidation();
+      incrementActionsCount();
     },
     addBlocks: (newBlocks: ChaiBlock[], parent?: string, position?: number) => {
       setBlocks((prevBlocks) => {

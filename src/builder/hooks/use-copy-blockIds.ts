@@ -1,6 +1,7 @@
 import { atom, useAtom, useSetAtom } from "jotai";
 import { isEmpty, set } from "lodash-es";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { getDuplicatedBlocks } from "~/builder/core/functions/blocks-fn";
 import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
@@ -25,6 +26,7 @@ export const useCopyBlocks = (): [
   (blockIds: Array<string>, clonePartialBlocks?: boolean) => void,
   (blockIds: Array<string>) => boolean,
 ] => {
+  const { t } = useTranslation();
   const [presentBlocks] = useBlocksStore();
   const [ids, setIds] = useAtom(copiedBlockIdsAtom);
   const resetCutBlockIds = useSetAtom(cutBlockIdsAtom);
@@ -83,19 +85,19 @@ export const useCopyBlocks = (): [
           return;
         }
         if (!navigator.clipboard) {
-          toast.error("Clipboard not available.");
+          toast.error(t("Clipboard not available."));
           return;
         }
         toast.promise(navigator.clipboard.writeText(JSON.stringify(clipboardData)), {
-          success: "Blocks copied successfully",
-          error: "Failed to copy blocks to clipboard",
+          success: t("Blocks copied successfully"),
+          error: t("Failed to copy blocks to clipboard"),
         });
       } catch (error) {
-        toast.error("Failed to copy blocks to clipboard");
+        toast.error(t("Failed to copy blocks to clipboard"));
         console.error("Failed to copy blocks to clipboard:", error);
       }
     },
-    [setIds, resetCutBlockIds, enableCopyToClipboard, presentBlocks, getPartialBlocks],
+    [setIds, resetCutBlockIds, enableCopyToClipboard, presentBlocks, getPartialBlocks, t],
   );
 
   return [ids as string[], copyBlocks, hasPartialBlocks];

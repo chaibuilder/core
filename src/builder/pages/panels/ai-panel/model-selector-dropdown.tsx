@@ -2,6 +2,7 @@
 
 import { Check, Cpu } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -35,6 +36,7 @@ export const ModelSelectorDropdown = ({
   forceLight = false,
   compact = false,
 }: ModelSelectorDropdownProps) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   // Closing the popover returns focus to the trigger, whose tooltip opens on
   // focus -- suppress it briefly so picking a model doesn't re-show the name.
@@ -112,7 +114,7 @@ export const ModelSelectorDropdown = ({
             forceLight && "text-black",
             compact ? "px-2.5 pb-0.5 pt-2 text-[11px]" : "px-3 pb-0 pt-2 text-xs",
           )}>
-          Models
+          {t("Models")}
         </h3>
         {/* Always scrollable: CommandList has overflow-y-auto by default but no
             height cap, so without max-h it just grows past the viewport instead
@@ -206,7 +208,9 @@ export const ModelSelectorDropdown = ({
                         <div className="flex w-full items-center justify-between">
                           <ModelSelectorName className="text-xs leading-none">{model.name}</ModelSelectorName>
                           {model?.multiplier > 0 ? (
-                            <div className="text-[10px] italic text-muted-foreground">{model?.multiplier}x Credits</div>
+                            <div className="text-[10px] italic text-muted-foreground">
+                              {t("{{count}}x Credits", { count: model?.multiplier })}
+                            </div>
                           ) : null}
                         </div>
                         <div className="line-clamp-1 text-[10px] italic leading-4 text-muted-foreground">

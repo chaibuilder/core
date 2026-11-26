@@ -1,6 +1,6 @@
 import { canDeleteBlock } from "~/builder/core/functions/block-helpers";
 import { generateUuid } from "~/builder/core/functions/common-functions";
-import { getRegisteredChaiBlocks, getRegisteredChaiBlock } from "~/registry";
+import { getRegisteredChaiBlocks, getRegisteredChaiBlock, syncChaiBlocksWithDefaultProps } from "~/registry";
 import { hasOnlyRegisteredChaiPipes, isValidBindingTemplate, parseBindingExpression } from "~/render/binding-pipes";
 import type { ChaiBlock } from "~/types/common";
 import {
@@ -10,6 +10,7 @@ import {
   replaceBlock,
 } from "~/utils/blocks-tree-ops";
 import { getBlocksFromHTML, mergeBlocksWithExisting } from "~/utils/import-html/html-to-json";
+import { restoreBlockPropTypes } from "~/utils/import-html/restore-block-prop-types";
 import {
   rewriteInternalLinks,
   rewriteInternalLinksInProps,
@@ -29,6 +30,7 @@ export type AiEditExecutorOptions = {
    * text content (never resolved at render) is turned back into a path.
    */
   resolveInternalLink?: InternalLinkResolver;
+  hiddenBlockTypes?: string[];
 };
 
 export type AiEditExecutorSuccess = {
@@ -36,10 +38,17 @@ export type AiEditExecutorSuccess = {
   newBlockIds?: string[];
   replacementBlocks?: ChaiBlock[];
   insertedBlocks?: ChaiBlock[];
+  updatedBlocks?: Array<{ _id: string } & Partial<ChaiBlock>>;
+  updatedBlockIds?: string[];
   parentId?: string;
   position?: number;
   removableIds?: string[];
   skippedIds?: string[];
+};
+
+export type BlockPropsUpdate = {
+  blockId: string;
+  props: Record<string, unknown>;
 };
 
 export type AiEditExecutorResult = AiEditExecutorSuccess | { error: string };
@@ -317,10 +326,10 @@ export const applyAddBlocks = async (
   };
 };
 
-const validCustomBlockTypes = (): string[] =>
+const validCustomBlockTypes = (hiddenSet?: Set<string>): string[] =>
   Object.entries(getRegisteredChaiBlocks())
     .map(([registryKey, block]) => block.type ?? registryKey)
-    .filter((type): type is string => typeof type === "string" && type.length > 0)
+    .filter((type): type is string => typeof type === "string" && type.length > 0 && !hiddenSet?.has(type))
     .sort();
 
 export const applyAddCustomBlock = (
@@ -331,8 +340,9 @@ export const applyAddCustomBlock = (
   props: Record<string, unknown> = {},
   options: AiEditExecutorOptions = {},
 ): AiEditExecutorResult => {
-  if (!getRegisteredChaiBlock(type)) {
-    const validTypes = validCustomBlockTypes();
+  const hiddenSet = Array.isArray(options.hiddenBlockTypes) ? new Set(options.hiddenBlockTypes) : undefined;
+  if (hiddenSet?.has(type) || !getRegisteredChaiBlock(type)) {
+    const validTypes = validCustomBlockTypes(hiddenSet);
     return {
       error: `Unknown block type "${type}". Valid types: ${validTypes.length > 0 ? validTypes.join(", ") : "none registered"}.`,
     };
@@ -344,20 +354,222 @@ export const applyAddCustomBlock = (
   if ("error" in target) return target;
 
   const sanitizedProps = sanitizeAiProps(props);
-  const block: ChaiBlock = {
-    _id: generateUuid(),
-    _type: type,
-    _parent: target.parentId,
-    ...(options.resolveInternalLink
-      ? rewriteInternalLinksInProps(sanitizedProps, options.resolveInternalLink)
-      : sanitizedProps),
-  };
+  const rootProps = options.resolveInternalLink
+    ? rewriteInternalLinksInProps(sanitizedProps, options.resolveInternalLink)
+    : sanitizedProps;
+  const insertedBlocks = buildCustomBlockTree(type, rootProps).map((block) =>
+    block._parent ? block : { ...block, _parent: target.parentId },
+  );
   return {
-    blocks: insertBlocksAtPosition(blocks, [block], target.parentId, target.position),
-    insertedBlocks: [block],
+    blocks: insertBlocksAtPosition(blocks, insertedBlocks, target.parentId, target.position),
+    insertedBlocks,
     parentId: target.parentId,
     position: target.position,
-    newBlockIds: [block._id],
+    newBlockIds: insertedBlocks.map((block) => block._id),
+  };
+};
+
+/**
+ * A custom block as manual Add inserts it: its registered `blocks` template (slots, starter
+ * children) or the lone block, with fresh ids, `rootProps` on the root, registered defaults
+ * (styles etc.) filling every prop not set, and schema-typed prop coercion applied.
+ */
+export const buildCustomBlockTree = (type: string, rootProps: Record<string, unknown>): ChaiBlock[] => {
+  const { blocks } = (getRegisteredChaiBlock(type) ?? {}) as { blocks?: ChaiBlock[] | (() => ChaiBlock[]) };
+  const template = (typeof blocks === "function" ? blocks() : blocks) ?? [];
+  const templateIds = new Set(template.map((block) => block._id).filter(Boolean));
+  // The root is the block of this type with no parent inside the template.
+  const rootIndex = template.findIndex(
+    (block) => block._type === type && !(block._parent && templateIds.has(block._parent)),
+  );
+  const tree =
+    rootIndex < 0
+      ? [{ _type: type } as ChaiBlock]
+      : [template[rootIndex], ...template.filter((_, index) => index !== rootIndex)];
+  // One id per block; template ids only map parents, so a missing or repeated _id can't collide.
+  const newIds = tree.map(() => generateUuid());
+  const idMap = new Map<string, string>();
+  tree.forEach((block, index) => {
+    if (block._id && !idMap.has(block._id)) idMap.set(block._id, newIds[index]);
+  });
+  return restoreBlockPropTypes(
+    syncChaiBlocksWithDefaultProps(
+      tree.map((block, index) => ({
+        ...block,
+        ...(index === 0 ? rootProps : {}),
+        _id: newIds[index],
+        _type: block._type,
+        // A parent outside the template falls back to the root rather than escaping it.
+        _parent: index === 0 || !block._parent ? null : (idMap.get(block._parent) ?? newIds[0]),
+      })),
+    ),
+    { htmlBooleanEmpty: false },
+  );
+};
+
+/**
+ * Insert a reusable library block (either stored `ChaiBlock[]` JSON or raw HTML)
+ * into a page with fresh block IDs, default props, hidden-type enforcement, and
+ * internal-link rewriting. Shared by Builder AI and MCP `add_library_block`.
+ */
+export const applyAddLibraryBlocks = async (
+  blocks: ChaiBlock[],
+  libraryContent: ChaiBlock[] | string,
+  parentIdInput?: unknown,
+  positionInput?: unknown,
+  options: AiEditExecutorOptions = {},
+): Promise<AiEditExecutorResult> => {
+  const rawTemplate =
+    typeof libraryContent === "string"
+      ? await getBlocksFromHTML(libraryContent)
+      : Array.isArray(libraryContent)
+        ? libraryContent
+        : [];
+  const validTemplate = rawTemplate.filter(
+    (block): block is ChaiBlock => Boolean(block && typeof block === "object" && typeof block._type === "string"),
+  );
+  if (validTemplate.length === 0) {
+    return { error: "Library block contains no valid blocks." };
+  }
+
+  const hiddenSet = Array.isArray(options.hiddenBlockTypes) ? new Set(options.hiddenBlockTypes) : undefined;
+  if (hiddenSet) {
+    const disallowed = validTemplate.find((block) => hiddenSet.has(block._type));
+    if (disallowed) {
+      return { error: `Library block uses "${disallowed._type}", which is not available on this site or page.` };
+    }
+  }
+
+  const parentId = normalizeAiParentId(parentIdInput);
+  const position = normalizeAiPosition(positionInput);
+  const target = resolveInsertTarget(blocks, validTemplate[0]._type, parentId, position);
+  if ("error" in target) return target;
+
+  // Remap all internal _id / _parent pointers to fresh UUIDs so repeated insertions never collide.
+  const newIds = validTemplate.map(() => generateUuid());
+  const idMap = new Map<string, string>();
+  validTemplate.forEach((block, index) => {
+    if (block._id && !idMap.has(block._id)) idMap.set(block._id, newIds[index]);
+  });
+
+  const remapped = syncChaiBlocksWithDefaultProps(
+    validTemplate.map((block, index) => {
+      const next: ChaiBlock = {
+        ...block,
+        _id: newIds[index],
+        _parent: block._parent && idMap.has(block._parent) ? idMap.get(block._parent)! : target.parentId,
+      };
+      delete (next as Record<string, unknown>)._bid;
+      return next;
+    }),
+  );
+
+  const insertedBlocks = options.resolveInternalLink
+    ? rewriteInternalLinks(remapped, options.resolveInternalLink)
+    : remapped;
+
+  return {
+    blocks: insertBlocksAtPosition(blocks, insertedBlocks, target.parentId, target.position),
+    insertedBlocks,
+    parentId: target.parentId,
+    position: target.position,
+    newBlockIds: insertedBlocks.map((block) => block._id),
+  };
+};
+
+/**
+ * Patch props on one or more existing blocks directly in `ChaiBlock[]` JSON
+ * without an HTML round-trip. Validates the entire batch atomically, rejects
+ * reserved structural keys, sanitizes strings/nested values, preserves `#styles:`
+ * encoding on style props, rewrites internal page links, and coerces prop types
+ * against each block's registered schema.
+ */
+export const applyUpdateBlockProps = (
+  blocks: ChaiBlock[],
+  updates: BlockPropsUpdate[],
+  options: AiEditExecutorOptions = {},
+): AiEditExecutorResult => {
+  if (!Array.isArray(updates) || updates.length === 0) {
+    return { error: "update_block_props requires a non-empty updates array." };
+  }
+
+  const nextById = new Map<string, ChaiBlock>(blocks.map((block) => [block._id, block]));
+  const patchById = new Map<string, Record<string, unknown>>();
+  const updatedOrder: string[] = [];
+
+  for (const entry of updates) {
+    const blockId = typeof entry?.blockId === "string" ? entry.blockId.trim() : "";
+    if (!blockId || !nextById.has(blockId)) {
+      return { error: `No block with bid "${blockId}" — call get_page_outline for valid bids.` };
+    }
+    if (!entry.props || typeof entry.props !== "object" || Array.isArray(entry.props)) {
+      return { error: `update_block_props requires a props object for block "${blockId}".` };
+    }
+    const rawKeys = Object.keys(entry.props);
+    if (rawKeys.length === 0) {
+      return { error: `update_block_props requires at least one prop to update for block "${blockId}".` };
+    }
+
+    for (const key of rawKeys) {
+      if (RESERVED_AI_PROPS.has(key)) {
+        return { error: `Cannot update reserved property "${key}" on block "${blockId}".` };
+      }
+    }
+
+    const current = nextById.get(blockId)!;
+    if (current._type === "PartialBlock" || current._type === "GlobalBlock") {
+      const nextPartialId = entry.props.partialBlockId ?? entry.props.globalBlock;
+      if (typeof nextPartialId === "string" && nextPartialId.trim().length > 0) {
+        const partialErr = options.validatePartialReference?.(nextPartialId);
+        if (partialErr) return { error: partialErr };
+      }
+    }
+
+    const sanitized = sanitizeAiProps(entry.props);
+    const normalized: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(sanitized)) {
+      const existingVal = current[key];
+      const isStyleProp =
+        (typeof existingVal === "string" && existingVal.startsWith("#styles:")) ||
+        key === "styles" ||
+        key.endsWith("Styles");
+      if (isStyleProp && typeof value === "string") {
+        const trimmed = value.trim();
+        normalized[key] = trimmed.startsWith("#styles:") ? trimmed : `#styles:,${trimmed}`;
+      } else {
+        normalized[key] = value;
+      }
+    }
+
+    const withLinks = options.resolveInternalLink
+      ? rewriteInternalLinksInProps(normalized, options.resolveInternalLink)
+      : normalized;
+
+    const mergedRaw: ChaiBlock = { ...current, ...withLinks };
+    const [coerced] = restoreBlockPropTypes([mergedRaw], { htmlBooleanEmpty: false });
+    const updatedBlock = coerced ?? mergedRaw;
+    nextById.set(blockId, updatedBlock);
+
+    if (!patchById.has(blockId)) {
+      updatedOrder.push(blockId);
+      patchById.set(blockId, {});
+    }
+    const acc = patchById.get(blockId)!;
+    for (const key of Object.keys(withLinks)) {
+      acc[key] = updatedBlock[key];
+    }
+  }
+
+  const nextBlocks = blocks.map((block) => nextById.get(block._id) ?? block);
+  const updatedBlocks = updatedOrder.map(
+    (blockId) => ({ _id: blockId, ...patchById.get(blockId)! }) as { _id: string } & Partial<ChaiBlock>,
+  );
+
+  return {
+    blocks: nextBlocks,
+    updatedBlocks,
+    updatedBlockIds: updatedOrder,
+    newBlockIds: updatedOrder,
   };
 };
 

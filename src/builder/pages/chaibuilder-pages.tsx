@@ -5,6 +5,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { logChaiVersionBanner } from "~/builder/core/functions/version-banner";
+import { syncEditorLocale } from "~/builder/core/locales/load";
 import { ChaiBuilderEditor } from "~/builder/core/main";
 import { pubsub } from "~/builder/core/pubsub";
 import { useBuilderThemeEffect } from "~/builder/hooks/use-builder-theme";
@@ -84,6 +85,7 @@ const BuilderWithAccessCheck = (props: ChaiWebsiteBuilderProps) => {
 };
 
 const DefaultChaiBuilder = (props: ChaiWebsiteBuilderProps) => {
+  const { t } = useTranslation();
   const { data: websiteData, isFetching: isWebsiteDataFetching, isError } = useWebsiteData();
   const setServerConfig = useSetAtom(serverConfigAtom);
   const serverConfig = useAtomValue(serverConfigAtom);
@@ -109,8 +111,8 @@ const DefaultChaiBuilder = (props: ChaiWebsiteBuilderProps) => {
   if (isError) {
     return (
       <BlurContainer className="bg-surface text-foreground fixed inset-0">
-        <p>Failed to load website data</p>
-        <Button onClick={() => window.location.reload()}>Retry</Button>
+        <p>{t("Failed to load website data")}</p>
+        <Button onClick={() => window.location.reload()}>{t("Retry")}</Button>
       </BlurContainer>
     );
   }
@@ -163,21 +165,19 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
   // editor's parent on every write the editor makes to it, which loops.
   const upstreamLabel = resolveFeatureLabel(props.labels, "upstreamPage", props.locale || "en", i18n.language);
   const currentPageId = currentPage?.id;
-  const readOnly = useMemo(
-    () =>
-      isLinked && currentPageId
-        ? {
-            reason: t(
-              "This page shows {{label}} content, which can't be edited here. Duplicate it to edit your own copy.",
-              {
-                label: upstreamLabel,
-              },
-            ),
-            action: <UpstreamCloneButton pageId={currentPageId} />,
-          }
-        : null,
-    [isLinked, currentPageId, t, upstreamLabel],
-  );
+  const canDuplicate = currentPage?.canDuplicate !== false;
+  const readOnly = useMemo(() => {
+    if (!isLinked || !currentPageId) return null;
+    if (!canDuplicate) {
+      return { reason: t("This page shows {{label}} content, which can't be edited here.", { label: upstreamLabel }) };
+    }
+    return {
+      reason: t("This page shows {{label}} content, which can't be edited here. Duplicate it to edit your own copy.", {
+        label: upstreamLabel,
+      }),
+      action: <UpstreamCloneButton pageId={currentPageId} />,
+    };
+  }, [isLinked, currentPageId, canDuplicate, t, upstreamLabel]);
   const isCheckingPageLock = pageStatus === PAGE_STATUS.CHECKING;
   const isFetchingPageData = isFetchingPageAllData || isCheckingPageLock;
   const [, setActivePanel] = useSidebarActivePanel();
@@ -262,6 +262,7 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
         themeReadOnlyReason={props.themeReadOnlyReason}
         readOnly={readOnly}
         pageId={currentPage?.id}
+        pageType={currentPage?.pageType}
         loading={isFetchingPageData}
         fallbackLang={fallbackLang}
         languages={websiteLanguages}
@@ -284,6 +285,7 @@ const ChaiBuilderInner = ({ ...props }: ChaiBuilderInnerProps) => {
         labels={props.labels}
         libraryGroupMaxDepth={props.libraryGroupMaxDepth}
         panelWidth={props.panelWidth}
+        canShowBlock={props.canShowBlock}
         onSave={async ({ blocks: _blocks, needTranslations, partialIds, linkPageIds, designTokens }) => {
           if (!page) return true;
           blocksDataRef.current = _blocks;
@@ -330,6 +332,11 @@ const queryClient = new QueryClient({
 });
 
 const ChaiWebsiteBuilder = (props: ChaiWebsiteBuilderProps) => {
+  const didSyncInitialLocale = useRef(false);
+  if (!didSyncInitialLocale.current) {
+    didSyncInitialLocale.current = true;
+    syncEditorLocale(props.locale, props.translations);
+  }
   const [, setPagesProps] = usePagesProps();
   const setServerConfig = useSetAtom(serverConfigAtom);
   const [ready, setReady] = useState(false);

@@ -47,11 +47,24 @@ const DefaultMediaManager = ({ close, onSelect, mode = "image" }: MediaManagerPr
 
   const { t } = useTranslation();
 
+  const managerTitles: Record<ChaiMediaManagerMode, string> = {
+    image: t("Image Manager"),
+    video: t("Video Manager"),
+    audio: t("Audio Manager"),
+    document: t("Document Manager"),
+    all: t("All Manager"),
+  };
+  const urlPlaceholders: Record<ChaiMediaManagerMode, string> = {
+    image: t("Enter image URL"),
+    video: t("Enter video URL"),
+    audio: t("Enter audio URL"),
+    document: t("Enter document URL"),
+    all: t("Enter all URL"),
+  };
+
   return (
     <div className="flex w-96 flex-col gap-4 p-4">
-      <h2 className="text-xl font-semibold text-foreground">
-        {t(`${mode.charAt(0).toUpperCase() + mode.slice(1)} Manager`)}
-      </h2>
+      <h2 className="text-xl font-semibold text-foreground">{managerTitles[mode]}</h2>
 
       {error && (
         <Alert variant="destructive">
@@ -62,7 +75,7 @@ const DefaultMediaManager = ({ close, onSelect, mode = "image" }: MediaManagerPr
 
       <div className="flex flex-col gap-4">
         <Input
-          placeholder={t(`Enter ${mode} URL`)}
+          placeholder={urlPlaceholders[mode]}
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           onKeyUp={() => validateAsset(url)}

@@ -1,5 +1,6 @@
 import { debounce } from "lodash-es";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Switch } from "~/components/ui/switch";
 import { ChaiBlock } from "~/types/common";
 
@@ -12,6 +13,7 @@ const CommonSettingsInner = ({
   updateBlockProps: (ids: string[], props: any) => void;
   updateBlockPropsRealtime: (ids: string[], props: any) => void;
 }) => {
+  const { t } = useTranslation();
   const [name, setName] = useState(block._name);
   const [show, setShow] = useState(block._show ?? true);
 
@@ -39,7 +41,7 @@ const CommonSettingsInner = ({
     <div className="">
       <div className="space-y-2">
         <div className="grid grid-cols-3 items-center">
-          <label className="text-xs font-medium text-gray-500">Name</label>
+          <label className="text-xs font-medium text-gray-500">{t("Name")}</label>
           <input
             type="text"
             className="col-span-2 rounded-md border border-gray-300 px-2 py-1 text-xs"
@@ -48,7 +50,7 @@ const CommonSettingsInner = ({
           />
         </div>
         <div className="grid grid-cols-3 items-center">
-          <label className="text-xs font-medium text-gray-500">Show</label>
+          <label className="text-xs font-medium text-gray-500">{t("Show")}</label>
           <Switch
             className="!col-span-2 !h-4 !w-7"
             thumbClassName="!h-3 !w-3"

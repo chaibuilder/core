@@ -46,14 +46,49 @@ describe("buildCustomBlockCatalog", () => {
     expect(catalog).toContain("### Hero");
     expect(catalog).not.toContain("### Gallery");
   });
+
+  it("omits blocks listed in hiddenBlockTypes", () => {
+    const catalog = buildCustomBlockCatalog("product", ["Gallery"]);
+    expect(catalog).toContain("### Hero");
+    expect(catalog).not.toContain("### Gallery");
+  });
+
+  it("ignores non-array hiddenBlockTypes input", () => {
+    const catalog = buildCustomBlockCatalog("product", "Gallery");
+    expect(catalog).toContain("### Hero");
+    expect(catalog).toContain("### Gallery");
+  });
+
+  it("annotates multi-block groups so the AI picks ONE when entries are layout variants", () => {
+    registerChaiBlock(NullComponent, {
+      type: "FeaturedAltOne",
+      label: "Featured Alt One",
+      group: "featured-alt",
+      description: "First featured layout",
+    } as any);
+    registerChaiBlock(NullComponent, {
+      type: "FeaturedAltTwo",
+      label: "Featured Alt Two",
+      group: "featured-alt",
+      description: "Second featured layout",
+    } as any);
+
+    const catalog = buildCustomBlockCatalog("page");
+    expect(catalog).toContain(
+      "## Group: featured-alt (2 blocks — pick ONE if these are layout variants of the same section)",
+    );
+  });
 });
 
 describe("custom catalog helpers", () => {
   it("lists the same blocks as the catalog, per page type", () => {
-    const types = (pageType: string) => getCustomCatalogBlocks(pageType).map(([key, block]) => block.type ?? key);
+    const types = (pageType: string, hidden?: string[]) =>
+      getCustomCatalogBlocks(pageType, hidden).map(([key, block]) => block.type ?? key);
     expect(types("page")).toContain("Hero");
     expect(types("page")).not.toContain("Gallery");
     expect(types("product")).toContain("Gallery");
+    expect(types("product", ["Gallery"])).not.toContain("Gallery");
+    expect(types("product", ["Gallery"])).toContain("Hero");
     expect(types("page")).not.toContain("Box");
   });
 

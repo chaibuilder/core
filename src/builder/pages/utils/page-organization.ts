@@ -14,6 +14,7 @@ export interface ChaiPage {
   /** The page this one renders while `useUpstream` is on (upstream pages). */
   upstream?: string | null;
   useUpstream?: boolean;
+  canDuplicate?: boolean;
   [key: string]: any;
 }
 

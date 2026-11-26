@@ -1,4 +1,5 @@
 import { Check, Circle } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { cn } from "~/lib/utils";
 
 type SectionProgressProps = {
@@ -31,6 +32,7 @@ export const SectionProgress = ({
   haltedLabel,
   onResume,
 }: SectionProgressProps) => {
+  const { t } = useTranslation();
   if (sections.length === 0) return null;
 
   const done = Math.min(completed, sections.length);
@@ -42,16 +44,18 @@ export const SectionProgress = ({
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-1.5 font-medium text-foreground/80">
           {isHalted ? (
-            <span className="truncate">Stopped{haltedLabel ? ` on ${haltedLabel}` : ""}</span>
+            <span className="truncate">
+              {haltedLabel ? t("Stopped on {{label}}", { label: haltedLabel }) : t("Stopped")}
+            </span>
           ) : (
-            <span>{isBuilt ? "Page built" : "Building page"}</span>
+            <span>{isBuilt ? t("Page built") : t("Building page")}</span>
           )}
           {isHalted && onResume && (
             <button
               type="button"
               onClick={onResume}
               className="shrink-0 rounded border border-primary/30 px-1.5 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10">
-              Resume
+              {t("Resume")}
             </button>
           )}
         </div>

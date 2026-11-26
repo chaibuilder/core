@@ -2,6 +2,7 @@ import lucideIcons from "@iconify-json/lucide/icons.json";
 import { MagnifyingGlassIcon } from "@radix-ui/react-icons";
 import Fuse from "fuse.js";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "~/components/ui/popover";
@@ -11,6 +12,7 @@ interface IconPickerProps {
 }
 
 export const IconPicker = ({ onSelectIcon }: IconPickerProps) => {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -68,7 +70,7 @@ export const IconPicker = ({ onSelectIcon }: IconPickerProps) => {
       <PopoverTrigger asChild>
         <Button variant="outline" size="sm" className="h-6 w-full gap-1 px-1 text-[10px]">
           <MagnifyingGlassIcon className="h-3 w-3" />
-          Pick Icon
+          {t("Pick Icon")}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[250px] p-0" align="end">
@@ -76,7 +78,7 @@ export const IconPicker = ({ onSelectIcon }: IconPickerProps) => {
           {/* Search Input */}
           <div className="border-b p-3">
             <Input
-              placeholder="Search icons..."
+              placeholder={t("Search icons...")}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-8"
@@ -99,7 +101,7 @@ export const IconPicker = ({ onSelectIcon }: IconPickerProps) => {
                 ))}
               </div>
             ) : (
-              <div className="text-muted-foreground py-8 text-center text-sm">No icons found</div>
+              <div className="text-muted-foreground py-8 text-center text-sm">{t("No icons found")}</div>
             )}
           </div>
         </div>

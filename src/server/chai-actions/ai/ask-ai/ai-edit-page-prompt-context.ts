@@ -63,11 +63,22 @@ export const isCustomCatalogBlock = (registryKey: string, block: RegisteredCusto
 };
 
 /** The custom blocks available on a page type, as `[registryKey, block]` in registry order. */
-export const getCustomCatalogBlocks = (pageType?: string): [string, RegisteredCustomBlock][] =>
-  Object.entries(getRegisteredChaiBlocks()).filter(
-    ([registryKey, block]) =>
-      isCustomCatalogBlock(registryKey, block) && isBlockAvailableForPageType(block, pageType || "page"),
-  );
+export const getCustomCatalogBlocks = (
+  pageType?: string,
+  hiddenBlockTypes?: unknown,
+): [string, RegisteredCustomBlock][] => {
+  const hiddenSet = Array.isArray(hiddenBlockTypes)
+    ? new Set(hiddenBlockTypes.filter((type): type is string => typeof type === "string"))
+    : null;
+  return Object.entries(getRegisteredChaiBlocks()).filter(([registryKey, block]) => {
+    const blockType = block.type ?? registryKey;
+    return (
+      isCustomCatalogBlock(registryKey, block) &&
+      isBlockAvailableForPageType(block, pageType || "page") &&
+      !(hiddenSet && hiddenSet.has(blockType))
+    );
+  });
+};
 
 /** A prop the AI may set: style, runtime and hidden props are builder-managed. */
 export const isCatalogProp = (prop: any): boolean => !prop?.styles && !prop?.runtime && !prop?.hidden;
@@ -100,30 +111,50 @@ export const customBlockHtmlOpenTag = (blockType: string): string => {
   return derived === blockType ? `<${tag}>` : `<${tag} chai-type="${blockType}">`;
 };
 
-export const buildCustomBlockCatalog = (pageType?: string): string => {
-  const customBlockEntries = getCustomCatalogBlocks(pageType);
+export const buildCustomBlockCatalog = (pageType?: string, hiddenBlockTypes?: unknown): string => {
+  const customBlockEntries = getCustomCatalogBlocks(pageType, hiddenBlockTypes);
 
   if (customBlockEntries.length === 0) {
     return "No custom blocks registered.";
   }
 
-  return customBlockEntries
-    .map(([registryKey, b]) => {
-      const blockType = b.type ?? registryKey;
-      const props = b.props?.schema?.properties
-        ? Object.entries(b.props.schema.properties as Record<string, any>)
-            .filter(([, v]) => isCatalogProp(v))
-            .map(([key, v]) => {
-              const type = Array.isArray(v?.type) ? v.type.join("|") : (v?.type ?? "any");
-              const def = v?.default !== undefined ? ` (default: ${JSON.stringify(v.default)})` : "";
-              const aiNote = b.aiProps?.includes(key) ? " [AI-settable]" : "";
-              return `  - ${key} (${type})${def}${aiNote}: ${v?.title ?? key}`;
-            })
-            .join("\n")
-        : "  (no declared props)";
-      const wrapperNote = b.wrapper ? " [wrapper — can contain child blocks]" : "";
-      // b.description is defined on ChaiBlockConfig — use it as the primary AI hint
-      return `### ${blockType} → ${customBlockHtmlOpenTag(blockType)}${wrapperNote}\nDescription: ${b.description ?? b.label}\nProps:\n${props}`;
+  const grouped = new Map<string, [string, RegisteredCustomBlock][]>();
+  for (const entry of customBlockEntries) {
+    const group = (entry[1].group?.trim() || "general").toLowerCase();
+    const list = grouped.get(group);
+    if (list) list.push(entry);
+    else grouped.set(group, [entry]);
+  }
+
+  const formatEntry = ([registryKey, b]: [string, RegisteredCustomBlock]): string => {
+    const blockType = b.type ?? registryKey;
+    const props = b.props?.schema?.properties
+      ? Object.entries(b.props.schema.properties as Record<string, any>)
+          .filter(([, v]) => isCatalogProp(v))
+          .map(([key, v]) => {
+            const type = Array.isArray(v?.type) ? v.type.join("|") : (v?.type ?? "any");
+            const def = v?.default !== undefined ? ` (default: ${JSON.stringify(v.default)})` : "";
+            const aiNote = b.aiProps?.includes(key) ? " [AI-settable]" : "";
+            return `  - ${key} (${type})${def}${aiNote}: ${v?.title ?? key}`;
+          })
+          .join("\n")
+      : "  (no declared props)";
+    const wrapperNote = b.wrapper ? " [wrapper — can contain child blocks]" : "";
+    // b.description is defined on ChaiBlockConfig — use it as the primary AI hint
+    return `### ${blockType} → ${customBlockHtmlOpenTag(blockType)}${wrapperNote}\nDescription: ${b.description ?? b.label}\nProps:\n${props}`;
+  };
+
+  if (grouped.size === 1) {
+    return customBlockEntries.map(formatEntry).join("\n\n");
+  }
+
+  return Array.from(grouped.entries())
+    .map(([group, entries]) => {
+      const heading =
+        entries.length > 1
+          ? `## Group: ${group} (${entries.length} blocks — pick ONE if these are layout variants of the same section)`
+          : `## Group: ${group}`;
+      return `${heading}\n\n${entries.map(formatEntry).join("\n\n")}`;
     })
     .join("\n\n");
 };
@@ -233,8 +264,7 @@ export const buildPageTypeContext = (pageTypeKey: string | undefined): string =>
 
 /**
  * Fill the shared context placeholders of an AI edit system prompt and append
- * site/page information. Used by the page-edit action; the block-edit action
- * can adopt it when it migrates.
+ * site/page information. Used by both page-edit and block-edit actions.
  */
 export const fillAiEditSystemPromptContext = (
   systemPrompt: string,
@@ -242,7 +272,10 @@ export const fillAiEditSystemPromptContext = (
 ): string => {
   let prompt = systemPrompt;
   prompt = prompt.replace("{{DESIGN_TOKENS_LIST}}", buildDesignTokensList(data.designTokens));
-  prompt = prompt.replace("{{CUSTOM_BLOCK_CATALOG}}", buildCustomBlockCatalog(data?.options?.pageType));
+  prompt = prompt.replace(
+    "{{CUSTOM_BLOCK_CATALOG}}",
+    buildCustomBlockCatalog(data?.options?.pageType, data?.options?.hiddenBlockTypes),
+  );
   prompt = prompt.replace("{{DATA_BINDING_PATHS}}", buildDataBindingPathsText(data?.options?.dataBindingPaths));
   prompt = prompt.replace("{{DATA_BINDING_PIPES}}", buildDataBindingPipesText());
   prompt = prompt.replace("{{PAGE_TYPE_CONTEXT}}", buildPageTypeContext(data?.options?.pageType));

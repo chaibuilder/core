@@ -3,12 +3,15 @@
 import type { UIMessage } from "ai";
 import { AlertTriangle, Bot, ChevronDown, ChevronUp } from "lucide-react";
 import { Fragment, lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { generateUuid } from "~/builder/core/functions/common-functions";
+import { useLanguages } from "~/builder/hooks/use-languages";
 import { usePubSubListener } from "~/builder/hooks/use-pub-sub";
 import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
 import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
+import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
 import {
   Conversation,
   ConversationContent,
@@ -34,6 +37,7 @@ import {
 import { ContextDisplayBar } from "./context-display-bar";
 import { getDefaultModel } from "./models";
 import { usePendingAiPrompt } from "./pending-ai-prompt";
+import { LANGUAGE_CONTENT_ACTIONS } from "./prompt-helper";
 import { SectionProgress } from "./section-progress";
 import { ToolPartCard } from "./tool-part-card";
 import { AiPageChatMessageMetadata, parseChatTransportError, useAiPageChat } from "./use-ai-page-chat";
@@ -69,6 +73,7 @@ const getUserPromptText = (message: UIMessage): string => {
 };
 
 const UserPromptBubble = ({ message }: { message: UIMessage }) => {
+  const { t } = useTranslation();
   const metadata = message.metadata as AiPageChatMessageMetadata | undefined;
   const fullText = getUserPromptText(message);
   const canExpand = fullText.length > MAX_USER_MESSAGE_CHARS;
@@ -99,7 +104,7 @@ const UserPromptBubble = ({ message }: { message: UIMessage }) => {
       </div>
       {canExpand && !highlight ? (
         <Button
-          aria-label={expanded ? "Show less" : "Show more"}
+          aria-label={expanded ? t("Show less") : t("Show more")}
           aria-expanded={expanded}
           onClick={() => setExpanded((prev) => !prev)}
           className={cn(
@@ -141,6 +146,9 @@ const AiPanelPageChat = ({
   const [wasErrored, setWasErrored] = useState(false);
   const selectedBlock = useSelectedBlock();
   const [, setSelectedBlockIds] = useSelectedBlockIds();
+  const { selectedLang, fallbackLang } = useLanguages();
+  const isLanguageVariant = Boolean(selectedLang && fallbackLang && selectedLang !== fallbackLang);
+  const selectedLangName = selectedLang ? LANGUAGES[selectedLang] || selectedLang : "";
   const [searchParams] = useSearchParams();
   const currentPageId = searchParams.get("page");
   const [isContextModalOpen, setIsContextModalOpen] = useState(false);
@@ -247,10 +255,15 @@ const AiPanelPageChat = ({
   const handleStop = async () => {
     setStyleScopedBlockId(null);
     setWasStopped(true);
-    const { reverted } = await stop();
-    const text = reverted
-      ? t("Generation stopped. The page was restored to how it was before this prompt.")
-      : t("Generation stopped.");
+    const { reverted, serverMutationsCommitted } = await stop();
+    const text =
+      reverted && serverMutationsCommitted
+        ? t("Generation stopped. Page block edits were reverted, but SEO or design-system changes already saved on the server remain in draft.")
+        : reverted
+          ? t("Generation stopped. The page was restored to how it was before this prompt.")
+          : serverMutationsCommitted
+            ? t("Generation stopped. Changes already saved on the server remain in draft.")
+            : t("Generation stopped.");
     setMessages((prev: UIMessage[]) => [
       ...prev,
       { id: generateUuid(), role: "assistant", parts: [{ type: "text", text }] },
@@ -333,7 +346,7 @@ const AiPanelPageChat = ({
           {messages.length === 0 && (
             <ConversationEmptyState
               icon={<Bot size={30} className="text-foreground/50" />}
-              title="Start a conversation"
+              title={t("Start a conversation")}
               description={t("Start a conversation with the AI assistant to add/edit current page")}
             />
           )}
@@ -403,7 +416,7 @@ const AiPanelPageChat = ({
           {status === "submitted" && (
             <div className="is-assistant text-muted-foreground flex w-full max-w-[94%] items-center gap-2 text-sm">
               <span className="bg-primary size-1.5 shrink-0 animate-pulse rounded-full" />
-              <span>Thinking...</span>
+              <span>{t("Thinking...")}</span>
             </div>
           )}
           {sectionPlan.length > 0 && (
@@ -447,6 +460,38 @@ const AiPanelPageChat = ({
 
       {/* z-50 keeps the input (and its Stop button) clickable above the z-40 loading overlay */}
       <div id={AI_PANEL_COMPOSER_ID} className={`border-border pb-2 ${isLoading ? "relative z-50" : ""}`}>
+        {isLanguageVariant && messages.length === 0 && (
+          <div className="mb-2 flex flex-wrap gap-1 px-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="xs"
+              disabled={isLoading}
+              className="h-6 px-2 text-[11px]"
+              onClick={() =>
+                handleSend(
+                  t("Translate to {{lang}}", { lang: selectedLangName }),
+                  `Translate all untranslated copy on this page to ${selectedLangName} (${selectedLang}) using get_block_translations (missingOnly: true) and update_block_translations.`,
+                )
+              }>
+              {t("Translate to {{lang}}", { lang: selectedLangName })}
+            </Button>
+            {LANGUAGE_CONTENT_ACTIONS.filter((action) => !action.prompt.toLowerCase().includes("emoji"))
+              .slice(0, 3)
+              .map((action) => (
+                <Button
+                  key={action.label}
+                  type="button"
+                  variant="ghost"
+                  size="xs"
+                  disabled={isLoading}
+                  className="h-6 px-2 text-[11px]"
+                  onClick={() => handleSend(t(action.label), action.prompt)}>
+                  {t(action.label)}
+                </Button>
+              ))}
+          </div>
+        )}
         <ContextDisplayBar
           onRemove={() => setSelectedBlockIds([])}
           onManageContext={(type) => {
@@ -456,14 +501,14 @@ const AiPanelPageChat = ({
           isLoading={isLoading}
         />
         <AiContextModal open={isContextModalOpen} onOpenChange={setIsContextModalOpen} defaultTab={contextModalTab} />
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div>{t("Loading...")}</div>}>
           <AiPromptInput
             input={input}
             setInput={setInput}
             onSend={handleSend}
             onStop={handleStop}
             isLoading={isLoading}
-            selectedLang=""
+            selectedLang={selectedLang}
             currentBlock={selectedBlock as ChaiBlock}
             disabled={input?.length === 0 || isTypingPrompt}
             selectedModel={currentSelectedModel}

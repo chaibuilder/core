@@ -64,7 +64,11 @@ function schemaAllowsNull(schema: SchemaNode | undefined): boolean {
   return Array.isArray(schema?.enum) && schema!.enum.includes(null);
 }
 
-export function restoreBlockPropTypes(blocks: ChaiBlock[]): ChaiBlock[] {
+export function restoreBlockPropTypes(
+  blocks: ChaiBlock[],
+  options: { htmlBooleanEmpty?: boolean } = {},
+): ChaiBlock[] {
+  const htmlBooleanEmpty = options.htmlBooleanEmpty ?? true;
   return blocks.map((block) => {
     const registered = getRegisteredChaiBlock(block._type) as
       | { props?: { schema?: SchemaNode }; schema?: SchemaNode }
@@ -79,7 +83,12 @@ export function restoreBlockPropTypes(blocks: ChaiBlock[]): ChaiBlock[] {
     for (const [key, propSchema] of Object.entries(properties)) {
       const value = block[key];
       if (typeof value !== "string") continue;
-      const restored = coerceToSchemaType(coercibleType(propSchema), value, schemaAllowsNull(propSchema));
+      const restored = coerceToSchemaType(
+        coercibleType(propSchema),
+        value,
+        schemaAllowsNull(propSchema),
+        htmlBooleanEmpty,
+      );
       if (restored === value) continue;
       next = next ?? { ...block };
       next[key] = restored;
@@ -89,7 +98,12 @@ export function restoreBlockPropTypes(blocks: ChaiBlock[]): ChaiBlock[] {
 }
 
 /** Parse a stringified value back to `type`; anything ambiguous is returned unchanged. */
-export function coerceToSchemaType(type: string | undefined, value: string, nullable = false): unknown {
+export function coerceToSchemaType(
+  type: string | undefined,
+  value: string,
+  nullable = false,
+  htmlBooleanEmpty = true,
+): unknown {
   // Restore JSON null only when the schema actually admits null (a `null` type,
   // a type union including null, or an enum including null). A stray "null" on a
   // non-nullable prop stays a string rather than silently flipping behavior.
@@ -100,8 +114,8 @@ export function coerceToSchemaType(type: string | undefined, value: string, null
   // (e.g. `{"href":"{{page.url}}"}`) still parses back to its typed value.
   if (type === "boolean") {
     // A valueless HTML boolean attribute (`required`, `multiple`) is imported as
-    // "" (getSanitizedValue(null) -> ""); treat that as true.
-    return value === "true" || value === "" ? true : value === "false" ? false : value;
+    // "" (getSanitizedValue(null) -> ""); treat that as true only for HTML input.
+    return value === "true" || (htmlBooleanEmpty && value === "") ? true : value === "false" ? false : value;
   }
   // Accepts exponent notation too — JSON.stringify emits e.g. 1e+21 / 1e-7.
   if (type === "number") return /^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(value.trim()) ? Number(value) : value;

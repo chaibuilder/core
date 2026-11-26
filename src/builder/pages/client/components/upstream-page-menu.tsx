@@ -14,6 +14,7 @@ type UpstreamMenuPage = {
   slug: string;
   online?: boolean | null;
   useUpstream?: boolean;
+  canDuplicate?: boolean;
   dynamic?: boolean | null;
 };
 
@@ -34,7 +35,7 @@ export const useUpstreamPageMenu = (page: UpstreamMenuPage): { items: ReactNode;
 
   const items = (
     <>
-      {canEdit && page.useUpstream && (
+      {canEdit && page.useUpstream && page.canDuplicate !== false && (
         <DropdownMenuItem
           className="flex cursor-pointer items-center gap-2"
           onClick={(e) => {

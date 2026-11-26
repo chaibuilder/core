@@ -1,14 +1,16 @@
 import { describe, expect, test } from "vitest";
-import { registerChaiBlock } from "~/registry";
+import { registerChaiBlock, registerChaiBlockProps, stylesProp } from "~/registry";
 import { loadWebBlocks } from "~/web-blocks";
 import type { ChaiBlock } from "~/types/common";
 import { buildInternalLinkResolver } from "~/utils/internal-link-refs";
 import {
   applyAddBlocks,
   applyAddCustomBlock,
+  applyAddLibraryBlocks,
   applyBindProp,
   applyEditBlock,
   applyRemoveBlocks,
+  applyUpdateBlockProps,
   normalizeAiParentId,
   normalizeAiPosition,
 } from "./ai-edit-executors";
@@ -17,6 +19,54 @@ import {
 loadWebBlocks();
 registerChaiBlock((() => null) as any, { type: "ProductCard", label: "Product card", group: "test" } as any);
 registerChaiBlock((() => null) as any, { type: "PageFooter", label: "Page footer", group: "test", maxDepth: 0 } as any);
+registerChaiBlock(
+  (() => null) as any,
+  {
+    type: "CompositeCard",
+    label: "Composite card",
+    group: "test",
+    props: {
+      schema: {
+        properties: {
+          limit: { type: "number", default: 3 },
+          featured: { type: "boolean", default: false },
+          heading: { type: "string", default: "Default title" },
+        },
+      },
+    },
+    blocks: () => [
+      { _id: "tmpl-root", _type: "CompositeCard", heading: "Template title" },
+      { _id: "tmpl-child", _type: "Paragraph", _parent: "tmpl-root", content: "Nested template child" },
+    ],
+  } as any,
+);
+// A custom block with a `blocks` template: root not first, id-less and repeated ids, a grandchild, a stray parent.
+registerChaiBlock(
+  (() => null) as any,
+  {
+    type: "FeatureItem",
+    label: "Feature item",
+    group: "test",
+    props: registerChaiBlockProps({ properties: { styles: stylesProp("p-2") } }),
+  } as any,
+);
+registerChaiBlock(
+  (() => null) as any,
+  {
+    type: "FeatureSection",
+    label: "Feature section",
+    group: "test",
+    props: registerChaiBlockProps({ properties: { styles: stylesProp("py-8") } }),
+    blocks: [
+      { _type: "FeatureItem", _id: "item", _parent: "root", title: "First" },
+      { _type: "FeatureSection", _id: "root" },
+      { _type: "FeatureItem", _parent: "root", title: "No id" },
+      { _type: "FeatureItem", _id: "item", _parent: "root", title: "Repeated id", styles: "#styles:,custom" },
+      { _type: "FeatureItem", _id: "deep", _parent: "item", title: "Grandchild" },
+      { _type: "FeatureItem", _id: "stray", _parent: "elsewhere", title: "Stray parent" },
+    ],
+  } as any,
+);
 
 const baseBlocks = (): ChaiBlock[] => [
   { _id: "box", _type: "Box", styles: "#styles:,grid" },
@@ -114,6 +164,41 @@ describe("AI edit executors", () => {
       expect.objectContaining({ _id: result.newBlockIds?.[0], _type: "ProductCard", _parent: "box" }),
     ]);
     expect(result.blocks.some((block) => block._id === result.newBlockIds?.[0])).toBe(true);
+  });
+
+  test("add_custom_block inserts the registered template with fresh ids, defaults and every new id", () => {
+    const result = applyAddCustomBlock(baseBlocks(), "FeatureSection", "box", -1, { title: "From AI" });
+    expect(result).not.toHaveProperty("error");
+    if ("error" in result) return;
+
+    const inserted = result.insertedBlocks ?? [];
+    expect(inserted).toHaveLength(6);
+    const [root, first, noId, repeated, deep, stray] = inserted;
+
+    // Root picked by type, not template order; the AI's props land on it alone.
+    expect(root).toMatchObject({ _type: "FeatureSection", _parent: "box", title: "From AI" });
+    expect(inserted.slice(1).every((block) => block.title !== "From AI")).toBe(true);
+
+    // Fresh, unique ids even for id-less and repeated template ids.
+    const ids = inserted.map((block) => block._id);
+    expect(new Set(ids).size).toBe(6);
+    expect(ids.every((id) => typeof id === "string" && !["root", "item", "deep", "stray"].includes(id))).toBe(true);
+
+    // Children follow the remapped ids; a parent outside the template falls back to the root.
+    expect(first).toMatchObject({ title: "First", _parent: root._id });
+    expect(noId).toMatchObject({ title: "No id", _parent: root._id });
+    expect(repeated).toMatchObject({ title: "Repeated id", _parent: root._id });
+    expect(deep).toMatchObject({ title: "Grandchild", _parent: first._id });
+    expect(stray).toMatchObject({ title: "Stray parent", _parent: root._id });
+
+    // Registered defaults fill every block; a template-set style is kept.
+    expect(root.styles).toBe("#styles:,py-8");
+    expect(first.styles).toBe("#styles:,p-2");
+    expect(repeated.styles).toBe("#styles:,custom");
+
+    expect(result.newBlockIds).toEqual(ids);
+    const saved = new Map(result.blocks.map((block) => [block._id, block]));
+    for (const block of inserted) expect(saved.get(block._id)).toMatchObject(block);
   });
 
   test("add_blocks strips stray bids and rejects explicit id collisions", async () => {
@@ -245,6 +330,164 @@ describe("AI edit executors", () => {
       expect.objectContaining({
         error: expect.stringMatching(/Unknown block type "MissingBlock".*ProductCard/),
       }),
+    );
+  });
+
+  test("add_custom_block expands template children, applies defaults, and coerces prop types", () => {
+    const result = applyAddCustomBlock(baseBlocks(), "CompositeCard", "box", -1, {
+      limit: "10",
+      featured: "true",
+    });
+
+    expect(result).not.toHaveProperty("error");
+    if ("error" in result) return;
+
+    // Template root + its nested Paragraph child are both inserted with fresh ids
+    expect(result.insertedBlocks).toHaveLength(2);
+    const [root, child] = result.insertedBlocks!;
+    expect(root).toMatchObject({
+      _type: "CompositeCard",
+      _parent: "box",
+      heading: "Template title",
+      limit: 10,
+      featured: true,
+    });
+    expect(root._id).not.toBe("tmpl-root");
+    expect(child).toMatchObject({
+      _type: "Paragraph",
+      _parent: root._id,
+      content: "Nested template child",
+    });
+    expect(child._id).not.toBe("tmpl-child");
+  });
+
+  test("add_custom_block rejects hiddenBlockTypes and omits them from valid types", () => {
+    const options = { hiddenBlockTypes: ["ProductCard"] };
+    const hiddenResult = applyAddCustomBlock(baseBlocks(), "ProductCard", "box", -1, {}, options);
+    expect(hiddenResult).toEqual(
+      expect.objectContaining({
+        error: expect.stringContaining('Unknown block type "ProductCard"'),
+      }),
+    );
+    if ("error" in hiddenResult) {
+      expect(hiddenResult.error).not.toContain("ProductCard,");
+      expect(hiddenResult.error.split("Valid types:")[1]).not.toContain("ProductCard");
+    }
+
+    const unknownResult = applyAddCustomBlock(baseBlocks(), "MissingBlock", "box", -1, {}, options);
+    if ("error" in unknownResult) {
+      expect(unknownResult.error).not.toContain("ProductCard");
+    }
+
+    const allowedResult = applyAddCustomBlock(baseBlocks(), "PageFooter", undefined, -1, {}, options);
+    expect(allowedResult).not.toHaveProperty("error");
+  });
+
+  test("add_library_block inserts JSON blocks with fresh remapped IDs and enforces hiddenBlockTypes", async () => {
+    const libraryBlocks: ChaiBlock[] = [
+      { _id: "lib-root", _type: "Box", styles: "#styles:,py-8" },
+      { _id: "lib-heading", _type: "Heading", _parent: "lib-root", content: "Welcome" },
+    ];
+    const result = await applyAddLibraryBlocks(baseBlocks(), libraryBlocks, undefined, -1);
+    expect(result).not.toHaveProperty("error");
+    if (!("error" in result)) {
+      expect(result.insertedBlocks).toHaveLength(2);
+      const [root, heading] = result.insertedBlocks!;
+      expect(root._id).not.toBe("lib-root");
+      expect(heading._id).not.toBe("lib-heading");
+      expect(heading._parent).toBe(root._id);
+      expect(result.newBlockIds).toEqual([root._id, heading._id]);
+    }
+
+    const htmlResult = await applyAddLibraryBlocks(
+      baseBlocks(),
+      '<section class="dt#content-gutter-y"><div class="dt#site-content-width dt#content-gutter-x"><h2>From HTML</h2></div></section>',
+      undefined,
+      -1,
+    );
+    expect(htmlResult).not.toHaveProperty("error");
+    if (!("error" in htmlResult)) {
+      expect(htmlResult.insertedBlocks!.some((b) => b.content === "From HTML")).toBe(true);
+    }
+
+    const hiddenBlocked = await applyAddLibraryBlocks(
+      baseBlocks(),
+      [{ _id: "lib-hidden", _type: "ProductCard" }],
+      undefined,
+      -1,
+      { hiddenBlockTypes: ["ProductCard"] },
+    );
+    expect(hiddenBlocked).toEqual(
+      expect.objectContaining({
+        error: expect.stringContaining('Library block uses "ProductCard"'),
+      }),
+    );
+  });
+
+  test("update_block_props patches multiple blocks atomically, normalizes #styles:, sanitizes XSS, rewrites links, and rejects reserved props", () => {
+    const initial: ChaiBlock[] = [
+      { _id: "hero-1", _type: "CompositeCard", heading: "Old", limit: 3, featured: false, styles: "#styles:,p-4" },
+      { _id: "link-1", _type: "Link", content: "About", link: { type: "page", href: "/old", target: "_self" } },
+    ];
+    const resolveInternalLink = buildInternalLinkResolver([{ id: "p-about", slug: "/about", pageType: "page" }]);
+
+    const updated = applyUpdateBlockProps(
+      initial,
+      [
+        {
+          blockId: "hero-1",
+          props: {
+            heading: 'New<script>alert(1)</script> Title',
+            limit: "12",
+            featured: "true",
+            styles: "dt#content-gutter-y bg-primary",
+          },
+        },
+        {
+          blockId: "link-1",
+          props: {
+            content: "About Us",
+            link: { type: "page", href: "/about", target: "_self" },
+          },
+        },
+      ],
+      { resolveInternalLink },
+    );
+
+    expect(updated).not.toHaveProperty("error");
+    if (!("error" in updated)) {
+      const hero = updated.blocks.find((b) => b._id === "hero-1")!;
+      expect(hero.heading).toBe("New Title");
+      expect(hero.limit).toBe(12);
+      expect(hero.featured).toBe(true);
+      expect(hero.styles).toBe("#styles:,dt#content-gutter-y bg-primary");
+
+      const link = updated.blocks.find((b) => b._id === "link-1")!;
+      expect(link.content).toBe("About Us");
+      expect((link.link as any).href).toBe("pageType:page:p-about");
+
+      expect(updated.updatedBlockIds).toEqual(["hero-1", "link-1"]);
+      expect(updated.updatedBlocks).toHaveLength(2);
+    }
+
+    // Explicit #styles: prefix is preserved verbatim
+    const explicitStyle = applyUpdateBlockProps(initial, [
+      { blockId: "hero-1", props: { styles: "#styles:dt#card,p-8" } },
+    ]);
+    expect(explicitStyle).not.toHaveProperty("error");
+    if (!("error" in explicitStyle)) {
+      expect(explicitStyle.blocks[0]!.styles).toBe("#styles:dt#card,p-8");
+    }
+
+    // Reserved keys, unknown bids, and empty props fail cleanly
+    expect(applyUpdateBlockProps(initial, [{ blockId: "hero-1", props: { _type: "Box" } }])).toEqual(
+      expect.objectContaining({ error: expect.stringContaining('reserved property "_type"') }),
+    );
+    expect(applyUpdateBlockProps(initial, [{ blockId: "missing", props: { heading: "X" } }])).toEqual(
+      expect.objectContaining({ error: expect.stringContaining('No block with bid "missing"') }),
+    );
+    expect(applyUpdateBlockProps(initial, [{ blockId: "hero-1", props: {} }])).toEqual(
+      expect.objectContaining({ error: expect.stringContaining("at least one prop") }),
     );
   });
 

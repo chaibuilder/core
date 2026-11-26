@@ -1,3 +1,5 @@
+import { type TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import { Button } from "../../../../components/ui/button";
 import { BlurContainer } from "../../../../components/ui/loader";
 
@@ -16,53 +18,55 @@ interface ScreenOverlayProps {
   onOpenAnyway?: () => void;
 }
 
-const resolveContent = ({
-  hasDynamicPage,
-  isLangMissing,
-  isDataMissing,
-  dataError,
-  identifier,
-}: ScreenOverlayProps): { title: string; message: string } => {
+const resolveContent = (
+  { hasDynamicPage, isLangMissing, isDataMissing, dataError, identifier }: ScreenOverlayProps,
+  t: TFunction,
+): { title: string; message: string } => {
   if (dataError) {
     return {
-      title: "Could not load page data",
-      message: identifier ? `Loading "${identifier}" failed: ${dataError}` : dataError,
+      title: t("Could not load page data"),
+      message: identifier ? t('Loading "{{identifier}}" failed: {{error}}', { identifier, error: dataError }) : dataError,
     };
   }
 
   if (isDataMissing) {
     return {
-      title: "No content found",
+      title: t("No content found"),
       message: identifier
-        ? `Nothing matches "${identifier}" for the selected language. Pick another page, or enter a different identifier in the header.`
-        : "Nothing matches this identifier for the selected language. Pick another page from the header.",
+        ? t(
+            'Nothing matches "{{identifier}}" for the selected language. Pick another page, or enter a different identifier in the header.',
+            { identifier },
+          )
+        : t("Nothing matches this identifier for the selected language. Pick another page from the header."),
     };
   }
 
   if (isLangMissing) {
     return {
-      title: "Language content missing",
-      message:
+      title: t("Language content missing"),
+      message: t(
         "No translated version found for the selected page. Choose a different page or create content in your CMS.",
+      ),
     };
   }
 
   if (!hasDynamicPage) {
     return {
-      title: "No pages found",
-      message: "Add a new page, or type a slug or identifier in the page selector above to open it directly.",
+      title: t("No pages found"),
+      message: t("Add a new page, or type a slug or identifier in the page selector above to open it directly."),
     };
   }
 
   return {
-    title: "Select a page",
-    message: "Please select a page from the list in the top header. This will enable you to edit the page.",
+    title: t("Select a page"),
+    message: t("Please select a page from the list in the top header. This will enable you to edit the page."),
   };
 };
 
 export const ScreenOverlay = (props: ScreenOverlayProps) => {
+  const { t } = useTranslation();
   const { failedIdentifier, onOpenAnyway, isDataMissing, dataError } = props;
-  const { title, message } = resolveContent(props);
+  const { title, message } = resolveContent(props, t);
   // Only worth offering while the page hasn't been opened — once it is, an empty
   // result is exactly what the overlay is already reporting.
   const canOpenAnyway = !!onOpenAnyway && !!failedIdentifier && !isDataMissing && !dataError;
@@ -74,7 +78,7 @@ export const ScreenOverlay = (props: ScreenOverlayProps) => {
         <p className="pt-2 text-center text-sm font-light text-muted-foreground">{message}</p>
         {canOpenAnyway && (
           <Button variant="outline" size="sm" className="mt-3" onClick={onOpenAnyway}>
-            Open &quot;{failedIdentifier}&quot; anyway
+            {t('Open "{{identifier}}" anyway', { identifier: failedIdentifier })}
           </Button>
         )}
       </div>

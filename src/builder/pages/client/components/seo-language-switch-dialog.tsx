@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { useTranslation } from "react-i18next";
 import { LANGUAGES } from "~/builder/pages/constants/LANGUAGES";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "~/components/ui/dialog";
@@ -25,6 +26,7 @@ export const SeoUnsavedChangesDialog = ({
   description,
   saveLabel,
 }: SeoUnsavedChangesDialogProps) => {
+  const { t } = useTranslation();
   return (
     <Dialog
       open={isOpen}
@@ -33,13 +35,13 @@ export const SeoUnsavedChangesDialog = ({
       }}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Unsaved SEO Changes</DialogTitle>
+          <DialogTitle>{t("Unsaved SEO Changes")}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <div className="flex justify-end gap-3 pt-4">
           <Button variant="outline" onClick={onDiscard} disabled={isSaving}>
-            Discard Changes
+            {t("Discard Changes")}
           </Button>
           <Button loading={isSaving} onClick={onSave}>
             {saveLabel}
@@ -72,6 +74,7 @@ export const SeoLanguageSwitchDialog = ({
   fromLanguage,
   toLanguage,
 }: SeoLanguageSwitchDialogProps) => {
+  const { t } = useTranslation();
   const fromLangName = LANGUAGES[fromLanguage] || fromLanguage;
   const toLangName = LANGUAGES[toLanguage] || toLanguage;
 
@@ -82,13 +85,11 @@ export const SeoLanguageSwitchDialog = ({
       onSave={onSave}
       onDiscard={onDiscard}
       isSaving={isSaving}
-      saveLabel="Save & Switch"
-      description={
-        <>
-          You have unsaved changes in the SEO for &apos;{fromLangName}&apos; version. Do you want to save these changes
-          before switching to &apos;{toLangName}&apos; version?
-        </>
-      }
+      saveLabel={t("Save & Switch")}
+      description={t(
+        "You have unsaved changes in the SEO for '{{fromLang}}' version. Do you want to save these changes before switching to '{{toLang}}' version?",
+        { fromLang: fromLangName, toLang: toLangName },
+      )}
     />
   );
 };

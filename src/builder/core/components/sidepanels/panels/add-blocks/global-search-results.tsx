@@ -8,7 +8,7 @@ import {
   isRegisteredLibraryBlockDisabled,
 } from "~/builder/core/components/sidepanels/panels/add-blocks/libraries-panel";
 import { PartialBlockCard } from "~/builder/core/components/sidepanels/panels/add-blocks/partial-block-card";
-import { canAcceptInto, canBeNestedInside, isBlockAvailableForPageType } from "~/builder/core/functions/block-helpers";
+import { canAcceptInto, canBeNestedInside, isBlockAvailable } from "~/builder/core/functions/block-helpers";
 import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { libraryBlocksAtom, useLibraryBlocks } from "~/builder/hooks/use-library-blocks";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
@@ -20,7 +20,7 @@ import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
 import { useRegisteredChaiLibraries } from "~/builder/register-apis";
 import { Label } from "~/components/ui/label";
 import { useRegisteredChaiBlocks } from "~/registry";
-import type { ChaiLibrary } from "~/types/chaibuilder-editor-props";
+import type { ChaiCanShowBlock, ChaiLibrary } from "~/types/chaibuilder-editor-props";
 import { matchesGlobalSearch } from "./global-search";
 
 const LibraryLoader = ({ library }: { library: ChaiLibrary }) => {
@@ -59,6 +59,7 @@ export const GlobalSearchResults = ({
   const chaiBlocks = useRegisteredChaiBlocks();
   const { data: currentPage } = usePrimaryPage();
   const layoutPagesEnabled = useBuilderProp("flags.layoutPages", false);
+  const canShowBlock = useBuilderProp<ChaiCanShowBlock | undefined>("canShowBlock", undefined);
   const dnd = useBuilderProp("flags.dragAndDrop", true);
   const [allBlocks] = useBlocksStore();
   const parentType = allBlocks.find((block) => block._id === parentId)?._type;
@@ -103,7 +104,7 @@ export const GlobalSearchResults = ({
   const coreResults = useMemo(
     () =>
       filter(chaiBlocks, { category: "core" })
-        .filter((block) => isBlockAvailableForPageType(block, currentPageType))
+        .filter((block) => isBlockAvailable(block, currentPageType, canShowBlock))
         .map((block) => (block.type === "PageSlot" && showPageSlot ? { ...block, hidden: false } : block))
         .filter(
           (block) =>
@@ -111,13 +112,14 @@ export const GlobalSearchResults = ({
             !block.showInLibrary &&
             matchesGlobalSearch(searchTerm, [block.label, block.type, block.group, block.category]),
         ),
-    [chaiBlocks, currentPageType, searchTerm, showPageSlot],
+    [canShowBlock, chaiBlocks, currentPageType, searchTerm, showPageSlot],
   );
 
   const libraryResults = useMemo(
     () => [
       ...libraries.flatMap((library) =>
         (libraryBlocks[library.id]?.blocks || [])
+          .filter((block) => isBlockAvailable(block, currentPageType, canShowBlock))
           .filter((block) =>
             matchesGlobalSearch(searchTerm, [
               block.name,
@@ -133,7 +135,7 @@ export const GlobalSearchResults = ({
         .filter((block) => matchesGlobalSearch(searchTerm, [block.label, block.type, block.description, block.group]))
         .map((block) => ({ key: `chai-block-${block.type}`, block: block as any, library: undefined })),
     ],
-    [libraries, libraryBlocks, libraryChaiBlocks, searchTerm],
+    [canShowBlock, currentPageType, libraries, libraryBlocks, libraryChaiBlocks, searchTerm],
   );
 
   const coreByGroup = useMemo(() => groupBy(coreResults, "group"), [coreResults]);

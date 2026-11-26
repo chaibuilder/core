@@ -1,6 +1,7 @@
 import { Cross1Icon, PlusIcon } from "@radix-ui/react-icons";
 import { FieldProps } from "@rjsf/utils";
 import { isArray, isEmpty, map, reject, upperFirst } from "lodash-es";
+import { useTranslation } from "react-i18next";
 import { usePageExternalData } from "~/builder/atoms/builder";
 import { ChaiNestedPathSelector } from "~/builder/core/components/nested-path-selector";
 import { BindingTextField } from "~/builder/core/rjsf-widgets/binding-editor/binding-editor-widget";
@@ -72,13 +73,14 @@ const FilterValueTextInput = ({
   value: string;
   onValueChange: (value: string) => void;
 }) => {
+  const { t } = useTranslation();
   const pageExternalData = usePageExternalData();
   const dataBindingEnabled = useBuilderProp("flags.dataBinding", true);
   if (!dataBindingEnabled || isEmpty(pageExternalData)) {
     return (
       <Input
         className="h-8 flex-1 text-xs"
-        placeholder="Enter value"
+        placeholder={t("Enter value")}
         value={value}
         onChange={(e) => onValueChange(e.target.value)}
       />
@@ -88,7 +90,7 @@ const FilterValueTextInput = ({
     <BindingTextField
       id={`repeater-filter-value-${rowKey}`}
       value={value}
-      placeholder="Enter value"
+      placeholder={t("Enter value")}
       className="flex-1 text-xs"
       externalData={pageExternalData}
       onChange={onValueChange}
@@ -129,14 +131,15 @@ const FilterValueInput = ({
   rowKey: string;
   onValueChange: (value: ChaiRepeaterFilter["value"]) => void;
 }) => {
+  const { t } = useTranslation();
   if (field.type === "boolean") {
     return (
       <select
         className={selectClassName}
         value={String(row.value) === "false" ? "false" : "true"}
         onChange={(e) => onValueChange(e.target.value === "true")}>
-        <option value="true">is true</option>
-        <option value="false">is false</option>
+        <option value="true">{t("is true")}</option>
+        <option value="false">{t("is false")}</option>
       </select>
     );
   }
@@ -146,7 +149,7 @@ const FilterValueInput = ({
       <Input
         type="number"
         className="h-8 text-xs"
-        placeholder="Enter number"
+        placeholder={t("Enter number")}
         value={row.value === undefined || row.value === null ? "" : String(row.value)}
         onChange={(e) => onValueChange(e.target.value)}
       />
@@ -171,7 +174,7 @@ const FilterValueInput = ({
         return (
           <div className="border-input flex items-center justify-between gap-x-1 rounded-md border px-2 py-1">
             <span className="text-muted-foreground truncate font-mono text-xs">{row.value}</span>
-            <button type="button" title="Remove binding" onClick={() => onValueChange([])}>
+            <button type="button" title={t("Remove binding")} onClick={() => onValueChange([])}>
               <Cross1Icon className="h-2.5 w-2.5" />
             </button>
           </div>
@@ -183,7 +186,7 @@ const FilterValueInput = ({
       return (
         <div className="space-y-1">
           <div className="border-input max-h-32 space-y-1 overflow-y-auto rounded-md border p-2">
-            {options.length === 0 && <div className="text-xs text-gray-500 italic">No options defined</div>}
+            {options.length === 0 && <div className="text-xs text-gray-500 italic">{t("No options defined")}</div>}
             {options.map((option) => (
               <label key={option.value} className="flex cursor-pointer items-center gap-x-2 text-xs">
                 <input
@@ -207,7 +210,7 @@ const FilterValueInput = ({
         className={selectClassName}
         value={typeof row.value === "string" ? row.value : ""}
         onChange={(e) => onValueChange(e.target.value)}>
-        <option value="">Select</option>
+        <option value="">{t("Select")}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -225,10 +228,10 @@ const FilterValueInput = ({
         className={selectClassName}
         value={isDynamic ? String(row.value) : CUSTOM_VALUE}
         onChange={(e) => onValueChange(e.target.value === CUSTOM_VALUE ? "" : e.target.value)}>
-        <option value={CUSTOM_VALUE}>Custom value</option>
+        <option value={CUSTOM_VALUE}>{t("Custom value")}</option>
         {DYNAMIC_VALUE_OPTIONS.map((option) => (
           <option key={option.value} value={option.value}>
-            {option.label}
+            {t(option.label)}
           </option>
         ))}
       </select>
@@ -250,6 +253,7 @@ const FilterValueInput = ({
 };
 
 const RepeaterFiltersField = ({ formData, onChange }: FieldProps) => {
+  const { t } = useTranslation();
   const source = useRepeaterSource();
   const selectedBlock = useSelectedBlock();
   const rows: ChaiRepeaterFilter[] = isArray(formData) ? formData : [];
@@ -262,8 +266,12 @@ const RepeaterFiltersField = ({ formData, onChange }: FieldProps) => {
   // The Collection Item block finds one item, so its filters read as the find
   // query itself rather than as a narrowing filter on a list.
   const isCollectionItem = selectedBlock?._type === COLLECTION_ITEM_TYPE;
-  const label = isCollectionItem ? `Find ${upperFirst(source.definition.name)}` : "Filters";
-  const emptyHint = isCollectionItem ? "Add filters to find the item" : "Add filters to narrow down the items";
+  const label = isCollectionItem
+    ? t("Find {{name}}", { name: upperFirst(source.definition.name) })
+    : t("Filters");
+  const emptyHint = isCollectionItem
+    ? t("Add filters to find the item")
+    : t("Add filters to narrow down the items");
 
   const fieldById = (id: string) => filterableFields.find((field) => field.id === id);
 

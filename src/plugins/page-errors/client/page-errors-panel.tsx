@@ -1,7 +1,9 @@
-import { noop } from "lodash-es";
-import { AlertTriangle, CheckCircle2, ExternalLink } from "lucide-react";
+import { noop, sortBy } from "lodash-es";
+import { AlertTriangle, CheckCircle2, ChevronRight, ExternalLink } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { StructureError } from "~/builder/hooks/structure-rules";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { usePartialBlocksList } from "~/builder/hooks/use-partial-blocks-store";
 import { useChaiSavePage } from "~/builder/hooks/use-save-page";
@@ -38,6 +40,7 @@ const ErrorsPanel = () => {
   const { saveState, savePageAsync } = useChaiSavePage();
   const { selectedLang, fallbackLang } = useLanguages();
   const { data: partialBlocksList } = usePartialBlocksList();
+  const { singular: partialTypeLabel } = usePartialTypeLabel();
   const { t } = useTranslation();
 
   // Human-readable name of the partial/global block an error lives in.
@@ -72,73 +75,105 @@ const ErrorsPanel = () => {
     );
   }
 
-  const errorsList = errors.filter((e) => e.severity === "error");
-  const warningsList = errors.filter((e) => e.severity === "warning");
+  const groups = groupIssues(errors);
 
   return (
     <div className="space-y-3">
-      <div className="text-muted-foreground flex items-center gap-2 text-xs">
-        {errorCount > 0 && (
-          <span className="text-red-500">
-            {errorCount} {t(errorCount === 1 ? "error" : "errors")}
-          </span>
-        )}
-        {errorCount > 0 && warningCount > 0 && <span>·</span>}
-        {warningCount > 0 && (
-          <span className="text-orange-500">
-            {warningCount} {t(warningCount === 1 ? "warning" : "warnings")}
-          </span>
-        )}
-      </div>
-
-      {errorsList.length > 0 && (
-        <div className="space-y-1.5">
-          {errorsList.map((error) => (
-            <button
-              type="button"
-              key={error.id}
-              aria-label={`Navigate to error: ${error.message}`}
-              className="w-full cursor-pointer rounded-md border border-red-200 bg-red-50 p-2 text-left text-xs transition-colors hover:bg-red-100 dark:border-red-900 dark:bg-red-950/30 dark:hover:bg-red-950/50"
-              onClick={() => handleGoToBlock(error.blockId, error.partialBlockId)}>
-              <div className="space-y-1">
-                <div className="font-medium text-red-700 dark:text-red-400">
-                  {t("Error on")} {getPartialBlockName(error.partialBlockId)}
-                </div>
-                <p className="text-red-600 dark:text-red-300">{error.message}</p>
-                <span className="flex items-center gap-1 text-[11px] font-semibold text-red-500 dark:text-red-400">
-                  {t("Goto Error")}
-                  {error.partialBlockId ? <ExternalLink className="h-3 w-3 shrink-0" /> : null}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {warningsList.length > 0 && (
-        <div className="space-y-1.5">
-          {warningsList.map((warning) => (
-            <button
-              type="button"
-              key={warning.id}
-              aria-label={`Navigate to warning: ${warning.message}`}
-              className="w-full cursor-pointer rounded-md border border-orange-200 bg-orange-50 p-2 text-left text-xs transition-colors hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/30 dark:hover:bg-orange-950/50"
-              onClick={() => handleGoToBlock(warning.blockId, warning.partialBlockId)}>
-              <div className="space-y-1">
-                <div className="font-medium text-orange-700 dark:text-orange-400">
-                  {t("Warning on")} {getPartialBlockName(warning.partialBlockId)}
-                </div>
-                <p className="text-orange-600 dark:text-orange-300">{warning.message}</p>
-                <span className="flex items-center gap-1 text-[11px] font-semibold text-orange-500 dark:text-orange-400">
-                  {t("Goto Warning")}
-                  {warning.partialBlockId ? <ExternalLink className="h-3 w-3 shrink-0" /> : null}
-                </span>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
+      <IssueCounts errorCount={errorCount} warningCount={warningCount} />
+      {groups.map((group) => (
+        <IssueGroupSection
+          key={group.partialBlockId ?? ""}
+          title={
+            group.partialBlockId
+              ? `${getPartialBlockName(group.partialBlockId)} (${partialTypeLabel})`
+              : t("This page")
+          }
+          issues={group.issues}
+          onGoTo={(issue) => handleGoToBlock(issue.blockId, issue.partialBlockId)}
+        />
+      ))}
     </div>
+  );
+};
+
+type IssueGroup = { partialBlockId?: string; issues: StructureError[] };
+
+// Page issues first, then one group per partial/global in first-seen order; errors before warnings.
+const groupIssues = (errors: StructureError[]): IssueGroup[] => {
+  const groups = new Map<string, IssueGroup>([["", { issues: [] }]]);
+  for (const error of errors) {
+    const key = error.partialBlockId ?? "";
+    if (!groups.has(key)) groups.set(key, { partialBlockId: error.partialBlockId, issues: [] });
+    groups.get(key)!.issues.push(error);
+  }
+  return [...groups.values()]
+    .filter((group) => group.issues.length > 0)
+    .map((group) => ({ ...group, issues: sortBy(group.issues, (e) => (e.severity === "error" ? 0 : 1)) }));
+};
+
+const IssueCounts = ({ errorCount, warningCount }: { errorCount: number; warningCount: number }) => {
+  const { t } = useTranslation();
+  return (
+    <span className="text-muted-foreground flex items-center gap-2 text-xs font-normal">
+      {errorCount > 0 && <span className="text-red-500">{t("{{count}} errors", { count: errorCount })}</span>}
+      {errorCount > 0 && warningCount > 0 && <span>·</span>}
+      {warningCount > 0 && <span className="text-orange-500">{t("{{count}} warnings", { count: warningCount })}</span>}
+    </span>
+  );
+};
+
+const IssueGroupSection = ({
+  title,
+  issues,
+  onGoTo,
+}: {
+  title: string;
+  issues: StructureError[];
+  onGoTo: (issue: StructureError) => void;
+}) => {
+  const errorCount = issues.filter((e) => e.severity === "error").length;
+  return (
+    <details open className="group">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-xs font-semibold">
+        <ChevronRight className="h-3.5 w-3.5 flex-none transition-transform group-open:rotate-90" />
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <IssueCounts errorCount={errorCount} warningCount={issues.length - errorCount} />
+      </summary>
+      <div className="mt-1.5 space-y-1.5">
+        {issues.map((issue) => (
+          <IssueItem key={issue.id} issue={issue} onClick={() => onGoTo(issue)} />
+        ))}
+      </div>
+    </details>
+  );
+};
+
+const IssueItem = ({ issue, onClick }: { issue: StructureError; onClick: () => void }) => {
+  const { t } = useTranslation();
+  const isError = issue.severity === "error";
+  return (
+    <button
+      type="button"
+      aria-label={`Navigate to ${issue.severity}: ${issue.message}`}
+      className={
+        isError
+          ? "w-full cursor-pointer rounded-md border border-red-200 bg-red-50 p-2 text-left text-xs transition-colors hover:bg-red-100 dark:border-red-900 dark:bg-red-950/30 dark:hover:bg-red-950/50"
+          : "w-full cursor-pointer rounded-md border border-orange-200 bg-orange-50 p-2 text-left text-xs transition-colors hover:bg-orange-100 dark:border-orange-900 dark:bg-orange-950/30 dark:hover:bg-orange-950/50"
+      }
+      onClick={onClick}>
+      <div className="space-y-1">
+        <p className={isError ? "text-red-600 dark:text-red-300" : "text-orange-600 dark:text-orange-300"}>
+          {issue.message}
+        </p>
+        <span
+          className={`flex items-center gap-1 text-[11px] font-semibold ${
+            isError ? "text-red-500 dark:text-red-400" : "text-orange-500 dark:text-orange-400"
+          }`}>
+          {t(isError ? "Goto Error" : "Goto Warning")}
+          {issue.partialBlockId ? <ExternalLink className="h-3 w-3 shrink-0" /> : null}
+        </span>
+      </div>
+    </button>
   );
 };
 

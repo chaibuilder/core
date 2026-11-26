@@ -1,15 +1,10 @@
 import { ModelMessage } from "ai";
 import { z } from "zod";
-import { isBlockAvailableForPageType } from "~/builder/core/functions/block-helpers";
-import { CHAI_BUILT_IN_DESIGN_TOKENS } from "~/constants/BUILTIN_TOKENS";
-import { getRegisteredChaiBlocks } from "~/registry";
-import { getResolvedPageType } from "~/server/defaults/config-registry";
 import { throwAiChatError } from "~/server/chai-actions/ai/throw-ai-chat-error";
 import { AIChatError, AIChatErrorCode } from "~/server/chai-actions/classes/chai-ai-chat-handler";
 import { getAskAiSystemPrompt } from "~/server/chai-actions/classes/system-prompt";
-import { stripDesignContextKeys } from "~/utils/design-context";
 import { ChaiAIActionData, ChaiBaseAiAction, CoreMessage } from "../../base-ai-action";
-import { buildDataBindingPathsText, buildDataBindingPipesText } from "./ai-edit-page-prompt-context";
+import { fillAiEditSystemPromptContext } from "./ai-edit-page-prompt-context";
 
 const designTokensSchema = z
   .record(
@@ -63,112 +58,7 @@ export class AIEditBlockAction extends ChaiBaseAiAction<AIEditBlockActionData, A
       throwAiChatError(new AIChatError("No user message found in the request.", AIChatErrorCode.INVALID_REQUEST, 400));
     }
 
-    let systemPrompt = getAskAiSystemPrompt(null, data?.options);
-    const mergedTokens = { ...CHAI_BUILT_IN_DESIGN_TOKENS, ...(data.designTokens || {}) };
-    const tokensList = Object.entries(mergedTokens)
-      .filter(([, token]) => token != null && !token.archived)
-      .map(([id, token]) => `- ${id}: ${token.value} (${token.name})`)
-      .join("\n");
-
-    systemPrompt = systemPrompt.replace("{{DESIGN_TOKENS_LIST}}", tokensList);
-
-    // --- Custom block catalog ---
-    const CORE_BLOCK_TYPES = new Set([
-      "Box",
-      "Button",
-      "Checkbox",
-      "Divider",
-      "EmptyBox",
-      "Form",
-      "FormButton",
-      "Heading",
-      "Input",
-      "Label",
-      "LineBreak",
-      "Link",
-      "List",
-      "ListItem",
-      "Paragraph",
-      "Radio",
-      "RichText",
-      "Select",
-      "Span",
-      "Text",
-      "TextArea",
-      "Video",
-      "Icon",
-      "GlobalBlock",
-      // PartialBlock and Repeater are NOT here — they are special blocks
-      // documented separately in the system prompt (see Step 2d).
-    ]);
-
-    // Client sends only the pageType key; used both to filter the block catalog
-    // below and to build the page type context section further down.
-    const pageTypeKey: string | undefined = data?.options?.pageType;
-
-    const allBlocks = getRegisteredChaiBlocks();
-    const customBlockEntries = Object.values(allBlocks).filter(
-      (b) => !CORE_BLOCK_TYPES.has(b.type) && isBlockAvailableForPageType(b, pageTypeKey || "page"),
-    );
-
-    let customBlockCatalog: string;
-    if (customBlockEntries.length === 0) {
-      customBlockCatalog = "No custom blocks registered.";
-    } else {
-      customBlockCatalog = customBlockEntries
-        .map((b) => {
-          const props = b.props?.schema?.properties
-            ? Object.entries(b.props.schema.properties as Record<string, any>)
-                .filter(([, v]) => !v?.styles && !v?.runtime && !v?.hidden)
-                .map(([key, v]) => {
-                  const type = Array.isArray(v?.type) ? v.type.join("|") : (v?.type ?? "any");
-                  const def = v?.default !== undefined ? ` (default: ${JSON.stringify(v.default)})` : "";
-                  const aiNote = b.aiProps?.includes(key) ? " [AI-settable]" : "";
-                  return `  - ${key} (${type})${def}${aiNote}: ${v?.title ?? key}`;
-                })
-                .join("\n")
-            : "  (no declared props)";
-          const wrapperNote = b.wrapper ? " [wrapper — can contain child blocks]" : "";
-          const kebabType = b.type.replace(/([A-Z])/g, (m) => `-${m.toLowerCase()}`).replace(/^-/, "");
-          // b.description is defined on ChaiBlockConfig — use it as the primary AI hint
-          return `### ${b.type} → <chai-${kebabType}>${wrapperNote}\nDescription: ${b.description ?? b.label}\nProps:\n${props}`;
-        })
-        .join("\n\n");
-    }
-
-    systemPrompt = systemPrompt.replace("{{CUSTOM_BLOCK_CATALOG}}", customBlockCatalog);
-
-    systemPrompt = systemPrompt.replace(
-      "{{DATA_BINDING_PATHS}}",
-      buildDataBindingPathsText(data?.options?.dataBindingPaths),
-    );
-    systemPrompt = systemPrompt.replace("{{DATA_BINDING_PIPES}}", buildDataBindingPipesText());
-
-    // --- Page type context ---
-    // Server resolves the description from config for the pageTypeKey read above.
-    let pageTypeContext: string;
-    if (!pageTypeKey) {
-      pageTypeContext = "Standard page (no specific page type).";
-    } else {
-      // Look up the registered page type from server config
-      const registeredPageType = getResolvedPageType(pageTypeKey);
-      const description = registeredPageType?.description ?? registeredPageType?.helpText;
-      pageTypeContext = description ? `Page type: ${pageTypeKey}\n${description}` : `Page type: ${pageTypeKey}`;
-    }
-
-    systemPrompt = systemPrompt.replace("{{PAGE_TYPE_CONTEXT}}", pageTypeContext);
-
-    // The design-system keys are not part of this prompt yet (see ~/utils/design-context).
-    const context = stripDesignContextKeys(data.context);
-    if (context) {
-      systemPrompt += "\n\n## Additional Information";
-      if (context?.site) {
-        systemPrompt += `\n\n## Website Information\n${JSON.stringify(context.site)}`;
-      }
-      if (context?.page) {
-        systemPrompt += `\n\n## Page Information\n${JSON.stringify(context.page)}`;
-      }
-    }
+    let systemPrompt = fillAiEditSystemPromptContext(getAskAiSystemPrompt(null, data?.options), data);
 
     const lastUserContent: any[] = [
       {

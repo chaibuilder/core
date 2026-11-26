@@ -13,6 +13,8 @@ import {
   StarsIcon,
 } from "lucide-react";
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import i18n from "~/builder/core/locales/load";
 import { PageActionsDropdown } from "~/builder/pages/client/components/page-action-dropdown";
 import {
   type ChaiAiPageEditLease,
@@ -92,15 +94,20 @@ const PageStatus = ({ isOnline }: { isOnline: boolean }) => {
  * a page (or partial, or dynamic template) an AI session holds.
  */
 export const describeAiPageEdit = (lease: ChaiAiPageEditLease, who: string, now: number = Date.now()): string =>
-  `AI edit by ${who} since ${formatClockTime(lease.startedAt)}, last activity ${formatSince(lease.lastActivityAt, now)}`;
+  i18n.t("AI edit by {{who}} since {{time}}, last activity {{since}}", {
+    who,
+    time: formatClockTime(lease.startedAt),
+    since: formatSince(lease.lastActivityAt, now),
+  });
 
 /**
  * AiEditBadge — the AI lock, distinct from a person's red lock. Opening the page shows
  * the "AI is editing" dialog until the session ends.
  */
 const AiEditBadge = ({ lease }: { lease: ChaiAiPageEditLease }) => {
+  const { t } = useTranslation();
   const { data } = useChaiUserInfo(lease.userId);
-  const who = data?.name || data?.email || "a team member";
+  const who = data?.name || data?.email || t("a team member");
   return (
     <span className="duration absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-x-1 text-xs text-violet-600 dark:text-violet-400">
       <Tooltip content={describeAiPageEdit(lease, who)}>
@@ -138,6 +145,7 @@ const PageItem = ({
   selectedLanguage: string;
   showUntranslatedPages: boolean;
 }) => {
+  const { t } = useTranslation();
   const userId = useUserId();
   const { pageToUser } = useChaiPageLocks();
   const pageOwnerId = get(pageToUser, [page?.id, "userId"]);
@@ -169,7 +177,7 @@ const PageItem = ({
   );
 
   // * Getting page name and page slug
-  const pageName = langPage?.name || page?.name || "No name";
+  const pageName = langPage?.name || page?.name || t("No name");
   let pageSlug = langPage?.slug || page?.slug || "";
   const fullSlug =
     pageSlug +
@@ -233,8 +241,10 @@ const PageItem = ({
             <Tooltip
               content={
                 isLinked
-                  ? `Shows ${upstreamLabel} content. Duplicate it to edit.`
-                  : `Your own copy of ${upstreamLabel} content. Reset to show it again.`
+                  ? page.canDuplicate === false
+                    ? t("Shows {{label}} content.", { label: upstreamLabel })
+                    : t("Shows {{label}} content. Duplicate it to edit.", { label: upstreamLabel })
+                  : t("Your own copy of {{label}} content. Reset to show it again.", { label: upstreamLabel })
               }
               side="top">
               <span
@@ -244,12 +254,12 @@ const PageItem = ({
                     : "border-border bg-muted text-muted-foreground"
                 }`}>
                 {isLinked ? <Link2 size={10} className="stroke-[2.5]" /> : <Copy size={10} className="stroke-[2.5]" />}
-                {isLinked ? upstreamLabel : "Duplicated"}
+                {isLinked ? upstreamLabel : t("Duplicated")}
               </span>
             </Tooltip>
           )}
           {hasUnpublishedChanges && (
-            <Tooltip content="Has unpublished changes" side="top">
+            <Tooltip content={t("Has unpublished changes")} side="top">
               <span className="text-warning">
                 <Pencil size={12} className="stroke-[2]" />
               </span>
@@ -284,7 +294,7 @@ const PageItem = ({
           ) : pageOwner ? (
             <span className="duration text-destructive absolute top-1/2 right-1.5 flex -translate-y-1/2 items-center gap-x-1 text-xs">
               <Lock className="fill-destructive/20 text-destructive h-3 w-3" />
-              <Tooltip content={`${pageOwner} is editing this page`}>
+              <Tooltip content={t("{{owner}} is editing this page", { owner: pageOwner })}>
                 <span className="font-bold">{pageOwner}</span>
               </Tooltip>
             </span>
@@ -304,7 +314,7 @@ const PageItem = ({
             }}
             className="bg-primary text-primary-foreground hover:bg-primary/90 absolute top-1 right-0 flex -translate-x-1/2 items-center gap-x-1 rounded px-2 py-0.5 text-xs opacity-0 duration-200 group-hover:opacity-100">
             <Plus size={12} className="stroke-[3]" />{" "}
-            <span className="text-[10px]">Add {get(LANGUAGES, selectedLanguage)} Page</span>
+            <span className="text-[10px]">{t("Add {{language}} Page", { language: get(LANGUAGES, selectedLanguage) })}</span>
           </button>
         )}
       </>

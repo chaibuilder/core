@@ -12,7 +12,7 @@ registerChaiLibrary("lib-a", {
   name: "Library A",
   description: "",
   getBlocksList: async () => [
-    { id: "a1", name: "Hero A", group: "hero" },
+    { id: "a1", name: "Hero A", group: "hero", metadata: { siteTypes: ["Agent"] } },
     { id: "a2", name: "Footer A", group: "footer" },
   ],
   getBlock,
@@ -97,5 +97,19 @@ describe("UILibrariesPanel card insertion", () => {
     await screen.findByText("Footer A");
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     await waitFor(() => expect(getBlock).toHaveBeenCalledTimes(1));
+  });
+
+  it("hides library blocks rejected by canShowBlock", async () => {
+    renderInBuilder(<UILibrariesPanel />, {
+      builderProps: {
+        canShowBlock: (block: { metadata?: Record<string, unknown> }) => {
+          const siteTypes = block.metadata?.siteTypes as string[] | undefined;
+          return !siteTypes || siteTypes.includes("Company");
+        },
+      },
+    });
+    await screen.findByText("Footer A");
+    expect(screen.queryByText("Hero")).toBeNull();
+    expect(screen.queryByText("Hero A")).toBeNull();
   });
 });

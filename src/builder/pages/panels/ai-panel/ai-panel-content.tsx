@@ -29,9 +29,7 @@ import {
 import { Message } from "./ai-panel-helper";
 import { getDefaultModel } from "./models";
 
-const AiPanelForDefaultLang = lazy(() => import("./ai-panel-default-lang"));
 const AiPanelPageChat = lazy(() => import("./ai-panel-page-chat"));
-const AiPanelForOtherLang = lazy(() => import("./ai-panel-other-lang"));
 const AiPanelForImage = lazy(() => import("./ai-panel-for-image"));
 const AiBlockFloatingHandoff = lazy(() => import("./ai-block-floating-handoff"));
 
@@ -98,14 +96,15 @@ const AiPanelContentInner = ({
 
   const isFloatingPanel = type === "floating";
   const isGenerateImagePanel = type === "generate-image";
-  // The page-editing panels (sidebar and block floating) run on the useChat/tool-call flow.
-  const isPageChatPanel = !isGenerateImagePanel && !selectedLang;
+  // All page-editing panels (default language and language variants, sidebar and block floating)
+  // run on the unified JSON + tool-call flow (synced with MCP).
+  const isPageChatPanel = !isGenerateImagePanel;
 
-  // Start a fresh page-chat conversation when the page changes
+  // Start a fresh page-chat conversation when the page or active language changes
   useEffect(() => {
     setPageChatKey((key) => key + 1);
     setPageChatMessageCount(0);
-  }, [page]);
+  }, [page, selectedLang]);
 
   // Determine if this panel should use session storage persistence
   // Only defaultLang (type="default" with no selectedLang) and imageGeneration panels persist
@@ -257,30 +256,24 @@ const AiPanelContentInner = ({
           </>
         )}
         <Suspense
-          fallback={<div className="flex h-full w-full items-center justify-center text-xs">Loading AI Panel</div>}>
+          fallback={<div className="flex h-full w-full items-center justify-center text-xs">{t("Loading AI Panel")}</div>}>
           {isGenerateImagePanel ? (
             <AiPanelForImage {...commonProps} selectedLang="" onImageGenerate={onImageGenerate} />
-          ) : selectedLang ? (
-            <AiPanelForOtherLang {...commonProps} selectedLang={selectedLang} />
-          ) : isPageChatPanel ? (
-            isFloatingPanel ? (
-              // Block floating popover: hands the prompt to the side AI panel
-              // instead of running the chat inline next to the block.
-              <AiBlockFloatingHandoff />
-            ) : (
-              <AiPanelPageChat
-                key={pageChatKey}
-                t={t}
-                isLoading={isLoading}
-                setIsLoading={setIsLoading}
-                selectedModel={selectedModel}
-                onModelChange={setSelectedModel}
-                onMessagesCountChange={setPageChatMessageCount}
-                onRequestNewConversation={handleReset}
-              />
-            )
+          ) : isFloatingPanel ? (
+            // Block floating popover: hands the prompt to the side AI panel
+            // instead of running the chat inline next to the block.
+            <AiBlockFloatingHandoff />
           ) : (
-            <AiPanelForDefaultLang {...commonProps} />
+            <AiPanelPageChat
+              key={pageChatKey}
+              t={t}
+              isLoading={isLoading}
+              setIsLoading={setIsLoading}
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+              onMessagesCountChange={setPageChatMessageCount}
+              onRequestNewConversation={handleReset}
+            />
           )}
         </Suspense>
       </div>

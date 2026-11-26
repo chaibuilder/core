@@ -1,6 +1,7 @@
 import { useAtomValue } from "jotai";
 import { find, first, has, isEmpty } from "lodash-es";
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
 import { canAcceptInto, canMoveBlocks, releaseTopLevelLocks } from "~/builder/core/functions/block-helpers";
@@ -51,6 +52,7 @@ export const usePasteBlocks = (): {
   canPaste: (newParentId: string) => Promise<boolean>;
   pasteBlocks: (newParentId: string | string[]) => Promise<void>;
 } => {
+  const { t } = useTranslation();
   const [cutBlockIds, setCutBlockIds] = useCutBlockIds();
   const moveCutBlocks = useMoveCutBlocks();
   const { addPredefinedBlock } = useAddBlock();
@@ -67,11 +69,11 @@ export const usePasteBlocks = (): {
         if (!partialBlockId) continue;
         const { canAdd, reason } = checkPartialCanAdd(partialBlockId);
         if (!canAdd) {
-          throw new Error(reason || `This ${singular} cannot be pasted here`);
+          throw new Error(reason || t("This {{name}} cannot be pasted here", { name: singular }));
         }
       }
     },
-    [checkPartialCanAdd, singular],
+    [checkPartialCanAdd, singular, t],
   );
 
   const canPasteBlocks = useCanPaste();
@@ -113,12 +115,12 @@ export const usePasteBlocks = (): {
         }
 
         if (isFirefox()) {
-          toast.error("Paste is not supported in Firefox");
+          toast.error(t("Paste is not supported in Firefox"));
           return;
         }
 
         if (!navigator?.permissions) {
-          toast.error("Cannot check clipboard permissions.");
+          toast.error(t("Cannot check clipboard permissions."));
           return;
         }
         try {
@@ -126,11 +128,11 @@ export const usePasteBlocks = (): {
             name: "clipboard-read" as PermissionName,
           });
           if (permissionStatus.state === "denied") {
-            toast.error("Clipboard paste permission denied. Please allow clipboard access.");
+            toast.error(t("Clipboard paste permission denied. Please allow clipboard access."));
             return;
           }
         } catch {
-          toast.error("Failed to check clipboard permissions. Please allow clipboard access.");
+          toast.error(t("Failed to check clipboard permissions. Please allow clipboard access."));
           return;
         }
 
@@ -146,21 +148,21 @@ export const usePasteBlocks = (): {
                   parentId === "root" ? null : parentId,
                 );
               } else {
-                throw new Error("Nothing to paste");
+                throw new Error(t("Nothing to paste"));
               }
             } else {
-              throw new Error("Nothing to paste");
+              throw new Error(t("Nothing to paste"));
             }
           },
           {
-            success: () => "Blocks pasted successfully",
+            success: () => t("Blocks pasted successfully"),
             error: (error: unknown) => {
-              return error instanceof Error && error.message ? error.message : "Nothing to paste";
+              return error instanceof Error && error.message ? error.message : t("Nothing to paste");
             },
           },
         );
       },
-      [cutBlockIds, moveCutBlocks, setCutBlockIds, addPredefinedBlock, validatePartialRefs],
+      [cutBlockIds, moveCutBlocks, setCutBlockIds, addPredefinedBlock, validatePartialRefs, t],
     ),
   };
 };

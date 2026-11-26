@@ -1,20 +1,26 @@
 import { useSetAtom } from "jotai";
-import { filter, first, forEach, has } from "lodash-es";
-import { useCallback } from "react";
+import { filter, find, first, forEach, has } from "lodash-es";
+import { t } from "i18next";
+import { createContext, useCallback, useContext } from "react";
+import { toast } from "sonner";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
 import { builderStore } from "~/builder/atoms/store";
+import { canDeleteBlock } from "~/builder/core/functions/block-helpers";
 import { generateUuid } from "~/builder/core/functions/common-functions";
 import { useBlocksStoreUndoableActions } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { selectedBlockIdsAtom } from "~/builder/hooks/use-selected-blockIds";
 import { getChaiBlockDefaultProps } from "~/registry";
 import { ChaiBlock, ChaiCoreBlock } from "~/types/common";
-import { getParentAndPosition } from "~/utils/blocks-tree-ops";
+import { canReplaceWith, getParentAndPosition, replaceBlock } from "~/utils/blocks-tree-ops";
 
 export { getParentAndPosition } from "~/utils/blocks-tree-ops";
 
 // Delay before selecting a newly added block to ensure the block is rendered in the DOM
 // and the state has been updated before attempting to highlight it
 const BLOCK_SELECTION_DELAY_MS = 100;
+
+// Block the Add Blocks dialog replaces; only adds made inside the dialog see it.
+export const ReplaceBlockIdContext = createContext<string | null>(null);
 
 type AddBlocks = {
   addCoreBlock: any;
@@ -23,7 +29,8 @@ type AddBlocks = {
 
 export const useAddBlock = (): AddBlocks => {
   const setSelected = useSetAtom(selectedBlockIdsAtom);
-  const { addBlocks } = useBlocksStoreUndoableActions();
+  const { addBlocks, setNewBlocks } = useBlocksStoreUndoableActions();
+  const replaceId = useContext(ReplaceBlockIdContext);
 
   const getParentAndPositionWithContext = useCallback(
     (childType: string, providedParentId?: string | null, providedPosition?: number, maxDepth?: number) => {
@@ -38,6 +45,30 @@ export const useAddBlock = (): AddBlocks => {
       return getParentAndPosition(childType, allBlocks, selectedBlockIds, providedParentId, providedPosition, maxDepth);
     },
     [],
+  );
+
+  // Swaps the pending replace target (and its children) for the new blocks in one undo step, otherwise adds.
+  // Returns false when the picked block may not sit in the replaced block's place.
+  const insertBlocks = useCallback(
+    (newBlocks: ChaiBlock[], parentBlockId?: string, insertPosition?: number, maxDepth?: number) => {
+      const allBlocks = builderStore.get(presentBlocksAtom) as ChaiBlock[];
+      const target = replaceId ? find(allBlocks, { _id: replaceId }) : undefined;
+      if (!target) {
+        addBlocks(newBlocks, parentBlockId, insertPosition);
+        return true;
+      }
+      const ids = new Set(newBlocks.map((b) => b._id));
+      const roots = newBlocks.filter((b) => !b._parent || !ids.has(b._parent));
+      const fits =
+        canDeleteBlock(target) && roots.every((b) => canReplaceWith(target._id, b._type, allBlocks, maxDepth));
+      if (!fits) {
+        toast.error(t("This block can't replace the selected block here."));
+        return false;
+      }
+      setNewBlocks(replaceBlock(allBlocks, target._id, newBlocks));
+      return true;
+    },
+    [addBlocks, setNewBlocks, replaceId],
   );
 
   const addPredefinedBlock = useCallback(
@@ -65,11 +96,11 @@ export const useAddBlock = (): AddBlocks => {
         if (!b?._parent) b._parent = parentBlockId;
       });
 
-      addBlocks(blocks, parentBlockId, insertPosition);
+      if (!insertBlocks(blocks, parentBlockId, insertPosition, options?.maxDepth)) return undefined;
       setSelected([block._id]);
       return block;
     },
-    [addBlocks, getParentAndPositionWithContext, setSelected],
+    [insertBlocks, getParentAndPositionWithContext, setSelected],
   );
 
   const addCoreBlock = useCallback(
@@ -97,11 +128,11 @@ export const useAddBlock = (): AddBlocks => {
       newBlock._parent = parentBlockId;
       const newBlocks: ChaiBlock[] = [newBlock];
 
-      addBlocks(newBlocks, parentBlockId, insertPosition);
+      if (!insertBlocks(newBlocks, parentBlockId, insertPosition)) return undefined;
       setTimeout(() => setSelected([newBlock._id]), BLOCK_SELECTION_DELAY_MS);
       return newBlock;
     },
-    [addBlocks, addPredefinedBlock, getParentAndPositionWithContext, setSelected],
+    [insertBlocks, addPredefinedBlock, getParentAndPositionWithContext, setSelected],
   );
 
   return { addCoreBlock, addPredefinedBlock };

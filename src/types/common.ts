@@ -96,6 +96,7 @@ export type ChaiWebsiteBuilderProps = {
   | "labels"
   | "libraryGroupMaxDepth"
   | "panelWidth"
+  | "canShowBlock"
 >;
 
 export type ChaiPageProps<T = Record<string, any>> = {

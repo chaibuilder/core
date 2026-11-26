@@ -110,9 +110,9 @@ const PageSelector = ({
             <div className="flex items-center gap-2 truncate">
               {icon && <div dangerouslySetInnerHTML={{ __html: icon }} />}
               <span
-                title={dynamicPage ? get(dynamicPage, "name") : (get(currentLangPage || page, "name") ?? "Select Page")}
+                title={dynamicPage ? get(dynamicPage, "name") : (get(currentLangPage || page, "name") ?? t("Select Page"))}
                 className="max-w-[145px] truncate text-start">
-                {dynamicPage ? get(dynamicPage, "name") : (get(currentLangPage || page, "name") ?? "Select Page")}
+                {dynamicPage ? get(dynamicPage, "name") : (get(currentLangPage || page, "name") ?? t("Select Page"))}
               </span>
             </div>
             <ChevronDown className="h-3! w-3!" />
@@ -135,7 +135,11 @@ const PageSelector = ({
           <SearchInput
             value={isDefaultLang ? searchQuery : ""}
             setValue={setSearchQuery}
-            placeholder={isDefaultLang ? `Search ${pageTypeName}` : "To search select default language"}
+            placeholder={
+              isDefaultLang
+                ? t("Search {{name}}", { name: pageTypeName })
+                : t("To search select default language")
+            }
             disabled={!isDefaultLang}
             onKeyDown={(e) => {
               e.stopPropagation();
@@ -150,12 +154,12 @@ const PageSelector = ({
               variant="ghost"
               size="sm"
               className="text-primary shrink-0"
-              title={`Add new ${pageTypeName}`}
+              title={t("Add new {{name}}", { name: pageTypeName })}
               onClick={(e) => {
                 e.stopPropagation();
                 onCreateClick();
               }}>
-              <Plus className="h-3.5 w-3.5" /> Add
+              <Plus className="h-3.5 w-3.5" /> {t("Add")}
             </Button>
           )}
         </div>
@@ -202,6 +206,7 @@ const PageSelector = ({
 const EditUrlPanel = lazy(() => import("./edit-url-panel").then((m) => ({ default: m.EditUrlPanel })));
 
 const DynamicPageSelector = () => {
+  const { t } = useTranslation();
   const { dynamicPage, allLangPages, searchQuery, updateDynamicPage, selectManualPage, updateSearchQuery, isFetching } =
     useDynamicPageSelector();
   const { data: currentPage } = usePrimaryPage();
@@ -222,7 +227,7 @@ const DynamicPageSelector = () => {
       ? pageType.pluralName
       : typeof pageType?.name === "string"
         ? pageType.name
-        : "Pages";
+        : t("Pages");
 
   return (
     <div className="relative flex items-center gap-1">

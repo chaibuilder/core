@@ -27,13 +27,13 @@ export const PageValidation = () => {
 
   const getMessage = () => {
     if (hasErrors && hasWarnings) {
-      return `${errorCount} error${errorCount > 1 ? "s" : ""}, ${warningCount} warning${warningCount > 1 ? "s" : ""}`;
+      return `${t("{{count}} errors", { count: errorCount })}, ${t("{{count}} warnings", { count: warningCount })}`;
     }
     if (hasErrors) {
-      return `${errorCount} error${errorCount > 1 ? "s" : ""}`;
+      return t("{{count}} errors", { count: errorCount });
     }
     if (hasWarnings) {
-      return `${warningCount} warning${warningCount > 1 ? "s" : ""}`;
+      return t("{{count}} warnings", { count: warningCount });
     }
     return "";
   };
@@ -67,13 +67,15 @@ export const PageValidation = () => {
                       ? "border border-red-200 bg-red-50 text-red-700"
                       : "border border-orange-200 bg-orange-50 text-orange-700"
                   }`}>
-                  <div className="font-medium">{error.severity === "error" ? "Error:" : "Warning:"}</div>
+                  <div className="font-medium">{error.severity === "error" ? t("Error:") : t("Warning:")}</div>
                   <div>{error.message}</div>
                 </div>
               ))}
 
               {errors.length > 5 && (
-                <p className="text-xs italic text-gray-500">... and {errors.length - 5} more issues</p>
+                <p className="text-xs italic text-gray-500">
+                  {t("... and {{count}} more issues", { count: errors.length - 5 })}
+                </p>
               )}
             </div>
           )}

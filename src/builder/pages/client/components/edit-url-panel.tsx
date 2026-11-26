@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "~/components/ui/dialog";
 import { ChaiIFrameWindow, type ChaiIFrameWindowHandle } from "~/components/ChaiIFrameWindow";
 
@@ -29,6 +30,7 @@ interface EditUrlPanelProps {
 }
 
 export function EditUrlPanel({ url, label, onClose }: EditUrlPanelProps) {
+  const { t } = useTranslation();
   const allowed = useMemo(() => isSameOrigin(url), [url]);
   const [open, setOpen] = useState(true);
   const iframeRef = useRef<ChaiIFrameWindowHandle>(null);
@@ -71,15 +73,15 @@ export function EditUrlPanel({ url, label, onClose }: EditUrlPanelProps) {
         onPointerDownOutside={(event) => event.preventDefault()}>
         {/* pr-10 leaves room for built-in DialogPrimitive.Close button */}
         <DialogHeader className="flex flex-row items-center justify-between border-b px-4 py-2.5 pr-10">
-          <DialogTitle className="text-xs font-medium">{label ?? "Edit"}</DialogTitle>
+          <DialogTitle className="text-xs font-medium">{label ?? t("Edit")}</DialogTitle>
         </DialogHeader>
 
         <div className="relative flex-1 overflow-hidden" style={{ height: "calc(80vh - 48px)" }}>
           {!allowed ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
-              <p className="font-medium text-destructive">Cross-origin URL blocked</p>
+              <p className="font-medium text-destructive">{t("Cross-origin URL blocked")}</p>
               <p className="max-w-xs text-xs">
-                Only same-domain URLs are allowed in the edit panel.
+                {t("Only same-domain URLs are allowed in the edit panel.")}
                 <br />
                 <span className="mt-1 block break-all font-mono text-[10px] opacity-70">{url}</span>
               </p>
@@ -90,7 +92,7 @@ export function EditUrlPanel({ url, label, onClose }: EditUrlPanelProps) {
               src={url}
               deferInvalidation
               className="absolute inset-0 h-full w-full border-0"
-              title={label ?? "Edit"}
+              title={label ?? t("Edit")}
               sandbox="allow-same-origin allow-scripts allow-forms"
             />
           )}

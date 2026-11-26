@@ -1,6 +1,6 @@
 import { useAtom } from "jotai";
-import { each, noop, omit } from "lodash-es";
-import React, { useEffect, useMemo } from "react";
+import { noop, omit } from "lodash-es";
+import React, { useEffect, useMemo, useRef } from "react";
 import { ErrorBoundary } from "react-error-boundary";
 import { Toaster } from "sonner";
 import { chaiBuilderPropsAtom, chaiDesignTokensAtom, chaiPageExternalDataAtom } from "~/builder/atoms/builder";
@@ -11,7 +11,7 @@ import { PreviewScreen } from "~/builder/core/components/PreviewScreen";
 import { useAutoSave } from "~/builder/core/components/use-auto-save";
 import { ChaiFeatureFlagsWidget } from "~/builder/core/flags/flags-widget";
 import { setDebugLogs } from "~/builder/core/functions/logging";
-import i18n from "~/builder/core/locales/load";
+import { syncEditorLocale } from "~/builder/core/locales/load";
 import { ScreenTooSmall } from "~/builder/core/screen-too-small";
 import { useBlockSelectionQuerySync } from "~/builder/hooks/use-block-selection-query-sync";
 import { useUnmountBroadcastChannel } from "~/builder/hooks/use-broadcast-channel";
@@ -51,19 +51,12 @@ const ChaiWatchers = (props: ChaiBuilderEditorProps) => {
   useWatchPageBlocks(props.blocks);
 
   useEffect(() => {
-    i18n.changeLanguage(props.locale || "en");
-  }, [props.locale]);
-
-  useEffect(() => {
     setDebugLogs(props.debugLogs ?? false);
   }, [props.debugLogs]);
 
   useEffect(() => {
-    if (!props.translations) return;
-    each(props.translations, (translations: any, lng: string) => {
-      i18n.addResourceBundle(lng, "translation", translations, true, true);
-    });
-  }, [props.translations]);
+    syncEditorLocale(props.locale, props.translations);
+  }, [props.locale, props.translations]);
 
   useEffect(() => {
     if (saveState !== "SAVED") {
@@ -94,6 +87,11 @@ const ChaiBuilderComponent = (props: ChaiBuilderEditorProps) => {
  */
 const ChaiBuilderEditor: React.FC<ChaiBuilderEditorProps> = (props: ChaiBuilderEditorProps) => {
   const onErrorFn = props.onError || noop;
+  const didSyncInitialLocale = useRef(false);
+  if (!didSyncInitialLocale.current) {
+    didSyncInitialLocale.current = true;
+    syncEditorLocale(props.locale, props.translations);
+  }
   return (
     <div className="h-screen w-screen">
       <ErrorBoundary fallback={<FallbackError />} onError={onErrorFn}>

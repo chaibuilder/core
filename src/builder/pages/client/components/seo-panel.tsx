@@ -863,9 +863,11 @@ const SeoPanel = () => {
               disabled={loading || !editSeo || !pageTypeDetails}>
               {isResettingSeo
                 ? t("Resetting...")
-                : t(
-                    `Reset to ${tab === "jsonld" ? "Default JSON-LD" : tab === "opengraph" ? "Default Open Graph" : "Default SEO"}`,
-                  )}
+                : tab === "jsonld"
+                  ? t("Reset to Default JSON-LD")
+                  : tab === "opengraph"
+                    ? t("Reset to Default Open Graph")
+                    : t("Reset to Default SEO")}
             </Button>
           ) : (
             <div />

@@ -119,7 +119,58 @@ export const identicalEntranceAnimationRule: ChaiDesignRule = {
   },
 };
 
-export const STRUCTURE_RULES = [nestedCardsRule, repeatedSectionLayoutRule, identicalEntranceAnimationRule];
+const SECTION_LAYOUT_TOKENS = ["dt#site-content-width", "dt#content-gutter-x", "dt#content-gutter-y"] as const;
+
+const collectSubtreeTokens = (graph: DesignGraph, root: DesignNode): Set<string> => {
+  const tokens = new Set<string>();
+  const stack: DesignNode[] = [root];
+  while (stack.length > 0) {
+    const node = stack.pop()!;
+    for (const set of node.styleSets) {
+      for (const token of set.tokens) tokens.add(token);
+    }
+    for (const child of graph.children(node)) stack.push(child);
+  }
+  return tokens;
+};
+
+/**
+ * Every top-level page `<section>` must handle `dt#site-content-width`, `dt#content-gutter-x`,
+ * and `dt#content-gutter-y` (typically `dt#content-gutter-y` on `<section>` and
+ * `dt#site-content-width dt#content-gutter-x` on its inner content wrapper `<div>`) so all
+ * sections stay uniform and controllable via site layout and design tokens.
+ */
+export const sectionLayoutTokensRule: ChaiDesignRule = {
+  id: "section-layout-tokens",
+  run: (graph, ctx) => {
+    if (ctx.isPartial) return [];
+    const required = SECTION_LAYOUT_TOKENS.filter((token) => !ctx.designTokens?.[token]?.archived);
+    if (required.length === 0) return [];
+
+    return graph.roots.flatMap((root) => {
+      if ((root.type !== "Box" && root.type !== "EmptyBox") || root.tag !== "section") return [];
+      const present = collectSubtreeTokens(graph, root);
+      const missing = required.filter((token) => !present.has(token));
+      if (missing.length === 0) return [];
+      return [
+        blockFinding(
+          "section-layout-tokens",
+          "warn",
+          root,
+          `Page section is missing layout design token(s): ${missing.join(", ")}.`,
+          "Put dt#content-gutter-y on the outer <section> and dt#site-content-width dt#content-gutter-x on its inner content wrapper <div> (never hand-write section py-/px-/max-w- or prefix dt# tokens with breakpoints).",
+        ),
+      ];
+    });
+  },
+};
+
+export const STRUCTURE_RULES = [
+  sectionLayoutTokensRule,
+  nestedCardsRule,
+  repeatedSectionLayoutRule,
+  identicalEntranceAnimationRule,
+];
 
 // Exported for the interaction rules, which share the notion of a painted surface.
 export const paintsSurface = (utilities: string[]) =>

@@ -6,6 +6,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { NodeRendererProps } from "react-arborist";
 import { useTranslation } from "react-i18next";
 import { canvasIframeAtom } from "~/builder/atoms/ui";
+import i18n from "~/builder/core/locales/load";
 import { TypeIcon } from "~/builder/core/components/sidepanels/panels/outline/block-type-icon";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
 import { canAcceptChildBlock, canAddChildBlock } from "~/builder/core/functions/block-helpers";
@@ -52,21 +53,25 @@ const currentAddSelection = atom<any>(null);
  * with the rows they belong to. */
 export const OUTLINE_INDENT = 14;
 
-export const getBlockTypeLabel = (data: any): string => {
+const defaultTranslate = (key: string) => i18n.t(key);
+
+export const getBlockTypeLabel = (data: any, translate: (key: string) => string = defaultTranslate): string => {
   if (data?._type === "Box" && data?.tag && data?.tag !== "div") {
-    return startCase(data.tag);
+    return translate(startCase(data.tag));
   }
   // Users see a slot as an "Area"; code keeps `ChaiSlot`.
-  if (data?._type === "ChaiSlot") return "Area";
-  return data?._type?.split("/").pop() || "";
+  if (data?._type === "ChaiSlot") return translate("Area");
+  const rawType = data?._type?.split("/").pop() || "";
+  return rawType ? translate(rawType) : "";
 };
 
-export const getBlockDisplayName = (data: any): string => data?._name || getBlockTypeLabel(data);
+export const getBlockDisplayName = (data: any, translate: (key: string) => string = defaultTranslate): string =>
+  data?._name || getBlockTypeLabel(data, translate);
 
 /** "Name (Type)" for a renamed block, so the hover title still says what it is. */
-export const getBlockHoverTitle = (data: any): string => {
-  const displayName = getBlockDisplayName(data);
-  const typeLabel = getBlockTypeLabel(data);
+export const getBlockHoverTitle = (data: any, translate: (key: string) => string = defaultTranslate): string => {
+  const displayName = getBlockDisplayName(data, translate);
+  const typeLabel = getBlockTypeLabel(data, translate);
   if (!displayName || !typeLabel || displayName.trim().toLowerCase() === typeLabel.trim().toLowerCase()) {
     return displayName;
   }
@@ -104,7 +109,8 @@ export const getOutlineNodeLabel = (
   isPartialBlock: boolean,
   partialRefId: string,
   projectPages: Array<{ id?: string; name?: string }> | undefined,
-): string => getPartialDisplayName(isPartialBlock, partialRefId, projectPages) ?? getBlockDisplayName(data);
+  translate: (key: string) => string = defaultTranslate,
+): string => getPartialDisplayName(isPartialBlock, partialRefId, projectPages) ?? getBlockDisplayName(data, translate);
 
 const truncateText = (text: string, maxLength: number) => {
   if (text.length > maxLength) {
@@ -114,7 +120,7 @@ const truncateText = (text: string, maxLength: number) => {
 };
 
 export const Node = memo(({ node, style, dragHandle }: NodeRendererProps<any>) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const updateBlockProps = useUpdateBlocksProps();
   const [iframe] = useAtom<HTMLIFrameElement>(canvasIframeAtom);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -233,8 +239,7 @@ export const Node = memo(({ node, style, dragHandle }: NodeRendererProps<any>) =
 
   // The insertion placeholder always opens the Add Blocks MODAL, never the side
   // panel: the placeholder carries a parent + position, and the side panel drops
-  // both (it always adds at the root end). Other OPEN_ADD_BLOCK triggers keep the
-  // side panel when drag and drop is on.
+  // both (it always adds at the root end). Every outline trigger forces the modal.
   const addBlockOnPosition = (position: number) => {
     onMouseLeave();
     const parentId = get(node, "parent.id");
@@ -286,11 +291,11 @@ export const Node = memo(({ node, style, dragHandle }: NodeRendererProps<any>) =
   // page can't be resolved (e.g. a missing partial).
   const { data: projectPages } = useChaiPrimaryPages();
   const displayName = useMemo(
-    () => getOutlineNodeLabel(data, isPartialBlock, partialRefId, projectPages),
-    [isPartialBlock, partialRefId, projectPages, data],
+    () => getOutlineNodeLabel(data, isPartialBlock, partialRefId, projectPages, t),
+    [isPartialBlock, partialRefId, projectPages, data, t, i18n.language],
   );
   // Partial rows show the partial's live name; their baked `_name` is stale.
-  const hoverTitle = isPartialBlock ? displayName : getBlockHoverTitle(data);
+  const hoverTitle = isPartialBlock ? displayName : getBlockHoverTitle(data, t);
 
   // The sentinel row appended after the last root block: a hover-revealed
   // "Add block" pill that appends at the end of the page (position -1). Without

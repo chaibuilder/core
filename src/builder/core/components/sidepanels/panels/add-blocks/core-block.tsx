@@ -26,13 +26,15 @@ export const CoreBlock = ({
   const isDisabled = disabled || block.disabled;
   const { addCoreBlock, addPredefinedBlock } = useAddBlock();
   const addBlockToPage = () => {
+    let added;
     if (has(block, "blocks")) {
       const blocks = isFunction(block.blocks) ? block.blocks() : block.blocks;
-      addPredefinedBlock(syncChaiBlocksWithDefaultProps(blocks), parentId || null, position);
+      added = addPredefinedBlock(syncChaiBlocksWithDefaultProps(blocks), parentId || null, position);
     } else {
-      addCoreBlock(block, parentId || null, position);
+      added = addCoreBlock(block, parentId || null, position);
     }
-    pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
+    // A refused replace keeps the dialog open to pick another block.
+    if (added) pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
   };
   const isDragAndDropEnabled = useIsDragAndDropEnabled();
 

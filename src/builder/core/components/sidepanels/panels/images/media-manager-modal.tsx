@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { DefaultMediaManager, type ChaiMediaManagerMode } from "~/builder/dam/default-media-manager";
 import { ChaiSlot } from "~/builder/register-apis";
 import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "~/components/ui/dialog";
@@ -23,6 +24,7 @@ const MediaManagerModal = ({
   open: controlledOpen,
   onOpenChange,
 }: MediaManagerModalProps) => {
+  const { t } = useTranslation();
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
   const isControlled = controlledOpen !== undefined;
   const open = isControlled ? controlledOpen : uncontrolledOpen;
@@ -41,7 +43,7 @@ const MediaManagerModal = ({
     <Dialog open={open} onOpenChange={(_open: boolean) => setOpen(_open)}>
       {children ? <DialogTrigger asChild>{children}</DialogTrigger> : null}
       <DialogContent className="flex max-h-[90vh] max-w-7xl border-border md:w-fit">
-        <DialogTitle className="sr-only">Media Manager</DialogTitle>
+        <DialogTitle className="sr-only">{t("Media Manager")}</DialogTitle>
         <div className="h-full w-full">
           <ChaiSlot
             slotId={CHAI_SLOT_IDS.MEDIA_MANAGER}

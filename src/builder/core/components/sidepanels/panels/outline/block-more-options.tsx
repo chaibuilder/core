@@ -11,7 +11,7 @@ import {
 } from "@radix-ui/react-icons";
 import { useAtom } from "jotai";
 import { has, isEmpty } from "lodash-es";
-import { FrameIcon, SquarePlus } from "lucide-react";
+import { FrameIcon, Replace, SquarePlus } from "lucide-react";
 import React, { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -301,7 +301,7 @@ const BlockContextMenuContent = ({
               onClick={(e: React.MouseEvent) => {
                 e.stopPropagation();
                 setSelectedIds([]);
-                pubsub.publish(CHAI_BUILDER_EVENTS.OPEN_ADD_BLOCK, selectedBlock);
+                pubsub.publish(CHAI_BUILDER_EVENTS.OPEN_ADD_BLOCK, { forceModal: true });
               }}>
               <SquarePlus className="h-3.5 w-3.5" /> {t("Add block")}
             </MenuItem>
@@ -346,9 +346,18 @@ const BlockContextMenuContent = ({
             onClick={(e: React.MouseEvent) => {
               e.stopPropagation();
               setSelectedIds([node.data._id]);
-              pubsub.publish(CHAI_BUILDER_EVENTS.OPEN_ADD_BLOCK, node.data);
+              pubsub.publish(CHAI_BUILDER_EVENTS.OPEN_ADD_BLOCK, { ...node.data, forceModal: true });
             }}>
             <SquarePlus className="h-3.5 w-3.5" /> {t("Add block")}
+          </MenuItem>
+          <MenuItem
+            className="flex items-center gap-x-2 text-xs"
+            disabled={!canDeleteBlocks([node.data._id], blocks)}
+            onClick={(e: React.MouseEvent) => {
+              e.stopPropagation();
+              pubsub.publish(CHAI_BUILDER_EVENTS.OPEN_ADD_BLOCK, { replaceBlockId: node.data._id, forceModal: true });
+            }}>
+            <Replace className="h-3.5 w-3.5" /> {t("Replace block")}
           </MenuItem>
           <MenuItem
             disabled={selectedBlock?._type ? !canDuplicateBlocks(selectedIds, blocks) : true}
@@ -371,6 +380,11 @@ const BlockContextMenuContent = ({
   );
 };
 
+// A menu action that moved focus into a dialog (e.g. Replace block) keeps it there.
+const keepFocusInDialog = (event: Event) => {
+  if (document.activeElement?.closest('[role="dialog"]')) event.preventDefault();
+};
+
 export const BlockMoreOptions = ({
   children,
   id,
@@ -382,14 +396,15 @@ export const BlockMoreOptions = ({
   node: any;
   type?: "context" | "option";
 }) => {
+  const { t } = useTranslation();
   const [, setSelectedIds] = useSelectedBlockIds();
 
   if (type === "context") {
     return (
       <ContextMenu>
         <ContextMenuTrigger className="m-0 flex h-full flex-1 p-0">{children}</ContextMenuTrigger>
-        <ContextMenuContent>
-          <ContextMenuLabel className="leading-none">ACTIONS</ContextMenuLabel>
+        <ContextMenuContent onCloseAutoFocus={keepFocusInDialog}>
+          <ContextMenuLabel className="leading-none">{t("ACTIONS")}</ContextMenuLabel>
           <ContextMenuSeparator />
           <BlockContextMenuContent type={type} node={node} MenuItem={ContextMenuItem} />
         </ContextMenuContent>
@@ -404,7 +419,7 @@ export const BlockMoreOptions = ({
           if (open) setSelectedIds([id]);
         }}>
         <DropdownMenuTrigger>{children}</DropdownMenuTrigger>
-        <DropdownMenuContent side="bottom" align="start">
+        <DropdownMenuContent side="bottom" align="start" onCloseAutoFocus={keepFocusInDialog}>
           <BlockContextMenuContent node={node} type={type} MenuItem={DropdownMenuItem} />
         </DropdownMenuContent>
       </DropdownMenu>

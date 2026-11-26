@@ -243,6 +243,11 @@ export type ChaiUpstreamPageSource = {
     id: string,
     args: { appId: string; live?: boolean },
   ): Promise<{ blocks: ChaiBlock[]; seo: Record<string, unknown> } | null>;
+  /**
+   * Whether site `appId` may duplicate each upstream page in `ids`, keyed by id.
+   * A missing id, or no method, means it may.
+   */
+  canDuplicate?(args: { ids: string[]; appId: string }): Promise<Record<string, boolean>>;
 };
 
 /**

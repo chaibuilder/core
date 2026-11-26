@@ -1,6 +1,7 @@
 import { useAtom } from "jotai";
 import { ExternalLink } from "lucide-react";
 import { useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
 import { contextMenuAtom } from "./context-menu-state";
 
@@ -10,6 +11,7 @@ interface PageLinkContextMenuProps {
 }
 
 export const PageLinkContextMenu = ({ pageId, children }: PageLinkContextMenuProps) => {
+  const { t } = useTranslation();
   const [contextMenu, setContextMenu] = useAtom(contextMenuAtom);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -50,7 +52,7 @@ export const PageLinkContextMenu = ({ pageId, children }: PageLinkContextMenuPro
               onClick={handleOpenInNewTab}
               className="w-full px-2.5 py-1 text-start text-sm text-gray-700 hover:bg-gray-100">
               <ExternalLink className="h-4 w-4" />
-              Open in new tab
+              {t("Open in new tab")}
             </Button>
           </div>
         </div>

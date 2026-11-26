@@ -209,7 +209,7 @@ const ImagePickerField = ({ value, onChange, id, onBlur, uiSchema }: WidgetProps
                   : t("Choose image")}
               </Button>
             </MediaManagerModal>
-            <div className="text-muted-foreground text-center text-[10px] italic">OR</div>
+            <div className="text-muted-foreground text-center text-[10px] italic">{t("OR")}</div>
           </>
         )}
         {bindingInputEnabled ? (

@@ -2,6 +2,7 @@ import { ChevronLeftIcon, ChevronRightIcon, PlusCircledIcon } from "@radix-ui/re
 import { FieldProps } from "@rjsf/utils";
 import { filter, find, findIndex, get } from "lodash-es";
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useAddBlock } from "~/builder/hooks/use-add-block";
 import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
@@ -11,6 +12,7 @@ import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 
 const SliderField = ({ formData, onChange }: FieldProps) => {
+  const { t } = useTranslation();
   const [allBlocks] = useBlocksStore();
   const selectedBlock = useSelectedBlock();
   const wrapperBlock = useWrapperBlock();
@@ -99,7 +101,7 @@ const SliderField = ({ formData, onChange }: FieldProps) => {
           onClick={addNextSlide}
           className="flex w-full items-center justify-center gap-x-1 rounded bg-gray-200 p-1.5 text-xs font-medium leading-tight hover:opacity-80">
           <PlusCircledIcon className="h-3 w-3" />
-          Add Slide
+          {t("Add Slide")}
         </button>
       </div>
 
@@ -116,7 +118,7 @@ const SliderField = ({ formData, onChange }: FieldProps) => {
           id="showSlideButton"
         />
         <Label htmlFor="showSlideButton" className="mb-0 mt-0.5 cursor-pointer">
-          Show Slide Buttons
+          {t("Show Slide Buttons")}
         </Label>
       </div>
 
@@ -133,7 +135,7 @@ const SliderField = ({ formData, onChange }: FieldProps) => {
           id="showSlideNavbar"
         />
         <Label htmlFor="showSlideNavbar" className="mb-0 mt-0.5 cursor-pointer">
-          Show Slide Navbar
+          {t("Show Slide Navbar")}
         </Label>
       </div>
 
@@ -152,13 +154,13 @@ const SliderField = ({ formData, onChange }: FieldProps) => {
               id="autoplay"
             />
             <Label htmlFor="autoplay" className="mb-0 mt-0.5 cursor-pointer">
-              Autoplay slides
+              {t("Autoplay slides")}
             </Label>
           </div>
           {formData?.autoplay && (
             <div className="pt-0.5 leading-tight">
               <Label htmlFor="interval" className="mb-1 block">
-                Autoplay Interval <span className="font-light opacity-80">(in seconds)</span>
+                {t("Autoplay Interval")} <span className="font-light opacity-80">{t("(in seconds)")}</span>
               </Label>
               <Input
                 type="number"

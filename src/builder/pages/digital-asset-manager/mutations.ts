@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { map, noop, sum } from "lodash-es";
@@ -7,6 +8,7 @@ import { useChaiApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-b
 import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 
 export const useUploadAsset = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
@@ -33,17 +35,17 @@ export const useUploadAsset = () => {
     },
     onSuccess: (response: any[]) => {
       if (response?.some((res) => res.error)) {
-        throw new Error(response?.find((res) => res.error)?.error || "Failed to upload asset");
+        throw new Error(response?.find((res) => res.error)?.error || t("Failed to upload asset"));
       } else {
         queryClient.invalidateQueries({
           queryKey: [ACTIONS.GET_ASSETS],
         });
-        const count = response?.length;
-        toast.success(`${count === 1 ? "Asset" : count + " Assets"} uploaded successfully`);
+        const count = response?.length ?? 1;
+        toast.success(t("{{count}} assets uploaded successfully", { count }));
       }
     },
     onError: () => {
-      toast.error("Failed to upload asset");
+      toast.error(t("Failed to upload asset"));
     },
   });
 };
@@ -118,6 +120,7 @@ const putFile = (
  * last byte is sent while the server is still storing the file.
  */
 export const useStreamUploadAsset = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const getAccessToken = usePagesProp("getAccessToken", noop) as () => Promise<string | undefined>;
@@ -184,11 +187,11 @@ export const useStreamUploadAsset = () => {
     },
     onSuccess: (response: any[]) => {
       queryClient.invalidateQueries({ queryKey: [ACTIONS.GET_ASSETS] });
-      const count = response?.length;
-      toast.success(`${count === 1 ? "Asset" : count + " Assets"} uploaded successfully`);
+      const count = response?.length ?? 1;
+      toast.success(t("{{count}} assets uploaded successfully", { count }));
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to upload asset");
+      toast.error(error.message || t("Failed to upload asset"));
     },
     onSettled: () => {
       setProgress(null);
@@ -200,6 +203,7 @@ export const useStreamUploadAsset = () => {
 };
 
 export const useDeleteAsset = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
@@ -219,24 +223,27 @@ export const useDeleteAsset = () => {
       if (response?.error) {
         throw new Error(response?.error);
       } else {
-        const isMultiple = Array.isArray(variables) && variables.length > 1;
+        const count = Array.isArray(variables) ? variables.length : 1;
         queryClient.invalidateQueries({
           queryKey: [ACTIONS.GET_ASSETS],
         });
         toast.success(
-          (isMultiple ? "Assets" : "Asset") + " " + (flags?.trash ? "moved to trash" : "deleted successfully"),
+          flags?.trash
+            ? t("{{count}} assets moved to trash", { count })
+            : t("{{count}} assets deleted successfully", { count }),
         );
       }
     },
     // The action's own message, not a generic failure: a delete refused because the file is
     // still used on a page has to say which page, or the user has nothing to act on.
     onError: (error: Error) => {
-      toast.error(error?.message || "Failed to delete asset");
+      toast.error(error?.message || t("Failed to delete asset"));
     },
   });
 };
 
 export const useUpdateAsset = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
@@ -264,11 +271,11 @@ export const useUpdateAsset = () => {
             queryKey: [ACTIONS.GET_ASSET, response.id],
           });
         }
-        toast.success("Asset updated successfully");
+        toast.success(t("Asset updated successfully"));
       }
     },
     onError: () => {
-      toast.error("Failed to update asset");
+      toast.error(t("Failed to update asset"));
     },
   });
 };

@@ -2,6 +2,7 @@
 
 import { Plus, Trash2 } from "lucide-react";
 import { useCallback, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 
@@ -30,6 +31,7 @@ const parseValueToPairs = (val: string): KeyValuePair[] => {
 };
 
 export const KeyValueEditor = ({ value, onChange, disabled = false }: KeyValueEditorProps) => {
+  const { t } = useTranslation();
   const lastEmittedValue = useRef<string>(value);
   const [prevValue, setPrevValue] = useState(value);
   const [pairs, setPairs] = useState<KeyValuePair[]>(() => parseValueToPairs(value));
@@ -105,7 +107,9 @@ export const KeyValueEditor = ({ value, onChange, disabled = false }: KeyValueEd
         </div>
       ))}
       <div className="flex items-center justify-between border-t border-border pt-1">
-        <span className="text-[9px] font-normal uppercase tracking-widest text-muted-foreground">Meta Tags List</span>
+        <span className="text-[9px] font-normal uppercase tracking-widest text-muted-foreground">
+          {t("Meta Tags List")}
+        </span>
         <Button
           type="button"
           variant="outline"
@@ -114,7 +118,7 @@ export const KeyValueEditor = ({ value, onChange, disabled = false }: KeyValueEd
           disabled={disabled}
           className="h-6 font-light">
           <Plus />
-          Add Meta Tag
+          {t("Add Meta Tag")}
         </Button>
       </div>
     </div>

@@ -14,10 +14,14 @@ import { http, HttpResponse } from "msw";
 import { useRef } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { presentBlocksAtom } from "~/builder/atoms/blocks";
+import { selectedLanguageAtom } from "~/builder/hooks/use-languages";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
+import { AI_CONTEXT_QUERY_KEY } from "~/builder/pages/hooks/ai/use-ai-context";
 import { AI_OMITTED_HTML_SENTINEL } from "~/constants/AI_TOOL_HISTORY";
+import { registerChaiBlock } from "~/registry";
 import { mswServer } from "~/tests/builder/msw";
 import { renderInBuilder } from "~/tests/builder/render-in-builder";
+import type { ChaiBlock } from "~/types/common";
 import { loadWebBlocks } from "~/web-blocks";
 import { AIConfigProvider } from "./ai-models-context";
 import { useAiPageChat } from "./use-ai-page-chat";
@@ -96,20 +100,40 @@ const serveAiEditPage = () => {
   return streams;
 };
 
-const renderAiPageChat = () => {
+const renderAiPageChat = (
+  options: {
+    blocks?: ChaiBlock[];
+    builderProps?: Record<string, any>;
+    pageExternalData?: Record<string, unknown>;
+    designSystemFeature?: { enabled: boolean; designChecks: "off" | "warn" | "strict" };
+    selectedLang?: string;
+    scopedBlockId?: string;
+  } = {},
+) => {
   const onSave = vi.fn(async () => true);
   const hook: { current: ReturnType<typeof useAiPageChat> } = { current: null as any };
   const Probe = () => {
     const ref = useRef(hook);
-    ref.current.current = useAiPageChat();
+    ref.current.current = useAiPageChat({ scopedBlockId: options.scopedBlockId });
     return null;
   };
   const rendered = renderInBuilder(
     <AIConfigProvider config={{ context: {} as any }}>
       <Probe />
     </AIConfigProvider>,
-    { builderProps: { onSave }, blocks: [] },
+    {
+      builderProps: {
+        onSave,
+        ...(options.designSystemFeature ? { flags: { designSystem: options.designSystemFeature } } : {}),
+        ...(options.builderProps ?? {}),
+      },
+      blocks: options.blocks ?? [],
+      ...(options.pageExternalData ? { pageExternalData: options.pageExternalData } : {}),
+    },
   );
+  if (options.selectedLang !== undefined) {
+    rendered.store.set(selectedLanguageAtom, options.selectedLang);
+  }
   return { ...rendered, hook, onSave };
 };
 
@@ -243,5 +267,399 @@ describe("useAiPageChat — don't-lose-work behavior", () => {
     expect(blocksOf(store)).toEqual([]);
     await waitPastCheckpoint(); // nothing may persist the reverted run
     expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("sends options.hiddenBlockTypes from canShowBlock and rejects hidden add_custom_block calls", async () => {
+    registerChaiBlock(() => null, {
+      type: "AgentOnlyCard",
+      label: "Agent Only Card",
+      group: "test",
+      metadata: { agentOnly: true },
+    });
+
+    const streams = serveAiEditPage();
+    const { hook, store } = renderAiPageChat({
+      builderProps: {
+        canShowBlock: (block: { metadata?: Record<string, unknown> }) => block.metadata?.agentOnly !== true,
+      },
+    });
+    const { sent } = await startRun(hook, streams);
+
+    expect(streams[0].data.options.hiddenBlockTypes).toContain("AgentOnlyCard");
+
+    act(() => {
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-hidden",
+        toolName: "add_custom_block",
+        input: { type: "AgentOnlyCard" },
+      });
+    });
+
+    await waitFor(() =>
+      expect(hook.current.messages.at(-1)?.parts).toContainEqual(
+        expect.objectContaining({
+          toolCallId: "t-hidden",
+          state: "output-available",
+          output: expect.objectContaining({
+            ok: false,
+            error: expect.stringContaining('Unknown block type "AgentOnlyCard"'),
+          }),
+        }),
+      ),
+    );
+    expect(blocksOf(store)).toEqual([]);
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
+  });
+});
+
+describe("useAiPageChat — JSON-first, multilingual & write-time design checks", () => {
+  it("sends current blocks JSON without requiring a canvas iframe", async () => {
+    const streams = serveAiEditPage();
+    const initial: ChaiBlock[] = [
+      { _id: "h1", _type: "Heading", tag: "h1", content: "Hello", styles: "#styles:,text-3xl" },
+    ];
+    const { hook } = renderAiPageChat({ blocks: initial });
+    const { sent } = await startRun(hook, streams);
+
+    expect(streams[0].data.blocks).toEqual(initial);
+    expect(streams[0].data.pageHtml).toBeUndefined();
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
+  });
+
+  it("writes only content-{lang} when editing a secondary language variant", async () => {
+    const streams = serveAiEditPage();
+    const initial: ChaiBlock[] = [
+      {
+        _id: "h1",
+        _type: "Heading",
+        tag: "h1",
+        content: "Welcome",
+        "content-fr": "Bienvenue",
+        styles: "#styles:,text-3xl",
+      },
+    ];
+    const { hook, store } = renderAiPageChat({
+      blocks: initial,
+      selectedLang: "fr",
+      builderProps: { fallbackLang: "en", languages: ["fr"] },
+    });
+    const { sent } = await startRun(hook, streams);
+
+    act(() => {
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-fr",
+        toolName: "edit_block",
+        input: { blockId: "h1", html: '<h1 bid="h1" class="text-3xl">Bonjour</h1>' },
+      });
+    });
+
+    await waitFor(() => {
+      const updated = blocksOf(store).find((b) => b._id === "h1");
+      expect(updated?.["content-fr"]).toBe("Bonjour");
+      expect(updated?.content).toBe("Welcome");
+    });
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
+  });
+
+  it("executes update_block_translations client-side without altering fallback copy", async () => {
+    const streams = serveAiEditPage();
+    const initial: ChaiBlock[] = [
+      { _id: "h1", _type: "Heading", tag: "h1", content: "Welcome", styles: "#styles:,text-3xl" },
+    ];
+    const { hook, store } = renderAiPageChat({
+      blocks: initial,
+      builderProps: { fallbackLang: "en", languages: ["fr"] },
+    });
+    const { sent } = await startRun(hook, streams);
+
+    act(() => {
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-tr",
+        toolName: "update_block_translations",
+        input: { lang: "fr", translations: [{ blockId: "h1", prop: "content", value: "Bienvenue" }] },
+      });
+    });
+
+    await waitFor(() => {
+      const updated = blocksOf(store).find((b) => b._id === "h1");
+      expect(updated?.["content-fr"]).toBe("Bienvenue");
+      expect(updated?.content).toBe("Welcome");
+    });
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
+  });
+
+  it("rejects error findings in strict designChecks mode without mutating blocks", async () => {
+    const streams = serveAiEditPage();
+    const { hook, store, queryClient } = renderAiPageChat({
+      blocks: [],
+      designSystemFeature: { enabled: true, designChecks: "strict" },
+    });
+    // Seed an active design system into the AI context cache
+    queryClient.setQueryData([AI_CONTEXT_QUERY_KEY, undefined], {
+      app: {
+        designSystem: {
+          version: 1,
+          enabled: true,
+          northStar: "Editorial",
+          mode: "read",
+          overview: "",
+          colors: "",
+          typography: "",
+          layout: "",
+          elevation: "",
+          shapes: "",
+          components: "",
+          dosAndDonts: "",
+        },
+      },
+      page: {},
+    });
+
+    const { sent } = await startRun(hook, streams);
+
+    // Gradient text + raw purple-blue gradient triggers strict design check error
+    act(() => {
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-strict",
+        toolName: "add_blocks",
+        input: {
+          html: '<h1 class="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">Gradient</h1>',
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(hook.current.messages.at(-1)?.parts).toContainEqual(
+        expect.objectContaining({
+          toolCallId: "t-strict",
+          state: "output-available",
+          output: expect.objectContaining({
+            ok: false,
+            error: expect.stringContaining("Design check failed"),
+          }),
+        }),
+      ),
+    );
+    expect(blocksOf(store)).toEqual([]);
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
+  });
+
+  it("bind_prop on a language variant writes prop-{lang} without overwriting fallback copy", async () => {
+    const streams = serveAiEditPage();
+    const initial: ChaiBlock[] = [
+      { _id: "h1", _type: "Heading", tag: "h1", content: "Welcome", styles: "#styles:,text-3xl" },
+    ];
+    const { hook, store } = renderAiPageChat({
+      blocks: initial,
+      selectedLang: "fr",
+      builderProps: { fallbackLang: "en", languages: ["fr"] },
+      pageExternalData: { title: "Titre" },
+    });
+    const { sent } = await startRun(hook, streams);
+
+    act(() => {
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-bind-fr",
+        toolName: "bind_prop",
+        input: { blockId: "h1", propName: "content", bindingPath: "{{title}}" },
+      });
+    });
+
+    await waitFor(() => {
+      const updated = blocksOf(store).find((b) => b._id === "h1");
+      expect(updated?.["content-fr"]).toBe("{{title}}");
+      expect(updated?.content).toBe("Welcome");
+    });
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
+  });
+
+  it("rejects unconfigured lang codes in update_block_translations", async () => {
+    const streams = serveAiEditPage();
+    const initial: ChaiBlock[] = [
+      { _id: "h1", _type: "Heading", tag: "h1", content: "Welcome", styles: "#styles:,text-3xl" },
+    ];
+    const { hook, store } = renderAiPageChat({
+      blocks: initial,
+      builderProps: { fallbackLang: "en", languages: ["fr"] },
+    });
+    const { sent } = await startRun(hook, streams);
+
+    act(() => {
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-bad-lang",
+        toolName: "update_block_translations",
+        input: { lang: "de", translations: [{ blockId: "h1", prop: "content", value: "Willkommen" }] },
+      });
+    });
+
+    await waitFor(() =>
+      expect(hook.current.messages.at(-1)?.parts).toContainEqual(
+        expect.objectContaining({
+          toolCallId: "t-bad-lang",
+          state: "output-available",
+          output: expect.objectContaining({
+            ok: false,
+            error: expect.stringContaining("not a configured site language"),
+          }),
+        }),
+      ),
+    );
+    expect(blocksOf(store).find((b) => b._id === "h1")?.["content-de"]).toBeUndefined();
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
+  });
+
+  it("allows scoped update_block_translations for descendants of scopedBlockId and rejects outside blocks", async () => {
+    const streams = serveAiEditPage();
+    const initial: ChaiBlock[] = [
+      { _id: "sec-1", _type: "Box", styles: "#styles:,p-6" },
+      { _id: "h1", _type: "Heading", _parent: "sec-1", tag: "h1", content: "Hello" },
+      { _id: "other", _type: "Paragraph", content: "Outside" },
+    ];
+    const { hook, store } = renderAiPageChat({
+      blocks: initial,
+      scopedBlockId: "sec-1",
+      builderProps: { fallbackLang: "en", languages: ["fr"] },
+    });
+    const { sent } = await startRun(hook, streams);
+
+    act(() => {
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-child-ok",
+        toolName: "update_block_translations",
+        input: { lang: "fr", translations: [{ blockId: "h1", prop: "content", value: "Bonjour" }] },
+      });
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-other-no",
+        toolName: "update_block_translations",
+        input: { lang: "fr", translations: [{ blockId: "other", prop: "content", value: "Dehors" }] },
+      });
+    });
+
+    await waitFor(() => {
+      expect(blocksOf(store).find((b) => b._id === "h1")?.["content-fr"]).toBe("Bonjour");
+      expect(hook.current.messages.at(-1)?.parts).toContainEqual(
+        expect.objectContaining({
+          toolCallId: "t-other-no",
+          state: "output-available",
+          output: expect.objectContaining({ ok: false }),
+        }),
+      );
+    });
+    expect(blocksOf(store).find((b) => b._id === "other")?.["content-fr"]).toBeUndefined();
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
+  });
+
+  it("surfaces seededFallbackNote when adding new blocks on a language variant", async () => {
+    const streams = serveAiEditPage();
+    const { hook } = renderAiPageChat({
+      blocks: [],
+      selectedLang: "fr",
+      builderProps: { fallbackLang: "en", languages: ["fr"] },
+    });
+    const { sent } = await startRun(hook, streams);
+
+    act(() => {
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-seed",
+        toolName: "add_blocks",
+        input: { html: "<h1>Bonjour</h1>" },
+      });
+    });
+
+    await waitFor(() =>
+      expect(hook.current.messages.at(-1)?.parts).toContainEqual(
+        expect.objectContaining({
+          toolCallId: "t-seed",
+          state: "output-available",
+          output: expect.objectContaining({
+            ok: true,
+            seededFallbackNote: expect.stringContaining("primary-language page shows it untranslated"),
+          }),
+        }),
+      ),
+    );
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
+  });
+
+  it("fails closed in strict designChecks mode when design context cannot be verified", async () => {
+    const streams = serveAiEditPage();
+    const { hook, store } = renderAiPageChat({
+      blocks: [],
+      designSystemFeature: { enabled: true, designChecks: "strict" },
+    });
+    const { sent } = await startRun(hook, streams);
+
+    act(() => {
+      streams[0].send({
+        type: "tool-input-available",
+        toolCallId: "t-strict-missing",
+        toolName: "add_blocks",
+        input: { html: "<h1>Hello</h1>" },
+      });
+    });
+
+    await waitFor(() =>
+      expect(hook.current.messages.at(-1)?.parts).toContainEqual(
+        expect.objectContaining({
+          toolCallId: "t-strict-missing",
+          state: "output-available",
+          output: expect.objectContaining({
+            ok: false,
+            error: expect.stringContaining("Could not verify the site's design system in strict mode"),
+          }),
+        }),
+      ),
+    );
+    expect(blocksOf(store)).toEqual([]);
+
+    await act(async () => {
+      streams[0].finish();
+      await sent;
+    });
   });
 });

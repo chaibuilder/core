@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
@@ -6,6 +7,7 @@ import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
 import type { DuplicatePageVariant } from "~/server/chai-actions/pages/duplicate-page";
 
 export const useDuplicatePage = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
@@ -54,11 +56,11 @@ export const useDuplicatePage = () => {
         queryKey: [ACTIONS.GET_CHANGES],
         refetchType: "all",
       });
-      toast.success("Page duplicated successfully");
+      toast.success(t("Page duplicated successfully"));
     },
     onError: (error: any) => {
-      toast.error("Failed to duplicate page", {
-        description: error.message || "An error occurred while duplicating the page",
+      toast.error(t("Failed to duplicate page"), {
+        description: error.message || t("An error occurred while duplicating the page"),
       });
     },
   });

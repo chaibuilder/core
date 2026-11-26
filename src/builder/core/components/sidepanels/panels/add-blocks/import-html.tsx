@@ -28,9 +28,10 @@ const ImportHTML = ({
     setLoading(true);
     const codeHtml = await runChaiPreImportHtmlHook(code);
     const blocks = await getBlocksFromHTML(codeHtml);
-    addPredefinedBlock([...blocks], parentId, position);
-    setCode("");
+    const added = addPredefinedBlock([...blocks], parentId, position);
     setLoading(false);
+    if (!added) return;
+    setCode("");
     pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
   };
 

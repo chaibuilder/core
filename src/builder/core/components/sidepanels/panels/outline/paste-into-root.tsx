@@ -41,7 +41,7 @@ export const PasteAtRootContextMenu = ({
           {hasPermission(CHAI_PERMISSIONS["pages:update"]) && (
             <DropdownMenuItem
               className="flex items-center gap-x-2 text-xs"
-              onClick={() => pubsub.publish(CHAI_BUILDER_EVENTS.OPEN_ADD_BLOCK, null)}>
+              onClick={() => pubsub.publish(CHAI_BUILDER_EVENTS.OPEN_ADD_BLOCK, { forceModal: true })}>
               <PlusIcon className="h-3.5 w-3.5" /> {t("Add block")}
             </DropdownMenuItem>
           )}

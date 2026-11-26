@@ -4,6 +4,7 @@ import { useAtom } from "jotai";
 import { get, uniq } from "lodash-es";
 import { useEffect, useState } from "react";
 import { HexAlphaColorPicker } from "react-colorful";
+import { useTranslation } from "react-i18next";
 import { lsThemeAtom } from "~/builder/atoms/ui";
 import { cn } from "~/builder/core/utils/cn";
 import { useDarkMode } from "~/builder/hooks/use-dark-mode";
@@ -25,6 +26,7 @@ const getActiveClasses = (editor: any, keys: string[] | boolean, from: string) =
 };
 
 const Commons = ({ themeColors, onClose, color, onChange, onRemove }: any) => {
+  const { t } = useTranslation();
   return (
     <>
       <div className="flex w-[180px] flex-wrap gap-1 pb-2">
@@ -64,7 +66,7 @@ const Commons = ({ themeColors, onClose, color, onChange, onRemove }: any) => {
           size="icon-sm"
           variant="ghost"
           className="h-5 w-5 bg-transparent"
-          title="Remove">
+          title={t("Remove")}>
           <Cross1Icon className="h-3 w-3" />
         </Button>
       </div>
@@ -90,6 +92,7 @@ const ColorPickerContent = ({
   onRemoveHighlightColor: () => void;
   onClose: () => void;
 }) => {
+  const { t } = useTranslation();
   const [darkMode] = useDarkMode();
   const [theme]: [any, any] = useAtom(lsThemeAtom);
   const colors = theme?.colors || {};
@@ -101,10 +104,10 @@ const ColorPickerContent = ({
       <Tabs value={moreColors} onValueChange={setMoreColors} className="w-full">
         <TabsList className="mb-2">
           <TabsTrigger value="TEXT" className="h-5 px-2 text-[10px]">
-            Text Color
+            {t("Text Color")}
           </TabsTrigger>
           <TabsTrigger value="HIGHLIGHT" className="h-5 px-2 text-[10px]">
-            Highlight Color
+            {t("Highlight Color")}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="TEXT" className="mt-0">
@@ -131,6 +134,7 @@ const ColorPickerContent = ({
 };
 
 const RteColorPicker = ({ editor, from, menuRef }: { editor: any; from?: "settings" | "canvas"; menuRef: any }) => {
+  const { t } = useTranslation();
   const currentTextColor = editor?.getAttributes("textStyle")?.color;
   const currentHighlightColor = editor?.getAttributes("highlight")?.color;
 
@@ -191,7 +195,7 @@ const RteColorPicker = ({ editor, from, menuRef }: { editor: any; from?: "settin
           className={cn("relative flex items-center", getActiveClasses(editor, isActive, from!), {
             "p-0.5": from === "settings",
           })}
-          title="Text Color">
+          title={t("Text Color")}>
           <div
             className={cn("rounded-full border", from === "settings" ? "h-3.5 w-3.5" : "h-4 w-4")}
             style={{

@@ -4,6 +4,7 @@ import { formatDate } from "~/utils/vendor/format-date";
 import { isArray, isPlainObject, isString, map, mapValues, startsWith, trim } from "lodash-es";
 import { Check, Copy, FileJson } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { VirtualDiffViewer, type VirtualDiffViewerRef } from "virtual-react-json-diff";
 import { useBuilderColorScheme } from "~/builder/hooks/use-builder-color-scheme";
 import { useRevisionComparison } from "~/builder/pages/hooks/use-revision-comparison";
@@ -16,6 +17,7 @@ import { Switch } from "~/components/ui/switch";
 import { Tabs, TabsList, TabsTrigger } from "~/components/ui/tabs";
 
 const RevisionTag = ({ version }: { version: { uid: string; label: string; item: any } }) => {
+  const { t } = useTranslation();
   const item = version?.item;
   const { data: user } = useChaiUserInfo(item?.currentEditor);
   const isLive = version.label === "live";
@@ -33,8 +35,8 @@ const RevisionTag = ({ version }: { version: { uid: string; label: string; item:
       </div>
       <div className="py-1 text-xs leading-none font-light">
         <div>
-          <span className="font-light">{isDraft ? "Currently editing" : "Published by"}</span>
-          {!isDraft && <span className="pl-1 font-medium">{user?.name || "Unknown"}</span>}
+          <span className="font-light">{isDraft ? t("Currently editing") : t("Published by")}</span>
+          {!isDraft && <span className="pl-1 font-medium">{user?.name || t("Unknown")}</span>}
         </div>
         {item?.createdAt && (
           <div className="text-muted pt-0.5 text-[10px] leading-tight font-light">
@@ -195,6 +197,7 @@ interface JsonDiffViewerProps {
 }
 
 export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiffViewerProps) {
+  const { t } = useTranslation();
   const version1 = compare[0];
   const version2 = compare[1];
 
@@ -262,7 +265,7 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
         <DialogHeader className="border-b px-3 py-2">
           <DialogTitle className="flex items-center justify-between gap-2 leading-none">
             <div className="flex items-center gap-2">
-              Compare{""}
+              {t("Compare")}
               <Tabs value={compareType} onValueChange={setCompareType}>
                 <TabsList>
                   {options.map((option) => (
@@ -284,7 +287,7 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
                     onCheckedChange={(checked) => setShowRawData(checked)}
                   />
                   <span id={`${idPrefix}-diff-raw-data-label`} className="text-xs font-normal">
-                    Show Raw Data
+                    {t("Show Raw Data")}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 px-2">
@@ -296,7 +299,7 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
                     onCheckedChange={(checked) => setHideCommonData(checked)}
                   />
                   <span id={`${idPrefix}-diff-hide-common-label`} className="text-xs font-normal">
-                    Hide Common Data
+                    {t("Hide Common Data")}
                   </span>
                 </div>
               </div>
@@ -330,7 +333,7 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
                     <div className="flex h-full min-h-80 items-center justify-center p-6">
                       <div className="text-muted-foreground text-center">
                         <FileJson className="mx-auto mb-2 h-8 w-8 opacity-50" />
-                        <p>These versions are identical — no differences found</p>
+                        <p>{t("These versions are identical — no differences found")}</p>
                       </div>
                     </div>
                   ) : (
@@ -349,7 +352,7 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
                     <div className="absolute -top-4 right-4 z-50">
                       <Button variant="outline" size="sm" onClick={() => copyToClipboard(leftData, "left")}>
                         {copiedSide === "left" ? <Check className="text-green-500" /> : <Copy />}
-                        Copy
+                        {t("Copy")}
                       </Button>
                     </div>
                     <ScrollArea className="bg-surface text-foreground flex-1 rounded-lg p-2">
@@ -361,7 +364,7 @@ export default function JsonDiffViewer({ open, compare, onOpenChange }: JsonDiff
                     <div className="absolute -top-4 right-4 z-50">
                       <Button variant="outline" size="sm" onClick={() => copyToClipboard(rightData, "right")}>
                         {copiedSide === "right" ? <Check className="text-green-500" /> : <Copy />}
-                        Copy
+                        {t("Copy")}
                       </Button>
                     </div>
                     <ScrollArea className="bg-surface text-foreground flex-1 rounded-lg p-2">

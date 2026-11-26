@@ -1,5 +1,6 @@
 import { ArrowDown, ArrowUp, Plus, Trash2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BindingExpressionInput } from "~/builder/core/components/binding-popup/expression-input";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
@@ -121,6 +122,7 @@ export const BindingPipelineEditor = ({
   onChange,
   onRemove,
 }: BindingPipelineEditorProps) => {
+  const { t } = useTranslation();
   const parsed = useMemo(() => parseBindingExpression(expression), [expression]);
   const evaluation = useMemo(
     () => evaluateBindingExpression(expression, externalData, { locale, usage }),
@@ -146,16 +148,16 @@ export const BindingPipelineEditor = ({
       conversion && isValidBindingTemplate(`{{${conversion}}}`, usage) ? conversion : undefined;
     return (
       <div className="border-destructive/40 bg-destructive/5 text-destructive grid gap-2 rounded-md border p-2 text-[10px]">
-        <p>{parsed.kind === "invalid" ? parsed.reason : "Invalid binding"}</p>
+        <p>{parsed.kind === "invalid" ? parsed.reason : t("Invalid binding")}</p>
         <div className="flex gap-1">
           {suggestedConversion && (
             <Button type="button" size="xs" onClick={() => onChange(suggestedConversion)}>
-              Convert to pipes
+              {t("Convert to pipes")}
             </Button>
           )}
           {onRemove && (
             <Button type="button" size="xs" variant="outline" onClick={onRemove}>
-              Remove binding
+              {t("Remove binding")}
             </Button>
           )}
         </div>
@@ -174,7 +176,7 @@ export const BindingPipelineEditor = ({
   return (
     <div className="grid gap-2">
       <div className="grid gap-1">
-        <span className="text-muted-foreground text-[10px] font-medium">Data path</span>
+        <span className="text-muted-foreground text-[10px] font-medium">{t("Data path")}</span>
         <BindingExpressionInput
           value={pathDraft}
           externalData={externalData}
@@ -202,7 +204,7 @@ export const BindingPipelineEditor = ({
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Move ${definition.label} up`}
+                  aria-label={t("Move {{label}} up", { label: definition.label })}
                   disabled={pipeIndex === 0}
                   onClick={() => movePipe(pipeIndex, pipeIndex - 1)}>
                   <ArrowUp />
@@ -211,7 +213,7 @@ export const BindingPipelineEditor = ({
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Move ${definition.label} down`}
+                  aria-label={t("Move {{label}} down", { label: definition.label })}
                   disabled={pipeIndex === safeParsed.pipes.length - 1}
                   onClick={() => movePipe(pipeIndex, pipeIndex + 1)}>
                   <ArrowDown />
@@ -220,7 +222,7 @@ export const BindingPipelineEditor = ({
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label={`Remove ${definition.label}`}
+                  aria-label={t("Remove {{label}}", { label: definition.label })}
                   onClick={() =>
                     onChange(
                       serializeBindingPipeline(
@@ -265,10 +267,10 @@ export const BindingPipelineEditor = ({
               .map(defaultArgument);
             onChange(serializeBindingPipeline(safeParsed.path, [...safeParsed.pipes, { name, args }]));
           }}>
-          <SelectTrigger aria-label="Add pipe" className="h-7">
+          <SelectTrigger aria-label={t("Add pipe")} className="h-7">
             <span className="text-muted-foreground">
               <span className="inline-flex items-center gap-1">
-                <Plus className="h-3 w-3" /> Add formatter
+                <Plus className="h-3 w-3" /> {t("Add formatter")}
               </span>
             </span>
           </SelectTrigger>
@@ -285,16 +287,16 @@ export const BindingPipelineEditor = ({
       )}
 
       <div className="bg-muted/20 rounded-md border p-2 text-[10px]">
-        <span className="text-muted-foreground font-medium">Preview: </span>
+        <span className="text-muted-foreground font-medium">{t("Preview:")} </span>
         {evaluation.ok ? (
           <span className="break-all">{stringifyPreview(evaluation.value)}</span>
         ) : (
-          <span className="text-destructive">{evaluation.reason ?? "Invalid binding"}</span>
+          <span className="text-destructive">{evaluation.reason ?? t("Invalid binding")}</span>
         )}
       </div>
       {onRemove && (
         <Button type="button" size="xs" variant="outline" onClick={onRemove}>
-          Remove binding
+          {t("Remove binding")}
         </Button>
       )}
     </div>

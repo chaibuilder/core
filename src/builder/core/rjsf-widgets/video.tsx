@@ -125,7 +125,7 @@ const VideoPickerField = ({ value, onChange, id, onBlur }: WidgetProps) => {
               : t("Choose video")}
           </Button>
         </MediaManagerModal>
-        <div className="text-center text-[10px] italic text-muted-foreground">OR</div>
+        <div className="text-center text-[10px] italic text-muted-foreground">{t("OR")}</div>
         {bindingInputEnabled ? (
           <BindingTextField
             id={id}

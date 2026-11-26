@@ -1,6 +1,7 @@
 import { WidgetProps } from "@rjsf/utils";
 import { EditorContent } from "@tiptap/react";
 import React, { Suspense, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { serializeRteHtml } from "~/builder/core/rjsf-widgets/binding-editor/binding-doc";
 import { useBindingSuggestionItems } from "~/builder/core/rjsf-widgets/binding-editor/use-binding-suggestion-items";
 import { useRTEditor } from "~/builder/core/rjsf-widgets/rte-widget/use-rte-editor";
@@ -15,6 +16,7 @@ const RTEModal = React.lazy(() => import("./rte-widget-modal"));
  * Rich Text Editor Field Component
  */
 const RichTextEditorFieldComp = ({ blockId, id, placeholder, value, onChange, onBlur }: WidgetProps) => {
+  const { t } = useTranslation();
   const rteRef = useRef<HTMLDivElement & { __chaiRTE?: any; __chaiRTEGetValue?: () => string }>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const dataBindingEnabled = useBuilderProp("flags.dataBinding", true);
@@ -68,11 +70,11 @@ const RichTextEditorFieldComp = ({ blockId, id, placeholder, value, onChange, on
   return (
     <>
       {isModalOpen && (
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div>{t("Loading...")}</div>}>
           <RTEModal isOpen={isModalOpen} onClose={handleModalClose} editor={editor!} rteElement={rteElement} />
         </Suspense>
       )}
-      {!isModalOpen ? <div className="relative">{rteElement}</div> : <div>Open in modal</div>}
+      {!isModalOpen ? <div className="relative">{rteElement}</div> : <div>{t("Open in modal")}</div>}
     </>
   );
 };

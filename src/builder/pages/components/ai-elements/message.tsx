@@ -4,6 +4,7 @@ import type { FileUIPart, UIMessage } from "ai";
 import { ChevronLeftIcon, ChevronRightIcon, PaperclipIcon, XIcon } from "lucide-react";
 import type { ComponentProps, HTMLAttributes, ReactElement } from "react";
 import { createContext, memo, useContext, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Streamdown } from "streamdown";
 import { ChaiImage } from "~/builder/core/components/shared";
 import { ButtonGroup, ButtonGroupText } from "~/builder/pages/components/ui/button-group";
@@ -196,11 +197,12 @@ export const MessageBranchSelector = ({ className: _className, from: _from, ...p
 export type MessageBranchPreviousProps = ComponentProps<typeof Button>;
 
 export const MessageBranchPrevious = ({ children, ...props }: MessageBranchPreviousProps) => {
+  const { t } = useTranslation();
   const { goToPrevious, totalBranches } = useMessageBranch();
 
   return (
     <Button
-      aria-label="Previous branch"
+      aria-label={t("Previous branch")}
       disabled={totalBranches <= 1}
       onClick={goToPrevious}
       size="icon"
@@ -216,11 +218,12 @@ export const MessageBranchPrevious = ({ children, ...props }: MessageBranchPrevi
 export type MessageBranchNextProps = ComponentProps<typeof Button>;
 
 export const MessageBranchNext = ({ children, className: _className, ...props }: MessageBranchNextProps) => {
+  const { t } = useTranslation();
   const { goToNext, totalBranches } = useMessageBranch();
 
   return (
     <Button
-      aria-label="Next branch"
+      aria-label={t("Next branch")}
       disabled={totalBranches <= 1}
       onClick={goToNext}
       size="icon"
@@ -235,13 +238,14 @@ export const MessageBranchNext = ({ children, className: _className, ...props }:
 export type MessageBranchPageProps = HTMLAttributes<HTMLSpanElement>;
 
 export const MessageBranchPage = ({ className, ...props }: MessageBranchPageProps) => {
+  const { t } = useTranslation();
   const { currentBranch, totalBranches } = useMessageBranch();
 
   return (
     <ButtonGroupText
       className={cn("border-none bg-transparent text-muted-foreground shadow-none", className)}
       {...props}>
-      {currentBranch + 1} of {totalBranches}
+      {t("{{current}} of {{total}}", { current: currentBranch + 1, total: totalBranches })}
     </ButtonGroupText>
   );
 };
@@ -271,10 +275,11 @@ export type MessageAttachmentProps = HTMLAttributes<HTMLDivElement> & {
 };
 
 export function MessageAttachment({ data, className, onRemove, ...props }: MessageAttachmentProps) {
+  const { t } = useTranslation();
   const filename = data.filename || "";
   const mediaType = data.mediaType?.startsWith("image/") && data.url ? "image" : "file";
   const isImage = mediaType === "image";
-  const attachmentLabel = filename || (isImage ? "Image" : "Attachment");
+  const attachmentLabel = filename || (isImage ? t("Image") : t("Attachment"));
 
   return (
     <div className={cn("group relative size-24 overflow-hidden rounded-lg", className)} {...props}>
@@ -289,7 +294,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
           />
           {onRemove && (
             <Button
-              aria-label="Remove attachment"
+              aria-label={t("Remove attachment")}
               className="bg-surface/80 hover:bg-surface absolute right-2 top-2 size-6 rounded-full p-0 opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 [&>svg]:size-3"
               onClick={(e) => {
                 e.stopPropagation();
@@ -298,7 +303,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
               type="button"
               variant="ghost">
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">{t("Remove")}</span>
             </Button>
           )}
         </>
@@ -316,7 +321,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
           </Tooltip>
           {onRemove && (
             <Button
-              aria-label="Remove attachment"
+              aria-label={t("Remove attachment")}
               className="size-6 shrink-0 rounded-full p-0 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 [&>svg]:size-3"
               onClick={(e) => {
                 e.stopPropagation();
@@ -325,7 +330,7 @@ export function MessageAttachment({ data, className, onRemove, ...props }: Messa
               type="button"
               variant="ghost">
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">{t("Remove")}</span>
             </Button>
           )}
         </>

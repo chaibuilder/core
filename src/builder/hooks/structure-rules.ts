@@ -6,11 +6,18 @@ export type StructureError = {
   partialBlockId?: string;
 };
 
+// What is open in the editor: a page, or a partial/global block on its own.
+export type StructureRuleContext = "page" | "global-block";
+
 export type StructureRule = {
   name: string;
   description: string;
+  appliesOn?: "all" | StructureRuleContext;
   validate: (canvasDocument: Document) => StructureError[];
 };
+
+export const isRuleApplicable = (rule: StructureRule, context: StructureRuleContext) =>
+  !rule.appliesOn || rule.appliesOn === "all" || rule.appliesOn === context;
 
 // Helper function to get the referenced partial/global page id for an element.
 // Global blocks render as [data-block-type="GlobalBlock"] and partial blocks as
@@ -43,7 +50,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
         if (blockId) {
           errors.push({
             id: `div-in-paragraph-${blockId}`,
-            message: "Box (div) cannot be nested inside Paragraph elements",
+            message: "A Box can't go inside a Paragraph. Move it outside the paragraph.",
             severity: "error",
             blockId,
             partialBlockId: getPartialBlockId(div),
@@ -68,7 +75,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
         if (blockId) {
           errors.push({
             id: `nested-interactive-link-${blockId}`,
-            message: "Link cannot be nested inside another interactive element (link or button with link)",
+            message: "A link can't go inside another link or button. Move it outside.",
             severity: "error",
             blockId,
             partialBlockId: getPartialBlockId(link),
@@ -83,7 +90,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
         if (blockId) {
           errors.push({
             id: `nested-interactive-link-in-button-${blockId}`,
-            message: "Link cannot be nested inside another interactive element (link or button with link)",
+            message: "A link can't go inside another link or button. Move it outside.",
             severity: "error",
             blockId,
             partialBlockId: getPartialBlockId(link),
@@ -112,7 +119,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
           if (blockId) {
             errors.push({
               id: `listitem-outside-list-${blockId}`,
-              message: "List Item must be inside a List container",
+              message: "A List Item must go inside a List.",
               severity: "error",
               blockId,
               partialBlockId: getPartialBlockId(li),
@@ -146,8 +153,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
           if (blockId) {
             errors.push({
               id: `table-cell-structure-${blockId}`,
-              message:
-                "Table Cell must be inside a Table Row, which must be inside Table Head/Body, which must be inside a Table",
+              message: "This table cell is out of place. Put it inside a row of a table.",
               severity: "error",
               blockId,
               partialBlockId: getPartialBlockId(cell),
@@ -165,7 +171,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
           if (blockId) {
             errors.push({
               id: `table-row-outside-table-${blockId}`,
-              message: "Table Row must be inside a Table (Table Head or Table Body)",
+              message: "This table row is out of place. Put it inside a table.",
               severity: "error",
               blockId,
               partialBlockId: getPartialBlockId(row),
@@ -185,7 +191,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
           if (blockId) {
             errors.push({
               id: `table-section-outside-table-${blockId}`,
-              message: "Table Head/Body must be inside a Table",
+              message: "This table section is out of place. Put it inside a table.",
               severity: "error",
               blockId,
               partialBlockId: getPartialBlockId(section),
@@ -212,7 +218,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
         if (blockId) {
           errors.push({
             id: `nested-button-${blockId}`,
-            message: "Button cannot be nested inside another button",
+            message: "A button can't go inside another button.",
             severity: "error",
             blockId,
             partialBlockId: getPartialBlockId(button),
@@ -237,7 +243,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
         if (blockId) {
           errors.push({
             id: `nested-form-${blockId}`,
-            message: "Form cannot be nested inside another form",
+            message: "A form can't go inside another form.",
             severity: "error",
             blockId,
             partialBlockId: getPartialBlockId(form),
@@ -262,7 +268,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
         if (blockId) {
           errors.push({
             id: `nested-paragraph-${blockId}`,
-            message: "Paragraph cannot be nested inside another paragraph",
+            message: "A paragraph can't go inside another paragraph.",
             severity: "error",
             blockId,
             partialBlockId: getPartialBlockId(p),
@@ -305,7 +311,8 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
         if (current.level > previous.level + 1) {
           errors.push({
             id: `heading-level-skip-${current.blockId}`,
-            message: `Heading level skipped: h${previous.level} followed by h${current.level}. Consider using h${previous.level + 1}`,
+            message:
+              `Headings skip a level here (H${previous.level} then H${current.level}). Use H${previous.level + 1} instead.`,
             severity: "warning",
             blockId: current.blockId,
             partialBlockId: getPartialBlockId(current.element),
@@ -320,6 +327,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
   {
     name: "no-animation-above-the-fold",
     description: "Warns if data-animation is added to elements above the fold",
+    appliesOn: "page",
     validate: (canvasDocument: Document) => {
       const errors: StructureError[] = [];
       const FOLD_HEIGHT = 800; // Standard fold height in pixels
@@ -340,7 +348,8 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
           if (blockId) {
             errors.push({
               id: `animation-above-the-fold-${blockId}`,
-              message: "Avoid using animations on above-the-fold content for better performance and SEO",
+              message:
+                "Remove the animation from content at the top of the page. It slows the page down and can hurt search ranking.",
               severity: "warning",
               blockId,
               partialBlockId: getPartialBlockId(el),
@@ -355,6 +364,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
   {
     name: "no-lazy-load-above-the-fold",
     description: "Warns if images are lazy loaded above the fold",
+    appliesOn: "page",
     validate: (canvasDocument: Document) => {
       const errors: StructureError[] = [];
       const FOLD_HEIGHT = 800; // Standard fold height in pixels
@@ -378,7 +388,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
             const idSuffix = elementBlockId ? blockId : `${blockId}-${index}`;
             errors.push({
               id: `lazy-load-above-the-fold-${idSuffix}`,
-              message: "Avoid lazy loading above-the-fold images for better LCP (Largest Contentful Paint)",
+              message: "This image is at the top of the page. Turn off Lazy Load so it shows up right away.",
               severity: "warning",
               blockId,
               partialBlockId: getPartialBlockId(el),
@@ -411,7 +421,7 @@ export const CORE_STRUCTURE_RULES: StructureRule[] = [
           if (blockId) {
             errors.push({
               id: `form-has-required-field-${blockId}`,
-              message: "Form should contain at least one required field.",
+              message: "Make at least one field in this form required.",
               severity: "warning",
               blockId,
               partialBlockId: getPartialBlockId(form),
@@ -443,7 +453,7 @@ export const ACCESSIBILITY_RULES: StructureRule[] = [
           if (blockId) {
             errors.push({
               id: `image-missing-alt-${blockId}`,
-              message: "Image should have alt text for accessibility",
+              message: "Add a short description (alt text) to this image for visitors using screen readers.",
               severity: "warning",
               blockId,
               partialBlockId: getPartialBlockId(img),
@@ -480,7 +490,7 @@ export const ACCESSIBILITY_RULES: StructureRule[] = [
           if (blockId) {
             errors.push({
               id: `button-no-label-${blockId}`,
-              message: "Button should have accessible content (text or icon)",
+              message: "This button is empty. Add text or an icon so visitors know what it does.",
               severity: "warning",
               blockId,
               partialBlockId: getPartialBlockId(button),

@@ -15,15 +15,16 @@ describe("runDesignChecks", () => {
   it("returns nothing for an empty page and a clean, themed section", () => {
     expect(check([])).toEqual([]);
     const clean = [
-      b("s", "Box", { tag: "section", styles: S("bg-background py-24") }),
+      b("s", "Box", { tag: "section", styles: S("dt#content-gutter-y bg-background") }),
+      b("inner", "Box", { tag: "div", styles: S("dt#site-content-width dt#content-gutter-x") }, "s"),
       b(
         "h",
         "Heading",
         { tag: "h1", content: "Bread, slowly", styles: S("font-heading text-5xl text-foreground") },
-        "s",
+        "inner",
       ),
-      b("p", "Paragraph", { content: "Baked overnight.", styles: S("max-w-prose text-muted-foreground") }, "s"),
-      b("a", "Button", { content: "See the menu", styles: S("dt#btn dt#btn-primary") }, "s"),
+      b("p", "Paragraph", { content: "Baked overnight.", styles: S("max-w-prose text-muted-foreground") }, "inner"),
+      b("a", "Button", { content: "See the menu", styles: S("dt#btn dt#btn-primary") }, "inner"),
     ];
     expect(check(clean)).toEqual([]);
   });
@@ -397,6 +398,45 @@ describe("runDesignChecks", () => {
 
     it("does nothing without banned words", () => {
       expect(only(check([b("a", "Paragraph", { content: "cheap" })]), "banned-word")).toEqual([]);
+    });
+  });
+
+  describe("section-layout-tokens", () => {
+    it("warns when a top-level page section omits site-content-width or content-gutter tokens", () => {
+      const findings = check([
+        b("s1", "Box", { tag: "section", styles: S("bg-background py-20") }),
+        b("inner1", "Box", { tag: "div", styles: S("mx-auto max-w-6xl px-6") }, "s1"),
+      ]);
+      expect(only(findings, "section-layout-tokens")).toMatchObject([
+        {
+          severity: "warn",
+          blockId: "s1",
+          message: expect.stringContaining("dt#site-content-width, dt#content-gutter-x, dt#content-gutter-y"),
+        },
+      ]);
+    });
+
+    it("passes when outer section uses dt#content-gutter-y and inner wrapper uses dt#site-content-width dt#content-gutter-x", () => {
+      const findings = check([
+        b("s1", "Box", { tag: "section", styles: S("dt#content-gutter-y bg-background") }),
+        b("inner1", "Box", { tag: "div", styles: S("dt#site-content-width dt#content-gutter-x") }, "s1"),
+      ]);
+      expect(only(findings, "section-layout-tokens")).toEqual([]);
+    });
+
+    it("skips partials and archived layout tokens", () => {
+      const bareSection = [b("s1", "Box", { tag: "section", styles: S("bg-background py-8") })];
+      expect(only(check(bareSection, { isPartial: true }), "section-layout-tokens")).toEqual([]);
+
+      const archivedFindings = check(
+        [b("s1", "Box", { tag: "section", styles: S("dt#site-content-width dt#content-gutter-x") })],
+        {
+          designTokens: {
+            "dt#content-gutter-y": { name: "Content-Gutter-Y", value: "py-8", archived: true },
+          },
+        },
+      );
+      expect(only(archivedFindings, "section-layout-tokens")).toEqual([]);
     });
   });
 

@@ -1,10 +1,12 @@
 import { useAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { PartialBlockList } from "~/types/partial-blocks";
 import { partialBlocksListAtom } from "./atoms";
 
 export const usePartialBlocksList = () => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [partialBlocksList, setPartialBlocksList] = useAtom(partialBlocksListAtom);
@@ -18,10 +20,10 @@ export const usePartialBlocksList = () => {
       setPartialBlocksList(partialBlocks as PartialBlockList);
       setLoading(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to fetch partial blocks");
+      setError(err instanceof Error ? err.message : t("Failed to fetch partial blocks"));
       setLoading(false);
     }
-  }, [getPartialBlocks, setPartialBlocksList]);
+  }, [getPartialBlocks, setPartialBlocksList, t]);
 
   // Re-derive whenever the underlying source changes. getPartialBlocks builds the
   // list from the (in-memory, react-query cached) project pages, so refetching on

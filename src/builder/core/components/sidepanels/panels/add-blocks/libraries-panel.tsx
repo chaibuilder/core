@@ -10,7 +10,7 @@ import { useDragAndDrop, useIsDragAndDropEnabled } from "~/builder/core/componen
 import { dragAndDropAtom } from "~/builder/core/components/canvas/dnd/drag-and-drop/hooks/use-drag-and-drop";
 import { ChaiImage } from "~/builder/core/components/shared";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
-import { canAcceptChildBlock, canBeNestedInside } from "~/builder/core/functions/block-helpers";
+import { canAcceptChildBlock, canBeNestedInside, isBlockAvailable } from "~/builder/core/functions/block-helpers";
 import { pubsub } from "~/builder/core/pubsub";
 import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useAddBlock } from "~/builder/hooks/use-add-block";
@@ -18,6 +18,7 @@ import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useLibraryBlocks } from "~/builder/hooks/use-library-blocks";
 import { useLibraryChaiBlocks } from "~/builder/hooks/use-library-chai-blocks";
 import { useSelectedLibrary } from "~/builder/hooks/use-selected-library";
+import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
 import { useRegisteredChaiLibraries } from "~/builder/register-apis";
 import { Button } from "~/components/ui/button";
 import { Label } from "~/components/ui/label";
@@ -26,7 +27,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "~
 import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip";
 import { cn } from "~/lib/utils";
 import { syncChaiBlocksWithDefaultProps } from "~/registry";
-import { ChaiLibrary, ChaiLibraryBlock } from "~/types/chaibuilder-editor-props";
+import { ChaiCanShowBlock, ChaiLibrary, ChaiLibraryBlock } from "~/types/chaibuilder-editor-props";
 import { ChaiBlock } from "~/types/common";
 import { getBlocksFromHTML } from "~/utils/import-html/html-to-json";
 import { ChaiDraggableBlock } from "./draggable-block";
@@ -70,8 +71,10 @@ export const BlockCard = ({
   const getUILibraryBlock = useMemo(() => library?.getBlock || (() => []), [library]);
   const { addCoreBlock, addPredefinedBlock } = useAddBlock();
   const groupMaxDepth = useBuilderProp("libraryGroupMaxDepth", NO_GROUP_MAX_DEPTH);
-  const name = get(block, "name", get(block, "label"));
-  const description = get(block, "description", "");
+  const rawName = get(block, "name", get(block, "label"));
+  const name = rawName ? t(rawName) : "";
+  const rawDescription = get(block, "description", "");
+  const description = rawDescription ? t(rawDescription) : "";
   const { onDragStart, onDragEnd } = useDragAndDrop();
   const isDragAndDropEnabled = useIsDragAndDropEnabled();
   const setDraggedBlock = useSetAtom(dragAndDropAtom);
@@ -81,13 +84,14 @@ export const BlockCard = ({
       e.stopPropagation();
       if (disabled) return;
       if (has(block, "component")) {
+        let added;
         if (has(block, "blocks")) {
           const blocks = isFunction(block.blocks) ? block.blocks() : block.blocks;
-          addPredefinedBlock(syncChaiBlocksWithDefaultProps(blocks), parentId, position);
+          added = addPredefinedBlock(syncChaiBlocksWithDefaultProps(blocks), parentId, position);
         } else {
-          addCoreBlock(block, parentId, position);
+          added = addCoreBlock(block, parentId, position);
         }
-        pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
+        if (added) pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
         return;
       }
       setIsAdding(true);
@@ -98,11 +102,12 @@ export const BlockCard = ({
       if (typeof uiBlocks === "string") {
         uiBlocks = await getBlocksFromHTML(uiBlocks);
       }
-      if (!isEmpty(uiBlocks))
+      const added =
+        isEmpty(uiBlocks) ||
         addPredefinedBlock(syncChaiBlocksWithDefaultProps(uiBlocks), parentId, position, {
           maxDepth: getLibraryBlockMaxDepth(block, groupMaxDepth),
         });
-      pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
+      if (added) pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
       setTimeout(() => setIsAdding(false), 1000);
     },
     [addCoreBlock, addPredefinedBlock, block, disabled, getUILibraryBlock, groupMaxDepth, library, parentId, position],
@@ -155,7 +160,7 @@ export const BlockCard = ({
             {isAdding && (
               <div className="bg-background/70 absolute flex h-full w-full items-center justify-center">
                 <ReloadIcon className="h-4 w-4 animate-spin text-white" />
-                <span className="pl-2 text-sm text-white">Adding...</span>
+                <span className="pl-2 text-sm text-white">{t("Adding...")}</span>
               </div>
             )}
             {block.preview ? (
@@ -202,7 +207,14 @@ const UILibrarySection = ({
   const dnd = useBuilderProp("flags.dragAndDrop", true);
   const [allBlocks] = useBlocksStore();
   const parentType = allBlocks.find((block) => block._id === parentId)?._type;
-  const libraryBlocks = useMemo(() => [...uiLibraryBlocks, ...libraryChaiBlocks], [uiLibraryBlocks, libraryChaiBlocks]);
+  const { data: currentPage } = usePrimaryPage();
+  const canShowBlock = useBuilderProp<ChaiCanShowBlock | undefined>("canShowBlock", undefined);
+  const pageType = currentPage?.pageType || "page";
+  // A library block that names `pageTypes` or fails `canShowBlock` is hidden, matching the Blocks tab.
+  const libraryBlocks = useMemo(
+    () => [...uiLibraryBlocks.filter((block) => isBlockAvailable(block, pageType, canShowBlock)), ...libraryChaiBlocks],
+    [uiLibraryBlocks, libraryChaiBlocks, pageType, canShowBlock],
+  );
   // Support a controlled search term (single search box shared across all
   // add-block tabs) and an internal one (when used standalone).
   const isSearchControlled = controlledSearchTerm !== undefined;

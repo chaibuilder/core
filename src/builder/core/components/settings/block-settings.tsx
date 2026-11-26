@@ -15,6 +15,7 @@ import {
   startsWith,
 } from "lodash-es";
 import { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { JSONForm } from "~/builder/core/components/settings/json-form";
 import { SettingsGroupsToggle } from "~/builder/core/rjsf-widgets/grouped-object-field-template";
 import { useChaiCollections } from "~/builder/hooks/use-chai-collections";
@@ -51,6 +52,7 @@ const formDataWithSelectedLang = (formData: Record<string, any>, selectedLang: s
  * @returns Block Setting
  */
 export default function BlockSettings() {
+  const { t } = useTranslation();
   const { selectedLang } = useLanguages();
   const selectedBlock = useSelectedBlock() as any;
   const updateBlockPropsRealtime = useUpdateBlocksPropsRealtime();
@@ -227,7 +229,7 @@ export default function BlockSettings() {
             ) : (
               <ChevronRightIcon className="h-4 w-4 text-slate-400" />
             )}
-            {startCase(wrapperBlock._type)} settings{" "}
+            {t(startCase(wrapperBlock._type))} {t("settings")}{" "}
             {wrapperBlock._name && (
               <span className="text-[11px] font-light text-slate-400">({wrapperBlock._name})</span>
             )}

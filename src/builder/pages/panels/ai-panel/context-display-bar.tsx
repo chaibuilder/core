@@ -43,7 +43,7 @@ export const ContextDisplayBar = ({ onRemove, onManageContext, isLoading = false
                   size="icon-xs"
                   onClick={onRemove}
                   disabled={isLoading}
-                  title="Remove block from context">
+                  title={t("Remove block from context")}>
                   <X className="!h-3 !w-3" />
                 </Button>
               </Tooltip>

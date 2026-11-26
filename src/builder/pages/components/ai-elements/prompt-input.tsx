@@ -240,6 +240,7 @@ export type PromptInputAttachmentProps = HTMLAttributes<HTMLDivElement> & {
 };
 
 export function PromptInputAttachment({ data, className, ...props }: PromptInputAttachmentProps) {
+  const { t } = useTranslation();
   const attachments = usePromptInputAttachments();
 
   const filename = data.filename || "";
@@ -247,7 +248,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
   const mediaType = data.mediaType?.startsWith("image/") && data.url ? "image" : "file";
   const isImage = mediaType === "image";
 
-  const attachmentLabel = filename || (isImage ? "Image" : "Attachment");
+  const attachmentLabel = filename || (isImage ? t("Image") : t("Attachment"));
 
   return (
     <PromptInputHoverCard>
@@ -276,7 +277,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
               )}
             </div>
             <Button
-              aria-label="Remove attachment"
+              aria-label={t("Remove attachment")}
               className="absolute inset-0 size-4 cursor-pointer rounded p-0 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100 [&>svg]:size-2.5"
               onClick={(e) => {
                 e.stopPropagation();
@@ -285,7 +286,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
               type="button"
               variant="ghost">
               <XIcon />
-              <span className="sr-only">Remove</span>
+              <span className="sr-only">{t("Remove")}</span>
             </Button>
           </div>
 
@@ -308,7 +309,7 @@ export function PromptInputAttachment({ data, className, ...props }: PromptInput
           <div className="flex items-center gap-2.5">
             <div className="min-w-0 max-w-lg flex-1 space-y-1 px-0.5">
               <h4 className="truncate text-sm font-semibold leading-none">
-                {filename || (isImage ? "Image" : "Attachment")}
+                {filename || (isImage ? t("Image") : t("Attachment"))}
               </h4>
               {data.mediaType && <p className="truncate font-mono text-xs text-muted-foreground">{data.mediaType}</p>}
             </div>
@@ -394,6 +395,7 @@ export const PromptInput = ({
   children,
   ...props
 }: PromptInputProps) => {
+  const { t } = useTranslation();
   // Try to use a provider controller if present
   const controller = useOptionalPromptInputController();
   const usingProvider = !!controller;
@@ -455,7 +457,7 @@ export const PromptInput = ({
       if (incoming.length && accepted.length === 0) {
         onError?.({
           code: "accept",
-          message: "No files match the accepted types.",
+          message: t("No files match the accepted types."),
         });
         return;
       }
@@ -464,7 +466,7 @@ export const PromptInput = ({
       if (accepted.length > 0 && sized.length === 0) {
         onError?.({
           code: "max_file_size",
-          message: "All files exceed the maximum size.",
+          message: t("All files exceed the maximum size."),
         });
         return;
       }
@@ -487,7 +489,9 @@ export const PromptInput = ({
         if (limitExceeded) {
           onError?.({
             code: "max_combined_size",
-            message: `Combined file size exceeds the limit. Max allowed size is ${Math.round(maxCombinedSize / 1024 / 1024)}MB`,
+            message: t("Combined file size exceeds the limit. Max allowed size is {{size}}MB", {
+              size: Math.round(maxCombinedSize / 1024 / 1024),
+            }),
           });
         }
         acceptedFiles = filesWithinCombinedLimit;
@@ -742,12 +746,12 @@ export const PromptInput = ({
       <span aria-hidden="true" className="hidden" ref={anchorRef} />
       <input
         accept={accept}
-        aria-label="Upload files"
+        aria-label={t("Upload files")}
         className="hidden"
         multiple={multiple}
         onChange={handleChange}
         ref={inputRef}
-        title="Upload files"
+        title={t("Upload files")}
         type="file"
       />
       <form className={cn("w-full", className)} onSubmit={handleSubmit} {...props}>
@@ -926,6 +930,7 @@ export const PromptInputSubmit = ({
   children,
   ...props
 }: PromptInputSubmitProps) => {
+  const { t } = useTranslation();
   let Icon = <CornerDownLeftIcon className="size-4" />;
 
   if (status === "submitted") {
@@ -938,7 +943,7 @@ export const PromptInputSubmit = ({
 
   return (
     <InputGroupButton
-      aria-label="Submit"
+      aria-label={t("Submit")}
       className={cn(className)}
       size={size}
       type="submit"
@@ -1004,16 +1009,36 @@ export type PromptInputSpeechButtonProps = ComponentProps<typeof PromptInputButt
   onTranscriptionChange?: (text: string) => void;
 };
 
+const SPEECH_LOCALE_MAP: Record<string, string> = {
+  en: "en-US",
+  es: "es-ES",
+};
+
+const toSpeechLocale = (lang: string | undefined): string => {
+  if (!lang) return "en-US";
+  const base = lang.toLowerCase().split("-")[0];
+  return SPEECH_LOCALE_MAP[lang] ?? SPEECH_LOCALE_MAP[base] ?? lang;
+};
+
 export const PromptInputSpeechButton = ({
   className,
   textareaRef,
   onTranscriptionChange,
   ...props
 }: PromptInputSpeechButtonProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const speechLang = toSpeechLocale(i18n.language);
+  const speechLangRef = useRef(speechLang);
+  speechLangRef.current = speechLang;
   const [isListening, setIsListening] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
+
+  useEffect(() => {
+    if (recognitionRef.current) {
+      recognitionRef.current.lang = speechLang;
+    }
+  }, [speechLang]);
 
   useEffect(() => {
     if (typeof window !== "undefined" && ("SpeechRecognition" in window || "webkitSpeechRecognition" in window)) {
@@ -1022,7 +1047,7 @@ export const PromptInputSpeechButton = ({
 
       speechRecognition.continuous = true;
       speechRecognition.interimResults = true;
-      speechRecognition.lang = "en-US";
+      speechRecognition.lang = speechLangRef.current;
 
       speechRecognition.onstart = () => {
         setIsListening(true);

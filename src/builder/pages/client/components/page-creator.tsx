@@ -201,25 +201,25 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
   const validateBasicInputs = (): boolean => {
     // Validate name
     if (!name.trim()) {
-      toast.error("Name is required");
+      toast.error(t("Name is required"));
       return false;
     }
 
     // If using dynamic slug, ensure regular slug is empty
     if (useDynamicSlug && !isEmpty(slug)) {
-      setSubmitError("Slug must be empty when using dynamic slug");
+      setSubmitError(t("Slug must be empty when using dynamic slug"));
       return false;
     }
 
     // If using dynamic slug, ensure dynamic slug is valid
     if (useDynamicSlug && !isDynamicSlugValid) {
-      setSubmitError("Dynamic slug is invalid");
+      setSubmitError(t("Dynamic slug is invalid"));
       return false;
     }
 
     // A folder exists only to claim a URL segment — it can never be the home page
     if (pageType === "_folder" && isEmpty(slug.trim())) {
-      setSubmitError("Folder requires a slug");
+      setSubmitError(t("Folder requires a slug"));
       return false;
     }
 
@@ -233,8 +233,8 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
     ) {
       setSubmitError(
         pageType === "page"
-          ? 'Slug is required. Check "Make homepage" to use this page as the homepage'
-          : "Slug is required",
+          ? t('Slug is required. Check "Make homepage" to use this page as the homepage')
+          : t("Slug is required"),
       );
       return false;
     }
@@ -260,7 +260,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
         { id: addEditPage?.id, name, description, tags },
         {
           onSuccess: () => {
-            toast.success(currentPageType?.name + " updated successfully");
+            toast.success(t("{{name}} updated successfully", { name: currentPageType?.name }));
             close();
           },
         },
@@ -357,7 +357,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
         { id: addEditPage?.id, ...updateFields },
         {
           onSuccess: () => {
-            toast.success("Page updated successfully");
+            toast.success(t("Page updated successfully"));
             close();
           },
         },
@@ -413,7 +413,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
         { id: addEditPage?.id, ...updateFields },
         {
           onSuccess: () => {
-            toast.success("Page updated successfully");
+            toast.success(t("Page updated successfully"));
             close();
           },
         },
@@ -501,14 +501,14 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
       <form onSubmit={handleSubmit} className="mx-auto w-full max-w-md space-y-4">
         {showPartialTypeSelection && (
           <div className="space-y-0.5">
-            <Label htmlFor="pageType">Type</Label>
+            <Label htmlFor="pageType">{t("Type")}</Label>
             <Select value={pageType} disabled={isEdit && !canEditPageType} onValueChange={handlePageTypeChange}>
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select partial type" />
+                <SelectValue placeholder={t("Select partial type")} />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectLabel>Partials</SelectLabel>
+                  <SelectLabel>{t("Partials")}</SelectLabel>
                   {allPartials.map((type) => (
                     <SelectItem key={type.key} value={type.key}>
                       {type.name}
@@ -520,14 +520,14 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
             {showPageTypeWarning && (
               <div className="border-foreground/10 bg-surface mt-2 rounded-md border p-3">
                 <p className="text-orange text-sm">
-                  Changing the type may impact the data. Are you sure you want to proceed?
+                  {t("Changing the type may impact the data. Are you sure you want to proceed?")}
                 </p>
                 <div className="mt-2 flex gap-2">
                   <Button variant="outline" size="sm" onClick={() => setShowPageTypeWarning(false)}>
-                    Cancel
+                    {t("Cancel")}
                   </Button>
                   <Button variant="default" size="sm" onClick={handleConfirmPageTypeChange}>
-                    Confirm
+                    {t("Confirm")}
                   </Button>
                 </div>
               </div>
@@ -537,12 +537,12 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
         )}
 
         <div className="space-y-0.5">
-          <Label htmlFor="name">Name</Label>
+          <Label htmlFor="name">{t("Name")}</Label>
           <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required aria-required="true" />
         </div>
 
         <div className="space-y-0.5">
-          <Label htmlFor="description">Description</Label>
+          <Label htmlFor="description">{t("Description")}</Label>
           <Textarea
             id="description"
             value={description}
@@ -555,12 +555,14 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
         </div>
 
         <div className="space-y-0.5">
-          <Label>Tags</Label>
-          <TagsInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder="Add tag" />
+          <Label>{t("Tags")}</Label>
+          <TagsInput value={tags} onChange={setTags} suggestions={tagSuggestions} placeholder={t("Add tag")} />
         </div>
 
         <Button loading={isPending} type="submit" className="w-full">
-          {isEdit ? "Update " + currentPageType?.name : "Create " + currentPageType?.name}
+          {isEdit
+            ? t("Update {{name}}", { name: currentPageType?.name })
+            : t("Create {{name}}", { name: currentPageType?.name })}
         </Button>
       </form>
     );
@@ -587,20 +589,21 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
       {showPageTypeSelection && (
         <div className="space-y-0.5">
           <div className="flex items-center gap-1">
-            <Label htmlFor="pageType">Page Type</Label>
+            <Label htmlFor="pageType">{t("Page Type")}</Label>
             <HoverCard openDelay={700}>
               <HoverCardTrigger asChild>
                 <button
                   type="button"
-                  aria-label="What are page types?"
+                  aria-label={t("What are page types?")}
                   className="text-muted-foreground hover:text-foreground transition-colors">
                   <Info className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
               </HoverCardTrigger>
               <HoverCardContent side="right" className="w-80 max-w-xs p-3 text-xs leading-relaxed">
                 <span>
-                  Page types define the structure and data each page uses, such as static pages, dynamic content pages,
-                  or reusable global blocks.
+                  {t(
+                    "Page types define the structure and data each page uses, such as static pages, dynamic content pages, or reusable global blocks.",
+                  )}
                   {chaiBrandingEnabled && (
                     <>
                       {" "}
@@ -609,7 +612,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
                         target="_blank"
                         rel="noopener noreferrer"
                         className="hover:text-primary underline underline-offset-2">
-                        Learn more
+                        {t("Learn more")}
                       </a>
                     </>
                   )}
@@ -619,13 +622,13 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
           </div>
           <Select value={pageType} disabled={isEdit && !canEditPageType} onValueChange={handlePageTypeChange}>
             <SelectTrigger id="pageType" className="w-full">
-              <SelectValue placeholder="Select page type" />
+              <SelectValue placeholder={t("Select page type")} />
             </SelectTrigger>
             <SelectContent>
               {isEdit ? (
                 !currentPageType?.hasSlug ? (
                   <SelectGroup>
-                    <SelectLabel>Partials</SelectLabel>
+                    <SelectLabel>{t("Partials")}</SelectLabel>
                     {allPartials.map((type) => (
                       <SelectItem key={type.key} value={type.key}>
                         {type.name}
@@ -634,7 +637,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
                   </SelectGroup>
                 ) : (
                   <SelectGroup>
-                    <SelectLabel>Pages</SelectLabel>
+                    <SelectLabel>{t("Pages")}</SelectLabel>
                     {editablePageTypes.map((type) => (
                       <SelectItem key={type.key} value={type.key}>
                         {type.name}
@@ -644,7 +647,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
                 )
               ) : (
                 <SelectGroup>
-                  <SelectLabel>Pages</SelectLabel>
+                  <SelectLabel>{t("Pages")}</SelectLabel>
                   {allPages.map((type) => (
                     <SelectItem key={type.key} value={type.key}>
                       {type.name}
@@ -657,14 +660,14 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
           {showPageTypeWarning && (
             <div className="border-foreground/10 bg-surface mt-2 rounded-md border p-3">
               <p className="text-foreground text-sm">
-                Changing the page type may impact the page data. Are you sure you want to proceed?
+                {t("Changing the page type may impact the page data. Are you sure you want to proceed?")}
               </p>
               <div className="mt-2 flex gap-2">
                 <Button variant="outline" size="sm" onClick={() => setShowPageTypeWarning(false)}>
-                  Cancel
+                  {t("Cancel")}
                 </Button>
                 <Button variant="default" size="sm" onClick={handleConfirmPageTypeChange}>
-                  Confirm
+                  {t("Confirm")}
                 </Button>
               </div>
             </div>
@@ -685,7 +688,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
       )} */}
 
       <div className="space-y-0.5">
-        <Label htmlFor="name">Name</Label>
+        <Label htmlFor="name">{t("Name")}</Label>
         <Input
           id="name"
           value={name}
@@ -698,7 +701,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
           }}
           required
           aria-required="true"
-          placeholder="Enter page name"
+          placeholder={t("Enter page name")}
         />
       </div>
 
@@ -722,7 +725,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
               checked={useDynamicSlug}
               onCheckedChange={(checked) => handleDynamicSlugToggle(checked as boolean)}
             />
-            <Label htmlFor="useDynamicSlug">Use Dynamic Slug</Label>
+            <Label htmlFor="useDynamicSlug">{t("Use Dynamic Slug")}</Label>
           </div>
           {useDynamicSlug && (
             <div className="space-y-2">
@@ -731,7 +734,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
                   value={dynamicSlugCustom}
                   onChange={setDynamicSlugCustom}
                   dynamicPattern={currentPageType?.dynamicSlug || "{{id}}"}
-                  placeholder="Enter custom slug part (optional)"
+                  placeholder={t("Enter custom slug part (optional)")}
                   onValidationChange={setIsDynamicSlugValid}
                 />
               </div>
@@ -759,19 +762,21 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
                 }
               }}
             />
-            <Label htmlFor="makeHomepage">Make homepage</Label>
+            <Label htmlFor="makeHomepage">{t("Make homepage")}</Label>
           </div>
           {!makeHomepage && !canReplaceHomepage && (
             <p className="text-muted-foreground text-xs">
-              You don&apos;t have permission to replace the current homepage.
+              {t("You don't have permission to replace the current homepage.")}
             </p>
           )}
           {makeHomepage && submitError && <p className="text-xs text-red-500">{submitError}</p>}
           {makeHomepage && existingHomepage && (
             <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
               <p className="text-sm text-amber-800">
-                Your current homepage &quot;{existingHomepage.name}&quot; will be unpublished and its slug will be
-                changed automatically.
+                {t(
+                  'Your current homepage "{{name}}" will be unpublished and its slug will be changed automatically.',
+                  { name: existingHomepage.name },
+                )}
               </p>
             </div>
           )}
@@ -780,7 +785,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
 
       {(!currentPageType?.dynamicSegments || !useDynamicSlug) && !makeHomepage && (
         <div className="space-y-0.5">
-          <Label htmlFor="slug">Slug</Label>
+          <Label htmlFor="slug">{t("Slug")}</Label>
           <SlugInput
             value={slug}
             onChange={(newSlug) => {
@@ -798,7 +803,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
                 setShowSlugChangeWarning(false);
               }
             }}
-            placeholder={parentPage && parentPage !== "none" ? "Enter page slug" : "Required - e.g. your-slug"}
+            placeholder={parentPage && parentPage !== "none" ? t("Enter page slug") : t("Required - e.g. your-slug")}
             parentSlug={
               parentPage && parentPage !== "none"
                 ? pages?.find((page: { id: string }) => page.id === parentPage)?.slug
@@ -820,11 +825,12 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
                   </svg>
                 </div>
                 <div className="flex-1">
-                  <h3 className="text-sm font-medium text-amber-800">Slug Change Warning</h3>
+                  <h3 className="text-sm font-medium text-amber-800">{t("Slug Change Warning")}</h3>
                   <div className="mt-1 text-sm text-amber-700">
                     <p>
-                      The previous URL and any child pages will become inaccessible. You may want to set up a redirect
-                      to avoid broken links.
+                      {t(
+                        "The previous URL and any child pages will become inaccessible. You may want to set up a redirect to avoid broken links.",
+                      )}
                     </p>
                   </div>
                 </div>
@@ -845,7 +851,7 @@ export default function PageCreator({ addEditPage, close, closePanel }: PageCrea
         }
         type="submit"
         className="w-full">
-        {isEdit ? "Update page" : "Create Page"}
+        {isEdit ? t("Update page") : t("Create Page")}
       </Button>
     </form>
   );

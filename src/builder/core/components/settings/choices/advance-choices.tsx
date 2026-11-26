@@ -2,6 +2,7 @@ import { InfoCircledIcon, RowSpacingIcon, TriangleDownIcon } from "@radix-ui/rea
 import { useThrottledCallback } from "@react-hookz/web";
 import { first, get, isEmpty, isNaN, parseInt } from "lodash-es";
 import { useCallback, useContext, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BlockSettingsContext } from "~/builder/core/components/settings/settings-context";
 import { getUserInputValues } from "~/builder/core/functions/get-user-input-values";
 import { getClassValueAndUnit } from "~/builder/core/functions/helper-fn";
@@ -117,6 +118,7 @@ export const AdvanceChoices = (props: RangeOptionsType) => {
   const initialState = getInitialState(currentClass, cssProperty, units);
   const [showUnits, setShowUnits] = useState(false);
   const [value, setValue] = useState<number | string>(initialState.value);
+  const { t } = useTranslation();
   const [unit, setUnit] = useState(initialState.unit);
   const [error, setError] = useState(false);
   const [draggedVal, setDraggedVal] = useState<number | string>("");
@@ -211,7 +213,7 @@ export const AdvanceChoices = (props: RangeOptionsType) => {
                   <InfoCircledIcon />
                 </button>
               </TooltipTrigger>
-              <TooltipContent>Current value is using a Tailwind preset class.</TooltipContent>
+              <TooltipContent>{t("Current value is using a Tailwind preset class.")}</TooltipContent>
             </Tooltip>
           </>
         ) : (

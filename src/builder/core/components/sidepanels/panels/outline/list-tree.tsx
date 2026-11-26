@@ -604,7 +604,7 @@ const ListTree = () => {
             </div>
             {hasPermission(CHAI_PERMISSIONS["pages:update"]) && (
               <Button
-                onClick={() => pubsub.publish(CHAI_BUILDER_EVENTS.OPEN_ADD_BLOCK)}
+                onClick={() => pubsub.publish(CHAI_BUILDER_EVENTS.OPEN_ADD_BLOCK, { forceModal: true })}
                 size="sm"
                 variant="outline"
                 className="px-3">
@@ -683,7 +683,7 @@ const ListTree = () => {
                   )}>
                   <div className="flex items-center">
                     <CardStackIcon className="h-3 w-3 flex-shrink-0 rotate-180" />
-                    <div className="ml-1.5 flex items-center gap-x-1 truncate text-[13px] font-light">Body</div>
+                    <div className="ml-1.5 flex items-center gap-x-1 truncate text-[13px] font-light">{t("Body")}</div>
                   </div>
                 </div>
               </div>

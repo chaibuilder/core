@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { formatParentSlug, slugify } from "~/builder/pages/utils/slug-utils";
 import { Input } from "~/components/ui/input";
 
@@ -25,6 +26,7 @@ export function SlugInput({
   disabled = false,
   fullSlug,
 }: SlugInputProps) {
+  const { t } = useTranslation();
   const [displayValue, setDisplayValue] = useState(value);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +46,7 @@ export function SlugInput({
 
     // Set error message if there are multiple dots
     if (dotCount > 1) {
-      setError("Invalid slug. Only one dot (.) is allowed in the slug");
+      setError(t("Invalid slug. Only one dot (.) is allowed in the slug"));
     } else {
       setError(null);
     }
@@ -63,7 +65,7 @@ export function SlugInput({
       {parentSlug && (
         <div className="mb-1 flex items-center">
           <span className="text-xs text-muted/70">
-            Parent: <span className="font-mono text-foreground/70">{formatParentSlug(parentSlug)}</span>
+            {t("Parent:")} <span className="font-mono text-foreground/70">{formatParentSlug(parentSlug)}</span>
           </span>
         </div>
       )}
@@ -81,7 +83,7 @@ export function SlugInput({
       {fullSlug && fullSlug !== "undefined" && (
         <div className="mt-1 flex items-center">
           <span className="text-xs text-muted/70">
-            Complete Slug: <span className="font-mono text-foreground/70">{fullSlug}</span>
+            {t("Complete Slug:")} <span className="font-mono text-foreground/70">{fullSlug}</span>
           </span>
         </div>
       )}

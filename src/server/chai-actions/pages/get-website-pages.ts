@@ -1,8 +1,9 @@
 import { and, eq, inArray, isNull } from "drizzle-orm";
-import { isEmpty } from "lodash-es";
+import { compact, isEmpty, uniq } from "lodash-es";
 import { z } from "zod";
 import { db, safeQuery, schema } from "~/server/chai-actions/db";
 import { apiError } from "~/server/chai-actions/lib";
+import { getConfigUpstreamPageSource, isFeatureEnabled } from "~/server/defaults/config-registry";
 import { ChaiBaseAction } from "../base-action";
 
 export type GetWebsitePagesActionData = {
@@ -32,7 +33,19 @@ type GetWebsitePagesActionResponse = Array<{
   /** The page this one renders while `useUpstream` is on (upstream pages). */
   upstream: string | null;
   useUpstream: boolean;
+  canDuplicate?: boolean;
 }>;
+
+async function readCanDuplicate(ids: string[], appId: string): Promise<Record<string, boolean> | null> {
+  const source = getConfigUpstreamPageSource();
+  if (!isFeatureEnabled("upstreamPages") || !source?.canDuplicate || ids.length === 0) return null;
+  try {
+    return await source.canDuplicate({ ids, appId });
+  } catch (error) {
+    console.error("Failed to read upstream canDuplicate:", error);
+    return null;
+  }
+}
 
 export class GetWebsitePagesAction extends ChaiBaseAction<GetWebsitePagesActionData, GetWebsitePagesActionResponse> {
   protected getValidationSchema() {
@@ -108,6 +121,8 @@ export class GetWebsitePagesAction extends ChaiBaseAction<GetWebsitePagesActionD
     // Create a set of pageIds that are templates for O(1) lookup
     const templatePageIds = new Set((templates || []).map((t) => t.pageId));
 
+    const duplicable = await readCanDuplicate(uniq(compact(pages.map((page) => page.upstream))), appId);
+
     // Map the pages with template information
     return pages.map((page) => ({
       ...page,
@@ -119,6 +134,7 @@ export class GetWebsitePagesAction extends ChaiBaseAction<GetWebsitePagesActionD
       links: page.links,
       partialBlocks: page.partialBlocks,
       metadata: (page.metadata as Record<string, unknown> | null) ?? null,
+      ...(page.upstream && duplicable ? { canDuplicate: duplicable[page.upstream] !== false } : {}),
     }));
   }
 }

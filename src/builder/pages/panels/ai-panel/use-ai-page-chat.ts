@@ -7,32 +7,65 @@ import { noop } from "lodash-es";
 import { useCallback, useEffect, useMemo, useRef } from "react";
 import { chaiDesignTokensAtom, usePageExternalData } from "~/builder/atoms/builder";
 import { getCurrentBlocks } from "~/builder/atoms/store";
-import { canAddChildBlock } from "~/builder/core/functions/block-helpers";
+import { canAddChildBlock, getHiddenBlockTypes } from "~/builder/core/functions/block-helpers";
+import { useRegisteredChaiBlocks } from "~/registry";
+import type { ChaiCanShowBlock } from "~/types/chaibuilder-editor-props";
 import { generateUuid } from "~/builder/core/functions/common-functions";
 import { useBlocksStoreUndoableActions } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useBindProp } from "~/builder/hooks/use-bind-prop";
-import { useBlocksHtmlForAi } from "~/builder/hooks/use-blocks-html-for-ai";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { useLanguages } from "~/builder/hooks/use-languages";
+import { partialBlocksListAtom, useCheckPartialCanAdd } from "~/builder/hooks/use-partial-blocks-store";
 import { useRemoveBlocks } from "~/builder/hooks/use-remove-blocks";
 import { useReplaceBlock } from "~/builder/hooks/use-replace-block";
 import { useChaiSavePage } from "~/builder/hooks/use-save-page";
-import { partialBlocksListAtom, useCheckPartialCanAdd } from "~/builder/hooks/use-partial-blocks-store";
+import { useTheme } from "~/builder/hooks/use-theme";
 import { AI_CREDITS_QUERY_KEY } from "~/builder/pages/constants/AI_CREDITS";
-import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
+import { AI_CONTEXT_QUERY_KEY, useAiDesignContext, type BuilderAiDesignContext } from "~/builder/pages/hooks/ai/use-ai-context";
+import { useChaiActivePage, usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
+import { useChaiLanguagePages } from "~/builder/pages/hooks/pages/use-language-pages";
 import { useChaiPrimaryPages } from "~/builder/pages/hooks/pages/use-project-pages";
 import { useChaiApiUrl, usePagesProp } from "~/builder/pages/hooks/project/use-builder-prop";
-import { AI_OMITTED_HTML_SENTINEL } from "~/constants/AI_TOOL_HISTORY";
+import { useChaiPageTypes } from "~/builder/pages/hooks/project/use-page-types";
+import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
+import { AI_OMITTED_HTML_SENTINEL, CLIENT_EXECUTED_AI_EDIT_TOOLS } from "~/constants/AI_TOOL_HISTORY";
 import {
   applyAddBlocks,
   applyAddCustomBlock,
+  applyAddLibraryBlocks,
   applyBindProp,
   applyEditBlock,
   applyRemoveBlocks,
+  applyUpdateBlockProps,
   normalizeAiParentId,
   normalizeAiPosition,
+  type BlockPropsUpdate,
 } from "~/server/chai-actions/ai/ask-ai/ai-edit-executors";
-import { ChaiBlock } from "~/types/common";
+import {
+  isDesignSystemActive,
+  readChaiDesignSystem,
+  readChaiPageDesignBrief,
+} from "~/server/chai-actions/ai/design-system-schema";
+import type { ChaiBlock } from "~/types/common";
+import {
+  CHAI_DESIGN_SYSTEM_KEY,
+  CHAI_PAGE_DESIGN_BRIEF_KEY,
+  type ChaiDesignSystemFeature,
+} from "~/types/design-system";
+import { collectSubtreeIds } from "~/utils/blocks-tree-ops";
+import { evaluateDesignCheckDiff } from "~/utils/design-checks";
 import { buildInternalLinkResolver } from "~/utils/internal-link-refs";
+import { langLabel } from "~/utils/page-lang";
+import {
+  applyTranslations,
+  describeSeededFallbackCopy,
+  describeTranslationSync,
+  findChangedSourceProps,
+  fromLanguageView,
+  toLanguageView,
+  type TranslationUpdate,
+} from "~/utils/page-translations";
+import { isPartialPageTypeKey } from "~/utils/page-type-helpers";
 import { ACTIONS } from "../../constants/ACTIONS";
 import { useAIConfig } from "./ai-models-context";
 import { clearStreamCanvas, streamHtmlToCanvasForAdd, streamHtmlToCanvasForEdit } from "./canvas-stream-preview";
@@ -41,9 +74,6 @@ import { buildDataBindingPayload, buildPageOutlineForAi } from "./page-outline-f
 /** Client-side cap on tool-call continuation round-trips per user message. */
 const MAX_AUTO_CONTINUES = 5;
 
-/** Wait for the canvas iframe to repaint applied blocks before re-reading its DOM. */
-const CANVAS_PAINT_DELAY_MS = 120;
-
 /**
  * Debounce for the per-section DB checkpoint. During a multi-section generation
  * we persist after each section lands, so a mid-run interruption (timeout, tab
@@ -51,8 +81,23 @@ const CANVAS_PAINT_DELAY_MS = 120;
  */
 const CHECKPOINT_DEBOUNCE_MS = 800;
 
+/** Client-executed tools handled by onToolCall (server-executed tools must be ignored there). */
+const CLIENT_EXECUTED_TOOL_SET = new Set<string>(CLIENT_EXECUTED_AI_EDIT_TOOLS);
+
+/** Server-executed mutating tools whose committed draft writes survive a client Stop(). */
+const SERVER_MUTATING_TOOLS = new Set(["save_design_system", "update_page_seo"]);
+
 export type AiPageChatToolOutput =
-  | { ok: true; newBlockIds?: string[]; skippedIds?: string[] }
+  | {
+      ok: true;
+      newBlockIds?: string[];
+      outline?: string;
+      skippedIds?: string[];
+      designCheck?: string;
+      translationsToSync?: string;
+      seededFallbackBlockIds?: string[];
+      seededFallbackNote?: string;
+    }
   | { ok: false; error: string };
 
 type SendPromptOptions = {
@@ -83,30 +128,34 @@ type UseAiPageChatOptions = {
   onError?: (error: Error) => void;
   /**
    * Confine the conversation to a single block (block floating AI). Only
-   * edit_block on this bid is allowed to run; every other mutation is rejected
-   * client-side, so nothing can leak onto the rest of the page.
+   * edit_block / bind_prop / update_block_translations on this bid are allowed.
    */
   scopedBlockId?: string;
 };
 
 const toolInput = (input: unknown): Record<string, any> => (input && typeof input === "object" ? (input as any) : {});
 
+const normalizeSiteUrl = (domain: string | undefined): string | undefined => {
+  if (!domain) return undefined;
+  const trimmed = domain.trim();
+  if (!trimmed) return undefined;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed.replace(/\/+$/, "");
+  if (trimmed.startsWith("//")) return `https:${trimmed}`.replace(/\/+$/, "");
+  return `https://${trimmed}`.replace(/\/+$/, "");
+};
+
 /**
  * Live-preview parent resolution: the streamed html isn't parsed into blocks
  * yet, so we can't run full nesting rules — instead walk up past any target
  * that can't take children at all (e.g. PartialBlock), so the preview never
  * paints inside a childless block.
- *
- * `changed` reports whether the target moved off the original parent. When it
- * did, the caller must drop `position`: an index relative to the original
- * container is meaningless in the ancestor it walked up to.
  */
 const resolvePreviewParentId = (parentId: string | undefined): { parentId: string | undefined; changed: boolean } => {
   const allBlocks = getCurrentBlocks();
   let currentId = parentId;
   while (currentId) {
     const block = allBlocks.find((b) => b._id === currentId);
-    if (!block) return { parentId: currentId, changed: false }; // unknown bid — canvas falls back to root
+    if (!block) return { parentId: currentId, changed: false };
     if (canAddChildBlock(block._type)) return { parentId: currentId, changed: currentId !== parentId };
     currentId = block._parent as string | undefined;
   }
@@ -137,59 +186,88 @@ export const parseChatTransportError = (
 /**
  * Chat hook for the AI page-edit panel, built on AI SDK v6 useChat.
  *
- * - Streams UIMessages from the AI_EDIT_PAGE action (server: streamText + tools).
- * - Executes client tools (edit_block / add_blocks / remove_blocks /
- *   add_custom_block / bind_prop) against the builder's JSON block state —
- *   granular per-id patches, never a full page repaint.
- * - Mirrors streaming edit_block/add_blocks HTML into the canvas iframe for a
- *   live preview while the tool input is still being generated.
- * - Recomputes page HTML + outline per request (including tool-continuation
- *   round-trips) so every model step sees the post-edit page state.
+ * Synced with MCP:
+ * - Sends `blocks: ChaiBlock[]` JSON directly from the Jotai store (no iframe
+ *   DOM scraping and no canvas repaint sleep).
+ * - Executes client tools (`edit_block`, `add_blocks`, `remove_blocks`,
+ *   `add_custom_block`, `bind_prop`, `update_block_translations`) on `ChaiBlock[]`
+ *   JSON, including language-variant `toLanguageView`/`fromLanguageView` mapping,
+ *   primary-edit `translationsToSync` detection, and write-time `runDesignChecks`.
+ * - Syncs builder caches after server tools mutate SEO or design system.
  */
 type UseAiPageChatResult = Omit<UseChatHelpers<UIMessage>, "stop"> & {
   sendPrompt: (prompt: string, options: SendPromptOptions) => Promise<void>;
-  stop: () => Promise<{ reverted: boolean }>;
+  stop: () => Promise<{ reverted: boolean; serverMutationsCommitted: boolean }>;
   isLoading: boolean;
 };
 
 export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageChatOptions = {}): UseAiPageChatResult => {
   const apiUrl = useChaiApiUrl();
+  const fetchAPI = useFetch();
   const getAccessToken = usePagesProp("getAccessToken", noop);
   const beforeRequest = usePagesProp("beforeRequest", noop);
   const logout = usePagesProp("onLogout", noop);
   const config = useAIConfig();
   const isAnimationEnabled = useBuilderProp("flags.animation", false);
+  const designSystemFeature = useBuilderProp("flags.designSystem", undefined) as ChaiDesignSystemFeature | undefined;
+  const domain = usePagesProp("domain", "");
+  const [chaiTheme] = useTheme();
   const designTokens = useAtomValue(chaiDesignTokensAtom);
   const pageExternalData = usePageExternalData();
   const dataBindingPaths = useMemo(() => buildDataBindingPayload(pageExternalData), [pageExternalData]);
   const { data: currentPage } = usePrimaryPage();
-  const blocksHtmlForAi = useBlocksHtmlForAi();
+  const { data: activePage } = useChaiActivePage();
+  const { data: languagePages } = useChaiLanguagePages();
+  const { data: pageTypes } = useChaiPageTypes();
+  const { languages: siteLanguages, selectedLang, fallbackLang } = useLanguages();
+  const { data: designContext } = useAiDesignContext();
   const queryClient = useQueryClient();
   const { savePageAsync } = useChaiSavePage();
+  const syncedToolCallIdsRef = useRef<Set<string>>(new Set());
+  const syncedDesignSaveIdsRef = useRef<Set<string>>(new Set());
+  const latestMessagesRef = useRef<UIMessage[]>([]);
 
-  const { addBlocks, setNewBlocks } = useBlocksStoreUndoableActions();
+  const { addBlocks, setNewBlocks, updateMultipleBlocksProps } = useBlocksStoreUndoableActions();
   const replaceBlock = useReplaceBlock();
   const removeBlocks = useRemoveBlocks();
   const bindProp = useBindProp();
   const partialBlocksList = useAtomValue(partialBlocksListAtom);
   const checkPartialCanAdd = useCheckPartialCanAdd();
   const { data: websitePages } = useChaiPrimaryPages();
+  const registeredBlocks = useRegisteredChaiBlocks();
+  const canShowBlock = useBuilderProp<ChaiCanShowBlock | undefined>("canShowBlock", undefined);
+  const hiddenBlockTypes = useMemo(
+    () => getHiddenBlockTypes(registeredBlocks, currentPage?.pageType || "page", canShowBlock),
+    [registeredBlocks, currentPage?.pageType, canShowBlock],
+  );
 
-  /**
-   * AI emits partials as `<chai-partial-block partial-id='...'>` with no name,
-   * so the parsed block has a partialBlockId but no _name and the outline reads
-   * "PartialBlock". Backfill _name from the partial list (same as the sidebar
-   * add/drop paths) so the outline shows the partial's real name.
-   *
-   * Backstop for AI-emitted partial references: the get_partial_blocks tool
-   * already filters what the model is offered, but nothing stops it from
-   * emitting an arbitrary partial-id (self-reference, cycle, too deep). Runs
-   * the same can-add rules as the sidebar add/drop/paste paths; returns the
-   * violation reason or null.
-   *
-   * resolveInternalLink turns a slug the model wrote for a site page into the
-   * `pageType:` reference the link picker stores, so the link survives slug changes.
-   */
+  const isPartial = useMemo(
+    () => isPartialPageTypeKey(currentPage?.pageType, (pageTypes as any[]) ?? []),
+    [currentPage?.pageType, pageTypes],
+  );
+
+  const isLanguageVariant = Boolean(selectedLang && fallbackLang && selectedLang !== fallbackLang);
+
+  const variantLangs = useMemo(() => {
+    const primaryId = currentPage?.id;
+    if (!primaryId || !Array.isArray(languagePages)) return [];
+    const langs = languagePages
+      .filter((page: any) => page?.primaryPage === primaryId && page?.lang && page.lang !== fallbackLang)
+      .map((page: any) => String(page.lang));
+    return [...new Set(langs)].sort();
+  }, [currentPage?.id, languagePages, fallbackLang]);
+
+  const linkablePages = useMemo(() => {
+    const byId = new Map<string, any>();
+    for (const page of (websitePages as any[]) ?? []) {
+      if (page?.id) byId.set(page.id, page);
+    }
+    for (const page of (languagePages as any[]) ?? []) {
+      if (page?.id) byId.set(page.id, page);
+    }
+    return [...byId.values()];
+  }, [websitePages, languagePages]);
+
   const aiEditExecutorOptions = useMemo(
     () => ({
       partialBlockNames: Object.fromEntries(
@@ -199,9 +277,148 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
         const { canAdd, reason } = checkPartialCanAdd(partialBlockId);
         return canAdd ? null : reason || "This partial block cannot be added to this page";
       },
-      resolveInternalLink: buildInternalLinkResolver(websitePages),
+      resolveInternalLink: buildInternalLinkResolver(linkablePages, { siteUrl: normalizeSiteUrl(domain) }),
+      hiddenBlockTypes,
     }),
-    [checkPartialCanAdd, partialBlocksList, websitePages],
+    [checkPartialCanAdd, hiddenBlockTypes, partialBlocksList, linkablePages, domain],
+  );
+
+  const configuredTranslationLangs = useMemo(
+    () =>
+      [...new Set([...(siteLanguages ?? []), ...variantLangs])].filter(
+        (code): code is string => Boolean(code) && code !== fallbackLang,
+      ),
+    [siteLanguages, variantLangs, fallbackLang],
+  );
+
+  const runClientDesignCheck = useCallback(
+    async (beforeBlocks: ChaiBlock[], afterBlocks: ChaiBlock[]) => {
+      if (!designSystemFeature?.enabled || designSystemFeature.designChecks === "off") {
+        return { status: "skipped" as const, note: "" };
+      }
+
+      // Check if save_design_system committed during this turn before the query cache refreshed.
+      let hasUnsyncedDesignSave = false;
+      const latestAssistant = [...latestMessagesRef.current].reverse().find((m) => m.role === "assistant");
+      const unsyncedSaveIds: string[] = [];
+      if (Array.isArray(latestAssistant?.parts)) {
+        for (const part of latestAssistant.parts as any[]) {
+          if (
+            isToolUIPart(part) &&
+            part.type === "tool-save_design_system" &&
+            part.state === "output-available" &&
+            !(part.output && typeof part.output === "object" && (part.output as any).ok === false) &&
+            part.toolCallId &&
+            !syncedDesignSaveIdsRef.current.has(part.toolCallId)
+          ) {
+            hasUnsyncedDesignSave = true;
+            unsyncedSaveIds.push(part.toolCallId);
+          }
+        }
+      }
+
+      let resolvedContext: BuilderAiDesignContext | undefined = designContext;
+      const pageIdForContext = activePage?.id ?? currentPage?.id;
+      if ((resolvedContext === undefined || hasUnsyncedDesignSave) && pageIdForContext) {
+        try {
+          const fresh = (await fetchAPI(apiUrl, {
+            action: ACTIONS.AI_GET_CONTEXT,
+            data: { pageId: pageIdForContext },
+          })) as { success?: boolean; aiData?: { app?: any; page?: any } } | null;
+          if (fresh?.success && fresh.aiData) {
+            const raw = { app: fresh.aiData.app, page: fresh.aiData.page };
+            queryClient.setQueryData([AI_CONTEXT_QUERY_KEY, activePage?.id], raw);
+            const app = raw.app && typeof raw.app === "object" ? (raw.app as Record<string, unknown>) : {};
+            const page = raw.page && typeof raw.page === "object" ? (raw.page as Record<string, unknown>) : {};
+            const bannedWords = app.bannedWords;
+            resolvedContext = {
+              designSystem: readChaiDesignSystem(app[CHAI_DESIGN_SYSTEM_KEY]),
+              designBrief: readChaiPageDesignBrief(page[CHAI_PAGE_DESIGN_BRIEF_KEY]),
+              bannedWords:
+                typeof bannedWords === "string" || Array.isArray(bannedWords)
+                  ? (bannedWords as string | string[])
+                  : null,
+            };
+            for (const id of unsyncedSaveIds) syncedDesignSaveIdsRef.current.add(id);
+          }
+        } catch {
+          /* handled below */
+        }
+      }
+
+      if (resolvedContext === undefined) {
+        if (designSystemFeature.designChecks === "strict") {
+          return {
+            status: "rejected" as const,
+            reject: "Error: Could not verify the site's design system in strict mode; nothing was saved.",
+            errors: 1,
+            warnings: 0,
+          };
+        }
+        return { status: "skipped" as const, note: "" };
+      }
+
+      if (!isDesignSystemActive(designSystemFeature, resolvedContext.designSystem)) {
+        return { status: "skipped" as const, note: "" };
+      }
+
+      const [checkBefore, checkAfter] = isLanguageVariant
+        ? [toLanguageView(beforeBlocks, selectedLang), toLanguageView(afterBlocks, selectedLang)]
+        : [beforeBlocks, afterBlocks];
+      return evaluateDesignCheckDiff(
+        checkBefore,
+        checkAfter,
+        {
+          theme: chaiTheme as any,
+          designTokens,
+          bannedWords: resolvedContext.bannedWords ?? null,
+          isPartial,
+        },
+        designSystemFeature.designChecks,
+      );
+    },
+    [
+      activePage?.id,
+      apiUrl,
+      chaiTheme,
+      currentPage?.id,
+      designContext,
+      designSystemFeature,
+      designTokens,
+      fetchAPI,
+      isLanguageVariant,
+      isPartial,
+      queryClient,
+      selectedLang,
+    ],
+  );
+
+  const syncServerToolSideEffects = useCallback(
+    async (message: UIMessage) => {
+      if (!Array.isArray(message.parts)) return;
+      const completedTools = new Set<string>();
+      for (const part of message.parts as any[]) {
+        if (!isToolUIPart(part) || part.state !== "output-available") continue;
+        if (part.output && typeof part.output === "object" && (part.output as any).ok === false) continue;
+        const callId = typeof part.toolCallId === "string" ? part.toolCallId : "";
+        if (callId && syncedToolCallIdsRef.current.has(callId)) continue;
+        const toolName = String(part.type).replace(/^tool-/, "");
+        if (!SERVER_MUTATING_TOOLS.has(toolName)) continue;
+        if (callId) syncedToolCallIdsRef.current.add(callId);
+        completedTools.add(toolName);
+      }
+      if (completedTools.size === 0) return;
+
+      if (completedTools.has("save_design_system")) {
+        queryClient.invalidateQueries({ queryKey: [AI_CONTEXT_QUERY_KEY] });
+      }
+      if (completedTools.has("update_page_seo")) {
+        queryClient.invalidateQueries({ queryKey: [ACTIONS.GET_WEBSITE_PAGES] });
+        queryClient.invalidateQueries({ queryKey: [ACTIONS.GET_LANGUAGE_PAGES] });
+        queryClient.invalidateQueries({ queryKey: [ACTIONS.GET_CHANGES], refetchType: "all" });
+      }
+    },
+    [queryClient],
   );
 
   /**
@@ -214,38 +431,48 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     buildData: () => ({}),
   });
 
-  requestContextRef.current.buildData = () => ({
-    model: requestContextRef.current.model || undefined,
-    context: config.context,
-    designTokens,
-    pageHtml: blocksHtmlForAi({}),
-    pageOutline: buildPageOutlineForAi(getCurrentBlocks()),
-    pageId: currentPage?.id ?? undefined,
-    scopedBlockId,
-    options: {
-      animation: isAnimationEnabled,
-      dataBindingPaths,
-      pageType: currentPage?.pageType ?? undefined,
-    },
-  });
+  requestContextRef.current.buildData = () => {
+    const blocks = getCurrentBlocks();
+    const viewBlocks = isLanguageVariant ? toLanguageView(blocks, selectedLang) : blocks;
+    // Never fall back to the primary page id on a language variant: while language pages
+    // load (or if no variant row exists), passing primaryPageId as pageId would cause
+    // update_page_seo to overwrite the primary language's SEO.
+    const activePageId = isLanguageVariant
+      ? activePage?.id && activePage.id !== currentPage?.id
+        ? activePage.id
+        : undefined
+      : (activePage?.id ?? currentPage?.id ?? undefined);
+    return {
+      model: requestContextRef.current.model || undefined,
+      context: config.context,
+      designTokens,
+      blocks,
+      pageOutline: buildPageOutlineForAi(viewBlocks),
+      pageId: activePageId,
+      primaryPageId: currentPage?.id ?? undefined,
+      pageName: activePage?.name ?? currentPage?.name ?? undefined,
+      pageSlug: activePage?.slug ?? currentPage?.slug ?? undefined,
+      lang: selectedLang || fallbackLang || undefined,
+      fallbackLang: fallbackLang || undefined,
+      variantLangs,
+      languages: configuredTranslationLangs,
+      isPartial,
+      scopedBlockId,
+      options: {
+        animation: isAnimationEnabled,
+        dataBindingPaths,
+        pageType: currentPage?.pageType ?? undefined,
+        hiddenBlockTypes,
+      },
+    };
+  };
 
   const autoContinuesRef = useRef(0);
-  /** Set when a run is cut short by the continuation cap so we can tell the user it is unfinished. */
   const hitContinueLimitRef = useRef(false);
-
-  /** Blocks as they were when the user sent the prompt — restored on stop. */
   const preSendBlocksRef = useRef<ChaiBlock[] | null>(null);
-  /** Set by stop(): blocks further tool execution and auto-continuations for the aborted run. */
   const isStoppedRef = useRef(false);
-  /**
-   * True once a tool call has successfully mutated the page during the current
-   * run. Drives the auto-save on completion so a run that only answered a
-   * question (no edits) doesn't trigger a needless save.
-   */
   const pageModifiedByAiRef = useRef(false);
-  /** In-flight tool execution, awaited by stop() so the revert runs after the last mutation. */
   const pendingToolCallRef = useRef<Promise<void> | null>(null);
-  /** Pending debounced per-section checkpoint save. */
   const checkpointTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cancelCheckpoint = useCallback(() => {
@@ -255,7 +482,6 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     }
   }, []);
 
-  /** Persist the page shortly after a section lands, so progress survives a mid-run interruption. */
   const scheduleCheckpoint = useCallback(() => {
     if (checkpointTimerRef.current) clearTimeout(checkpointTimerRef.current);
     checkpointTimerRef.current = setTimeout(() => {
@@ -269,10 +495,6 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
       new DefaultChatTransport<UIMessage>({
         api: apiUrl,
         prepareSendMessagesRequest: async ({ messages, api }) => {
-          // Give the canvas iframe a beat to repaint blocks applied by the
-          // previous tool call — pageHtml is read from the iframe DOM.
-          await new Promise((resolve) => setTimeout(resolve, CANVAS_PAINT_DELAY_MS));
-
           let requestData: Record<string, any> = { messages, ...requestContextRef.current.buildData() };
 
           if (beforeRequest) {
@@ -297,23 +519,28 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     [apiUrl],
   );
 
-  /** Set each render so onToolCall (registered once) can add tool outputs. */
   const addToolOutputRef =
     useRef<(args: { tool: any; toolCallId: string; output: AiPageChatToolOutput }) => void>(noop);
 
   const executeToolCall = useCallback(
     async (toolName: string, input: Record<string, any>): Promise<AiPageChatToolOutput> => {
-      // Block-scoped run: the server hands the model a reduced tool set, but the
-      // client is what actually mutates state — so re-check here rather than
-      // trusting the stream. Only the selected block may be replaced or bound.
       if (scopedBlockId) {
-        if (toolName !== "edit_block" && toolName !== "bind_prop") {
+        if (
+          toolName !== "update_block_props" &&
+          toolName !== "edit_block" &&
+          toolName !== "bind_prop" &&
+          toolName !== "update_block_translations"
+        ) {
           return {
             ok: false,
-            error: `${toolName} is not available here — this conversation can only edit or bind the selected block "${scopedBlockId}".`,
+            error: `${toolName} is not available here — this conversation can only edit, bind, or translate the selected block "${scopedBlockId}".`,
           };
         }
-        if (input.blockId !== scopedBlockId) {
+        if (
+          toolName !== "update_block_translations" &&
+          toolName !== "update_block_props" &&
+          input.blockId !== scopedBlockId
+        ) {
           return {
             ok: false,
             error: `Cannot edit block "${input.blockId}" — only the selected block "${scopedBlockId}" may be edited here.`,
@@ -321,9 +548,6 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
         }
       }
 
-      // The model sometimes echoes the pruned-history sentinel back as real
-      // markup — applying it would persist the placeholder text as a block.
-      // Also clear any streaming preview that painted it before this settled.
       if (typeof input.html === "string" && input.html.includes(AI_OMITTED_HTML_SENTINEL)) {
         clearStreamCanvas();
         return {
@@ -334,25 +558,105 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
         };
       }
 
+      const buildPostWriteNotes = (
+        beforeBlocks: ChaiBlock[],
+        afterBlocks: ChaiBlock[],
+        designNote: string,
+        seededFallbackBlockIds: string[] = [],
+      ) => {
+        const translationsToSync =
+          !isLanguageVariant && variantLangs.length > 0
+            ? describeTranslationSync(findChangedSourceProps(beforeBlocks, afterBlocks, variantLangs), variantLangs)
+            : "";
+        const seededFallbackNote =
+          isLanguageVariant && seededFallbackBlockIds.length > 0
+            ? describeSeededFallbackCopy(seededFallbackBlockIds, selectedLang, fallbackLang)
+            : "";
+        return {
+          ...(designNote ? { designCheck: designNote } : {}),
+          ...(translationsToSync ? { translationsToSync } : {}),
+          ...(seededFallbackBlockIds.length > 0 ? { seededFallbackBlockIds } : {}),
+          ...(seededFallbackNote ? { seededFallbackNote } : {}),
+        };
+      };
+
       switch (toolName) {
+        case "update_block_props": {
+          const updates = input.updates as BlockPropsUpdate[] | undefined;
+          if (!Array.isArray(updates) || updates.length === 0) {
+            return { ok: false, error: "update_block_props requires a non-empty updates array" };
+          }
+          const beforeBlocks = getCurrentBlocks();
+          if (scopedBlockId) {
+            const scopedIds = collectSubtreeIds(beforeBlocks, [scopedBlockId]);
+            const foreign = updates.find((entry) => !scopedIds.has(entry?.blockId));
+            if (foreign) {
+              return {
+                ok: false,
+                error: `Cannot update block "${foreign.blockId}" — only the selected block "${scopedBlockId}" and its descendants may be updated here.`,
+              };
+            }
+          }
+          const workingBlocks = isLanguageVariant ? toLanguageView(beforeBlocks, selectedLang) : beforeBlocks;
+          const result = applyUpdateBlockProps(workingBlocks, updates, aiEditExecutorOptions);
+          if ("error" in result) return { ok: false, error: result.error };
+          const mapped = isLanguageVariant
+            ? fromLanguageView(beforeBlocks, result.blocks, selectedLang)
+            : { blocks: result.blocks, seededFallbackBlockIds: [] as string[] };
+          const designCheck = await runClientDesignCheck(beforeBlocks, mapped.blocks);
+          if (designCheck.status === "rejected") {
+            return { ok: false, error: designCheck.reject };
+          }
+          if (isLanguageVariant) {
+            setNewBlocks(mapped.blocks);
+          } else {
+            updateMultipleBlocksProps(result.updatedBlocks ?? []);
+          }
+          return {
+            ok: true,
+            newBlockIds: result.updatedBlockIds,
+            ...buildPostWriteNotes(beforeBlocks, mapped.blocks, designCheck.note, mapped.seededFallbackBlockIds),
+          };
+        }
+
         case "edit_block": {
           const { blockId, html } = input;
           if (!blockId || !html) return { ok: false, error: "edit_block requires blockId and html" };
-          const result = await applyEditBlock(getCurrentBlocks(), blockId, html, aiEditExecutorOptions);
+          const beforeBlocks = getCurrentBlocks();
+          const workingBlocks = isLanguageVariant ? toLanguageView(beforeBlocks, selectedLang) : beforeBlocks;
+          const result = await applyEditBlock(workingBlocks, blockId, html, aiEditExecutorOptions);
           if ("error" in result) {
             clearStreamCanvas();
             return { ok: false, error: result.error };
           }
-          await replaceBlock(blockId, result.replacementBlocks ?? []);
+          const mapped = isLanguageVariant
+            ? fromLanguageView(beforeBlocks, result.blocks, selectedLang)
+            : { blocks: result.blocks, seededFallbackBlockIds: [] as string[] };
+          const designCheck = await runClientDesignCheck(beforeBlocks, mapped.blocks);
+          if (designCheck.status === "rejected") {
+            clearStreamCanvas();
+            return { ok: false, error: designCheck.reject };
+          }
+          if (isLanguageVariant) {
+            setNewBlocks(mapped.blocks);
+          } else {
+            await replaceBlock(blockId, result.replacementBlocks ?? []);
+          }
           clearStreamCanvas();
-          return { ok: true, newBlockIds: result.newBlockIds };
+          return {
+            ok: true,
+            newBlockIds: result.newBlockIds,
+            ...buildPostWriteNotes(beforeBlocks, mapped.blocks, designCheck.note, mapped.seededFallbackBlockIds),
+          };
         }
 
         case "add_blocks": {
           const { html } = input;
           if (!html) return { ok: false, error: "add_blocks requires html" };
+          const beforeBlocks = getCurrentBlocks();
+          const workingBlocks = isLanguageVariant ? toLanguageView(beforeBlocks, selectedLang) : beforeBlocks;
           const result = await applyAddBlocks(
-            getCurrentBlocks(),
+            workingBlocks,
             html,
             input.parentId,
             input.position,
@@ -362,9 +666,25 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
             clearStreamCanvas();
             return { ok: false, error: result.error };
           }
-          addBlocks(result.insertedBlocks ?? [], result.parentId, result.position);
+          const mapped = isLanguageVariant
+            ? fromLanguageView(beforeBlocks, result.blocks, selectedLang)
+            : { blocks: result.blocks, seededFallbackBlockIds: [] as string[] };
+          const designCheck = await runClientDesignCheck(beforeBlocks, mapped.blocks);
+          if (designCheck.status === "rejected") {
+            clearStreamCanvas();
+            return { ok: false, error: designCheck.reject };
+          }
+          if (isLanguageVariant) {
+            setNewBlocks(mapped.blocks);
+          } else {
+            addBlocks(result.insertedBlocks ?? [], result.parentId, result.position);
+          }
           clearStreamCanvas();
-          return { ok: true, newBlockIds: result.newBlockIds };
+          return {
+            ok: true,
+            newBlockIds: result.newBlockIds,
+            ...buildPostWriteNotes(beforeBlocks, mapped.blocks, designCheck.note, mapped.seededFallbackBlockIds),
+          };
         }
 
         case "remove_blocks": {
@@ -379,8 +699,10 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
         case "add_custom_block": {
           const { type, props } = input;
           if (!type) return { ok: false, error: "add_custom_block requires a type" };
+          const beforeBlocks = getCurrentBlocks();
+          const workingBlocks = isLanguageVariant ? toLanguageView(beforeBlocks, selectedLang) : beforeBlocks;
           const result = applyAddCustomBlock(
-            getCurrentBlocks(),
+            workingBlocks,
             type,
             input.parentId,
             input.position,
@@ -388,8 +710,77 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
             aiEditExecutorOptions,
           );
           if ("error" in result) return { ok: false, error: result.error };
-          addBlocks(result.insertedBlocks ?? [], result.parentId, result.position);
-          return { ok: true, newBlockIds: result.newBlockIds };
+          const mapped = isLanguageVariant
+            ? fromLanguageView(beforeBlocks, result.blocks, selectedLang)
+            : { blocks: result.blocks, seededFallbackBlockIds: [] as string[] };
+          const designCheck = await runClientDesignCheck(beforeBlocks, mapped.blocks);
+          if (designCheck.status === "rejected") {
+            return { ok: false, error: designCheck.reject };
+          }
+          if (isLanguageVariant) {
+            setNewBlocks(mapped.blocks);
+          } else {
+            addBlocks(result.insertedBlocks ?? [], result.parentId, result.position);
+          }
+          return {
+            ok: true,
+            newBlockIds: result.newBlockIds,
+            ...buildPostWriteNotes(beforeBlocks, mapped.blocks, designCheck.note, mapped.seededFallbackBlockIds),
+          };
+        }
+
+        case "add_library_block": {
+          const blockId = typeof input.blockId === "string" ? input.blockId.trim() : "";
+          if (!blockId) return { ok: false, error: "add_library_block requires a blockId" };
+          let item: { blocks?: unknown; html?: unknown } | null = null;
+          try {
+            item = (await fetchAPI(apiUrl, {
+              action: ACTIONS.GET_LIBRARY_ITEM,
+              data: { id: blockId },
+            })) as { blocks?: unknown; html?: unknown } | null;
+          } catch (error) {
+            return {
+              ok: false,
+              error: error instanceof Error ? error.message : `Failed to load library block "${blockId}"`,
+            };
+          }
+          const content = Array.isArray(item?.blocks)
+            ? (item.blocks as ChaiBlock[])
+            : typeof item?.html === "string" && item.html.trim().length > 0
+              ? item.html
+              : null;
+          if (!content) {
+            return { ok: false, error: `Library block "${blockId}" not found or contains no blocks.` };
+          }
+          const beforeBlocks = getCurrentBlocks();
+          const workingBlocks = isLanguageVariant ? toLanguageView(beforeBlocks, selectedLang) : beforeBlocks;
+          const result = await applyAddLibraryBlocks(
+            workingBlocks,
+            content,
+            input.parentId,
+            input.position,
+            aiEditExecutorOptions,
+          );
+          if ("error" in result) return { ok: false, error: result.error };
+          const mapped = isLanguageVariant
+            ? fromLanguageView(beforeBlocks, result.blocks, selectedLang)
+            : { blocks: result.blocks, seededFallbackBlockIds: [] as string[] };
+          const designCheck = await runClientDesignCheck(beforeBlocks, mapped.blocks);
+          if (designCheck.status === "rejected") {
+            return { ok: false, error: designCheck.reject };
+          }
+          if (isLanguageVariant) {
+            setNewBlocks(mapped.blocks);
+          } else {
+            addBlocks(result.insertedBlocks ?? [], result.parentId, result.position);
+          }
+          const outline = buildPageOutlineForAi(result.insertedBlocks ?? []).trim();
+          return {
+            ok: true,
+            newBlockIds: result.newBlockIds,
+            ...(outline ? { outline } : {}),
+            ...buildPostWriteNotes(beforeBlocks, mapped.blocks, designCheck.note, mapped.seededFallbackBlockIds),
+          };
         }
 
         case "bind_prop": {
@@ -397,11 +788,78 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
           if (!blockId || !propName || !bindingPath) {
             return { ok: false, error: "bind_prop requires blockId, propName and bindingPath" };
           }
-          const result = applyBindProp(getCurrentBlocks(), blockId, propName, bindingPath, { dataBindingPaths });
+          const beforeBlocks = getCurrentBlocks();
+          const workingBlocks = isLanguageVariant ? toLanguageView(beforeBlocks, selectedLang) : beforeBlocks;
+          const result = applyBindProp(workingBlocks, blockId, propName, bindingPath, { dataBindingPaths });
           if ("error" in result) return { ok: false, error: result.error };
+          if (isLanguageVariant) {
+            // Map through fromLanguageView so binding a translatable prop on a language
+            // variant writes `${propName}-${selectedLang}` and never overwrites the fallback prop.
+            const mapped = fromLanguageView(beforeBlocks, result.blocks, selectedLang);
+            setNewBlocks(mapped.blocks);
+            return {
+              ok: true,
+              ...buildPostWriteNotes(beforeBlocks, mapped.blocks, "", mapped.seededFallbackBlockIds),
+            };
+          }
           if (bindProp(blockId, propName, bindingPath) === false) {
             return { ok: false, error: "bind_prop requires a valid registered path | pipe binding" };
           }
+          return { ok: true, ...buildPostWriteNotes(beforeBlocks, result.blocks, "") };
+        }
+
+        case "update_block_translations": {
+          const rawTranslations = input.translations as TranslationUpdate[] | undefined;
+          if (!Array.isArray(rawTranslations) || rawTranslations.length === 0) {
+            return { ok: false, error: "update_block_translations requires a non-empty translations array" };
+          }
+          const beforeBlocks = getCurrentBlocks();
+          if (scopedBlockId) {
+            const scopedIds = collectSubtreeIds(beforeBlocks, [scopedBlockId]);
+            const foreign = rawTranslations.find((entry) => !scopedIds.has(entry.blockId));
+            if (foreign) {
+              return {
+                ok: false,
+                error: `Cannot translate block "${foreign.blockId}" — only the selected block "${scopedBlockId}" and its descendants may be updated here.`,
+              };
+            }
+          }
+          const knownNote = configuredTranslationLangs.length
+            ? ` Configured translation languages: ${configuredTranslationLangs.map(langLabel).join(", ")}.`
+            : " The site has no other languages configured.";
+          const targetLang = String(input.lang || (isLanguageVariant ? selectedLang : "")).trim();
+          if (!targetLang) {
+            return { ok: false, error: `Pass lang — the language to write translations for.${knownNote}` };
+          }
+          if (fallbackLang && targetLang === fallbackLang) {
+            return {
+              ok: false,
+              error: `${langLabel(targetLang)} is the site fallback language; edit its copy directly with edit_block.${knownNote}`,
+            };
+          }
+          if (configuredTranslationLangs.length > 0 && !configuredTranslationLangs.includes(targetLang)) {
+            return { ok: false, error: `${langLabel(targetLang)} is not a configured site language.${knownNote}` };
+          }
+
+          // Parse JSON-encoded strings when the target prop's source is an object or array
+          // (Builder AI's strict tool schema avoids z.record()).
+          const byId = new Map(beforeBlocks.map((b) => [b._id, b as Record<string, unknown>]));
+          const translations = rawTranslations.map((entry) => {
+            if (typeof entry.value !== "string") return entry;
+            const source = byId.get(entry.blockId)?.[entry.prop];
+            if (source && typeof source === "object") {
+              try {
+                return { ...entry, value: JSON.parse(entry.value) };
+              } catch {
+                return entry;
+              }
+            }
+            return entry;
+          });
+
+          const result = applyTranslations(beforeBlocks, targetLang, translations);
+          if ("error" in result) return { ok: false, error: result.error };
+          setNewBlocks(result.blocks);
           return { ok: true };
         }
 
@@ -409,11 +867,30 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
           return { ok: false, error: `Unknown client tool: ${toolName}` };
       }
     },
-    [addBlocks, aiEditExecutorOptions, bindProp, dataBindingPaths, removeBlocks, replaceBlock, scopedBlockId],
+    [
+      addBlocks,
+      aiEditExecutorOptions,
+      bindProp,
+      configuredTranslationLangs,
+      dataBindingPaths,
+      fallbackLang,
+      isLanguageVariant,
+      removeBlocks,
+      replaceBlock,
+      runClientDesignCheck,
+      scopedBlockId,
+      selectedLang,
+      setNewBlocks,
+      updateMultipleBlocksProps,
+      variantLangs,
+    ],
   );
 
   const executeToolCallRef = useRef(executeToolCall);
   executeToolCallRef.current = executeToolCall;
+
+  const syncServerToolSideEffectsRef = useRef(syncServerToolSideEffects);
+  syncServerToolSideEffectsRef.current = syncServerToolSideEffects;
 
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
@@ -425,8 +902,6 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     experimental_throttle: 50,
     sendAutomaticallyWhen: (options: { messages: UIMessage[] }) => {
       if (isStoppedRef.current) return false;
-      // The model still had pending tool work but we won't auto-resume — mark the
-      // run unfinished so onFinish can invite the user to continue.
       if (!lastAssistantMessageIsCompleteWithToolCalls(options)) return false;
       if (autoContinuesRef.current >= MAX_AUTO_CONTINUES) {
         hitContinueLimitRef.current = true;
@@ -437,8 +912,11 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     },
     onToolCall: (async ({ toolCall }) => {
       if (isStoppedRef.current) return;
+      const toolName = (toolCall as any).toolName as string;
+      // Server-executed tools (SEO, design system, uploads, reads) have their own
+      // server execute() and stream their output back; never emit a fake client error for them.
+      if (!CLIENT_EXECUTED_TOOL_SET.has(toolName)) return;
       const execution = (async () => {
-        const toolName = (toolCall as any).toolName as string;
         const input = toolInput((toolCall as any).input);
         let output: AiPageChatToolOutput;
         try {
@@ -446,10 +924,10 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
         } catch (error) {
           output = { ok: false, error: error instanceof Error ? error.message : String(error) };
         }
-        if (isStoppedRef.current) return; // stopped mid-execution — the revert supersedes this output
+        if (isStoppedRef.current) return;
         if (output.ok && preSendBlocksRef.current && getCurrentBlocks() !== preSendBlocksRef.current) {
           pageModifiedByAiRef.current = true;
-          scheduleCheckpoint(); // persist this section so a later timeout doesn't lose it
+          scheduleCheckpoint();
         }
         addToolOutputRef.current({ tool: toolName, toolCallId: toolCall.toolCallId, output });
       })();
@@ -462,12 +940,11 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     }) satisfies ChatOnToolCallCallback<UIMessage>,
     onFinish: (({ message, isAbort, isError }) => {
       clearStreamCanvas();
-      cancelCheckpoint(); // the final save below supersedes any pending checkpoint
+      cancelCheckpoint();
       queryClient.invalidateQueries({ queryKey: [AI_CREDITS_QUERY_KEY] });
-      // Persist tool-applied edits once the run settles. We deliberately persist
-      // on error/timeout too (a truncated stream keeps whatever sections were
-      // already applied — otherwise a serverless timeout silently loses them).
-      // Only a user abort is skipped: stop() reverts the page.
+      // Always sync server-side mutations (SEO, design system), even on Stop,
+      // because those server writes have already committed to the draft.
+      syncServerToolSideEffectsRef.current(message).catch(noop);
       if (!isAbort && pageModifiedByAiRef.current) {
         pageModifiedByAiRef.current = false;
         savePageAsync(true).catch(noop);
@@ -477,10 +954,6 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     onError: ((error) => {
       clearStreamCanvas();
       cancelCheckpoint();
-      // A hard mid-stream failure (e.g. serverless timeout cutting the SSE
-      // connection) may deliver onError without onFinish — persist here too so
-      // partial work survives. Skipped during an in-progress user abort (stop()
-      // reverts); flag-guarded so it never double-saves with onFinish.
       if (!isStoppedRef.current && pageModifiedByAiRef.current) {
         pageModifiedByAiRef.current = false;
         savePageAsync(true).catch(noop);
@@ -498,9 +971,8 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
 
   // --- Live canvas preview while edit_block/add_blocks input streams in ---
   const { messages, status, setMessages } = chat;
+  latestMessagesRef.current = messages;
   useEffect(() => {
-    // Stale throttled renders can arrive after the run settled — never let
-    // them resurrect a preview element that was already cleaned up.
     if (status !== "streaming" && status !== "submitted") return;
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage || lastMessage.role !== "assistant") return;
@@ -508,13 +980,10 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     for (let i = lastMessage.parts.length - 1; i >= 0; i--) {
       const part = lastMessage.parts[i] as any;
       if (!isToolUIPart(part)) continue;
-      if (part.state !== "input-streaming") return; // last tool part is settled — nothing to preview
+      if (part.state !== "input-streaming") return;
       const input = toolInput(part.input);
-      // By the time the html field starts streaming, all preceding fields
-      // (task, blockId/parentId/position) are fully parsed.
       if (typeof input.html !== "string") return;
       if (part.type === "tool-edit_block" && input.blockId) {
-        // Never preview an out-of-scope edit — the preview paints the canvas.
         if (scopedBlockId && input.blockId !== scopedBlockId) return;
         streamHtmlToCanvasForEdit(input.html, input.blockId, part.toolCallId);
       } else if (part.type === "tool-add_blocks") {
@@ -523,8 +992,6 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
         streamHtmlToCanvasForAdd(
           input.html,
           preview.parentId,
-          // Position is relative to the original parent; once we've walked up to
-          // a different container it no longer applies — append instead.
           preview.changed ? undefined : normalizeAiPosition(input.position),
           part.toolCallId,
         );
@@ -533,9 +1000,6 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     }
   }, [messages, status, scopedBlockId]);
 
-  // A run cut short by the continuation cap leaves a partially-built page. Close
-  // with a plain-language message so the user knows it is unfinished and can
-  // resume, instead of the build silently stopping mid-page.
   useEffect(() => {
     if (status !== "ready" || !hitContinueLimitRef.current) return;
     hitContinueLimitRef.current = false;
@@ -573,13 +1037,7 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     [chat.sendMessage],
   );
 
-  /**
-   * Abort the in-flight run and restore the page to its pre-prompt state.
-   * Waits for any tool call that is mid-application so the revert lands last.
-   * The revert uses the undoable store action, so stopping by mistake can be
-   * undone (bringing back the partially applied AI changes).
-   */
-  const stop = useCallback(async (): Promise<{ reverted: boolean }> => {
+  const stop = useCallback(async (): Promise<{ reverted: boolean; serverMutationsCommitted: boolean }> => {
     isStoppedRef.current = true;
     hitContinueLimitRef.current = false;
     cancelCheckpoint();
@@ -592,13 +1050,26 @@ export const useAiPageChat = ({ onFinish, onError, scopedBlockId }: UseAiPageCha
     clearStreamCanvas();
     const preSendBlocks = preSendBlocksRef.current;
     preSendBlocksRef.current = null;
-    // Tool calls replace the blocks array on every mutation, so a changed
-    // reference means the page was touched during this run.
     const reverted = preSendBlocks !== null && getCurrentBlocks() !== preSendBlocks;
     if (reverted) setNewBlocks(preSendBlocks);
-    // The run was reverted — make sure no late onFinish/onError persists it.
     pageModifiedByAiRef.current = false;
-    return { reverted };
+
+    const latestAssistant = [...latestMessagesRef.current].reverse().find((m) => m.role === "assistant");
+    const serverMutationsCommitted = Boolean(
+      Array.isArray(latestAssistant?.parts) &&
+        (latestAssistant.parts as any[]).some(
+          (part) =>
+            isToolUIPart(part) &&
+            part.state === "output-available" &&
+            !(part.output && typeof part.output === "object" && (part.output as any).ok === false) &&
+            SERVER_MUTATING_TOOLS.has(String(part.type).replace(/^tool-/, "")),
+        ),
+    );
+    if (latestAssistant && serverMutationsCommitted) {
+      await syncServerToolSideEffectsRef.current(latestAssistant).catch(noop);
+    }
+
+    return { reverted, serverMutationsCommitted };
   }, [chat.stop, setNewBlocks, cancelCheckpoint]);
 
   return {

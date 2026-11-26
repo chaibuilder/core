@@ -1,5 +1,5 @@
 import { get, isEmpty } from "lodash-es";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePartialTypeLabel } from "~/builder/hooks/use-create-partial-label";
 import { useLanguages } from "~/builder/hooks/use-languages";
@@ -15,6 +15,9 @@ import { useSearchParams } from "~/builder/pages/hooks/utils/use-search-params";
 import { ChaiPage } from "~/builder/pages/utils/page-organization";
 import { Button } from "~/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "~/components/ui/dialog";
+import { cn } from "~/lib/utils";
+
+const PARTIAL_PAGES_PREVIEW = 5;
 
 // Helper function to recursively count all child pages
 const countAllChildren = (pageId: string, allPages: ChaiPage[]): number => {
@@ -41,6 +44,8 @@ function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
   const { data: languagePages = [] } = useChaiLanguagePages(isPrimaryPage ? page?.id : undefined);
   const { data: siteWideUsage } = useSiteWideUsage();
   const flags = usePagesProp("flags", {}) as Record<string, boolean>;
+
+  const [showAllPages, setShowAllPages] = useState(false);
 
   const isPartial = useMemo(() => isEmpty(page?.slug), [page?.slug]);
 
@@ -113,17 +118,16 @@ function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
           {isPrimaryPage && (languagePagesCount > 0 || childPageCount > 0) && (
             <div className="mt-3 rounded-md border p-3 text-sm">
               <div className="text-destructive font-semibold">
-                {t(
-                  `Warning: ${flags?.trash ? getTrashLabels().warning : "Deleting"} this primary page will also remove`,
-                )}
+                {flags?.trash
+                  ? getTrashLabels().warning === "Archiving"
+                    ? t("Warning: Archiving this primary page will also remove")
+                    : t("Warning: Trashing this primary page will also remove")
+                  : t("Warning: Deleting this primary page will also remove")}
                 :
               </div>
               <ul className="text-destructive mt-2 list-inside list-disc space-y-1">
                 {childPageCount > 0 && (
-                  <li>
-                    <span className="font-medium">{childPageCount}</span>{" "}
-                    {childPageCount === 1 ? t("nested child page") : t("nested child pages")}
-                  </li>
+                  <li>{t("{{count}} nested child pages", { count: childPageCount })}</li>
                 )}
                 {languagePagesCount > 0 && <li>{t("All associated language pages")}</li>}
               </ul>
@@ -136,13 +140,22 @@ function DeletePage({ page, onClose }: { page: any; onClose: () => void }) {
               <div className="text-destructive font-semibold">
                 {t("Warning: This {{name}} is currently used in the following pages", { name: singular })}:
               </div>
-              <ul className="text-destructive mt-2 list-inside list-disc space-y-1">
-                {pagesUsingPartial.map(({ id, name }) => (
+              <ul
+                className={cn(
+                  "text-destructive mt-2 list-inside list-disc space-y-1",
+                  showAllPages && "max-h-48 overflow-y-auto",
+                )}>
+                {(showAllPages ? pagesUsingPartial : pagesUsingPartial.slice(0, PARTIAL_PAGES_PREVIEW)).map(({ id, name }) => (
                   <li key={id}>
                     <span className="font-medium">{name}</span>
                   </li>
                 ))}
               </ul>
+              {!showAllPages && pagesUsingPartial.length > PARTIAL_PAGES_PREVIEW && (
+                <Button variant="link" size="sm" onClick={() => setShowAllPages(true)}>
+                  {t("Show more")} ({pagesUsingPartial.length})
+                </Button>
+              )}
             </div>
           )}
           {page.lang && (
