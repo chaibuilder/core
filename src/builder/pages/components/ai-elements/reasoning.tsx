@@ -4,6 +4,7 @@ import { useControllableState } from "~/utils/vendor/use-controllable-state";
 import { ChevronDownIcon } from "lucide-react";
 import type { ComponentProps } from "react";
 import { createContext, memo, startTransition, useContext, useEffect, useState } from "react";
+import i18n from "~/builder/core/locales/load";
 import { Streamdown } from "streamdown";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "~/builder/pages/components/ui/collapsible";
 import { cn } from "~/lib/utils";
@@ -130,10 +131,13 @@ export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger>;
 const ThinkingDot = () => <span className="size-1.5 shrink-0 animate-pulse rounded-full bg-primary" />;
 
 export const getThinkingLabel = (isStreaming: boolean, isStopped: boolean, duration?: number, elapsedSeconds?: number) => {
-  if (isStopped) return "Thinking stopped";
-  if (isStreaming) return elapsedSeconds && elapsedSeconds > 0 ? `Thinking... ${elapsedSeconds}s` : "Thinking...";
-  if (duration === undefined || duration === 0) return "Thought for a few seconds";
-  return `Thought for ${duration} seconds`;
+  if (isStopped) return i18n.t("Thinking stopped");
+  if (isStreaming)
+    return elapsedSeconds && elapsedSeconds > 0
+      ? i18n.t("Thinking... {{seconds}}s", { seconds: elapsedSeconds })
+      : i18n.t("Thinking...");
+  if (duration === undefined || duration === 0) return i18n.t("Thought for a few seconds");
+  return i18n.t("Thought for {{duration}} seconds", { duration });
 };
 
 export const ReasoningTrigger = memo(({ className, children, ...props }: ReasoningTriggerProps) => {

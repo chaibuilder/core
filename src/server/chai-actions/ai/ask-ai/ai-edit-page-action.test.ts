@@ -3,10 +3,14 @@ import { MockLanguageModelV3 } from "ai/test";
 import { afterEach, describe, expect, it } from "vitest";
 import { z } from "zod";
 import { registerChaiBlock } from "~/registry";
+import { getChaiActionInstance } from "~/server/chai-actions/actions-registery";
 import { getActiveChaiBuilderConfig } from "~/server/defaults/config-registry";
 import { registerChaiAiCustomization, resetChaiAiCustomizersForTests } from "~/server/plugin-api/ai-customization";
 import { useTestChaiConfig, withChaiConfig } from "~/tests/setup/chai-config";
+import { loadWebBlocks } from "~/web-blocks";
 import { AIEditPageAction } from "./ai-edit-page-action";
+
+loadWebBlocks();
 
 // A real registered custom block, so the prompt's custom block catalog lists it.
 registerChaiBlock(
@@ -74,9 +78,9 @@ function useScriptedModel(steps: StreamPart[][] = []) {
 }
 
 /** Runs the action as the dispatcher would and drains the streamed response. */
-async function run(data: Record<string, unknown>) {
+async function run(data: Record<string, unknown>, contextOverrides: Record<string, unknown> = {}) {
   const action = new AIEditPageAction();
-  action.setContext({ action: "AI_EDIT_PAGE", userId: "u1", appId: "a1" });
+  action.setContext({ action: "AI_EDIT_PAGE", userId: "u1", appId: "a1", ...contextOverrides } as any);
   const result = await action.execute({ model: "test-model", ...data } as any);
   const body = await result._streamResult.dataStream.text();
   return { result, body };
@@ -167,6 +171,21 @@ describe("AIEditPageAction (tool-call / UIMessage flow)", () => {
     expect(system).not.toContain("{{DESIGN_TOKENS_LIST}}");
   });
 
+  it("omits options.hiddenBlockTypes from the custom block catalog", async () => {
+    const calls = useScriptedModel();
+    await run({
+      messages: [userMessage("m1", "hello")],
+      pageOutline: "box-1 | Box | Hero Section",
+      pageHtml: "<div bid='box-1'></div>",
+      options: {
+        hiddenBlockTypes: ["ProductCard"],
+      },
+    });
+
+    const system = systemOf(calls[0]);
+    expect(system).not.toContain("### ProductCard");
+  });
+
   it("exposes the full tool set with read_block_html bound to the request pageHtml", async () => {
     const calls = useScriptedModel([toolCallStep("read_block_html", { blockIds: ["hero-1"] })]);
     await run({
@@ -174,16 +193,29 @@ describe("AIEditPageAction (tool-call / UIMessage flow)", () => {
       pageHtml: "<section bid='hero-1'><h1>Hi</h1></section>",
     });
 
-    expect(toolNamesOf(calls[0])).toEqual([
-      "add_blocks",
-      "add_custom_block",
-      "bind_prop",
-      "edit_block",
-      "get_pages_list",
-      "get_partial_blocks",
-      "read_block_html",
-      "remove_blocks",
-    ]);
+    const hasLibraryActions = Boolean(
+      getChaiActionInstance("GET_LIBRARIES") &&
+      getChaiActionInstance("GET_LIBRARY_ITEMS") &&
+      getChaiActionInstance("GET_LIBRARY_ITEM"),
+    );
+    const hasMediaActions = Boolean(getChaiActionInstance("CREATE_ASSET"));
+
+    expect(toolNamesOf(calls[0])).toEqual(
+      [
+        "add_blocks",
+        "add_custom_block",
+        "bind_prop",
+        "edit_block",
+        "get_pages_list",
+        "get_partial_blocks",
+        "read_block_html",
+        "read_blocks",
+        "remove_blocks",
+        "update_block_props",
+        ...(hasLibraryActions ? ["add_library_block", "get_library_blocks"] : []),
+        ...(hasMediaActions ? ["upload_image"] : []),
+      ].sort(),
+    );
 
     // The server executed read_block_html and handed the slice back to the model.
     expect(calls).toHaveLength(2);
@@ -321,7 +353,14 @@ describe("AIEditPageAction (tool-call / UIMessage flow)", () => {
     // get_pages_list is a read-only lookup: linking one button is still a single-block edit.
     it("hands the model read, edit and scoped binding tools", async () => {
       const calls = await executeScoped();
-      expect(toolNamesOf(calls[0])).toEqual(["bind_prop", "edit_block", "get_pages_list", "read_block_html"]);
+      expect(toolNamesOf(calls[0])).toEqual([
+        "bind_prop",
+        "edit_block",
+        "get_pages_list",
+        "read_block_html",
+        "read_blocks",
+        "update_block_props",
+      ]);
     });
 
     it("states the single-block scope in the system prompt", async () => {
@@ -347,6 +386,139 @@ describe("AIEditPageAction (tool-call / UIMessage flow)", () => {
       const slices = await readBlocks(["hero-1", "foot-1"]);
       expect(slices["foot-1"]).toContain("outside the current edit scope");
       expect(slices["hero-1"]).toBeUndefined();
+    });
+  });
+
+  describe("JSON blocks, language view & design system parity", () => {
+    it("derives page outline and language-view read_block_html directly from JSON blocks", async () => {
+      const calls = useScriptedModel([toolCallStep("read_block_html", { blockIds: ["h-1"] })]);
+      await run({
+        messages: [userMessage("m1", "Edit heading")],
+        blocks: [
+          { _id: "sec-1", _type: "Box", _name: "Hero", styles: "#styles:,p-8" },
+          {
+            _id: "h-1",
+            _type: "Heading",
+            _parent: "sec-1",
+            tag: "h1",
+            content: "Hello",
+            "content-fr": "Bonjour",
+            styles: "#styles:,text-3xl",
+          },
+        ],
+        pageId: "page-fr",
+        primaryPageId: "page-en",
+        pageName: "Accueil",
+        pageSlug: "/fr",
+        lang: "fr",
+        fallbackLang: "en",
+        variantLangs: ["fr"],
+      });
+
+      const system = systemOf(calls[0]);
+      // Outline was derived server-side from JSON blocks in the French language view
+      expect(system).toContain("sec-1 | Box | Hero");
+      expect(system).toContain("Bonjour");
+      expect(system).toContain("French (fr)");
+      expect(toolNamesOf(calls[0])).toContain("get_page_blocks");
+      expect(toolNamesOf(calls[0])).toContain("get_block_translations");
+      expect(toolNamesOf(calls[0])).toContain("update_block_translations");
+      expect(toolNamesOf(calls[0])).toContain("get_page_seo");
+      expect(toolNamesOf(calls[0])).toContain("update_page_seo");
+
+      const slices = toolResultsOf(calls[1]).read_block_html as Record<string, string>;
+      expect(slices["h-1"]).toContain("Bonjour");
+    });
+
+    it("hides design-system prompt sections when feature is disabled and advertises them when enabled", async () => {
+      const offCalls = useScriptedModel();
+      await run({
+        messages: [userMessage("m1", "hi")],
+        blocks: [{ _id: "b1", _type: "Box" }],
+      });
+      expect(systemOf(offCalls[0])).not.toContain("## Design System");
+      expect(toolNamesOf(offCalls[0])).not.toContain("get_design_system");
+
+      const onCalls = useScriptedModel();
+      withChaiConfig({
+        features: {
+          ...getActiveChaiBuilderConfig().features,
+          aiCredits: false,
+          designSystem: { enabled: true, designChecks: "warn" },
+        } as never,
+      });
+      await run({
+        messages: [userMessage("m1", "hi")],
+        blocks: [{ _id: "b1", _type: "Box" }],
+      });
+      expect(systemOf(onCalls[0])).toContain("## Design System");
+      expect(toolNamesOf(onCalls[0])).toContain("get_design_system");
+      expect(toolNamesOf(onCalls[0])).toContain("check_page_design");
+      expect(toolNamesOf(onCalls[0])).toContain("get_design_guide");
+    });
+
+    it("enforces action-level userAccess and delegatedPermissions (Library Page Editor clamp)", async () => {
+      const calls = useScriptedModel();
+      withChaiConfig({
+        features: {
+          ...getActiveChaiBuilderConfig().features,
+          aiCredits: false,
+          designSystem: { enabled: true, designChecks: "warn" },
+        } as never,
+      });
+
+      // Library Page Editor permissions: ["ai:use", "ai:read"] — no pages:* / theme:* / assets:*
+      await run(
+        {
+          messages: [userMessage("m1", "edit hero")],
+          blocks: [{ _id: "b1", _type: "Box" }],
+          pageId: "lib-1",
+        },
+        { userAccess: { role: "editor", permissions: ["ai:use", "ai:read"] } },
+      );
+
+      expect(toolNamesOf(calls[0])).toEqual([
+        "add_blocks",
+        "add_custom_block",
+        "bind_prop",
+        "edit_block",
+        "read_block_html",
+        "read_blocks",
+        "remove_blocks",
+        "update_block_props",
+      ]);
+      // Prompt omits sections whose tools are unavailable
+      expect(systemOf(calls[0])).not.toContain("Call `get_pages_list`");
+      expect(systemOf(calls[0])).not.toContain("get_partial_blocks");
+
+      // Delegated permissions clamp further restricts granted permissions
+      const clampedCalls = useScriptedModel();
+      await run(
+        {
+          messages: [userMessage("m1", "edit hero")],
+          blocks: [{ _id: "b1", _type: "Box" }],
+          pageId: "p1",
+        },
+        {
+          userAccess: {
+            role: "admin",
+            permissions: ["ai:use", "ai:read", "pages:read", "pages:update", "pages:edit_seo"],
+          },
+          delegatedPermissions: ["ai:use", "pages:read"],
+        },
+      );
+      expect(toolNamesOf(clampedCalls[0])).toContain("get_pages_list");
+      expect(toolNamesOf(clampedCalls[0])).toContain("get_page_seo");
+      expect(toolNamesOf(clampedCalls[0])).not.toContain("update_page_seo");
+    });
+
+    it("preserves $-sequences in page outline copy without regex replacement expansion", async () => {
+      const calls = useScriptedModel();
+      await run({
+        messages: [userMessage("m1", "hi")],
+        blocks: [{ _id: "h1", _type: "Heading", tag: "h1", content: "Save $100 with $$ and $& promo" }],
+      });
+      expect(systemOf(calls[0])).toContain("Save $100 with $$ and $& promo");
     });
   });
 });

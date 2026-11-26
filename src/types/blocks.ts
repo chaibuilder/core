@@ -86,6 +86,11 @@ export interface ChaiBlockConfig {
   showInLibrary?: boolean;
   /** Image URL shown as the block's card in the Library tab. Used with `showInLibrary`. */
   preview?: string;
+  /**
+   * Arbitrary host-defined metadata stored on the block config. Chai never reads
+   * it; host code (such as `canShowBlock`) can inspect it.
+   */
+  metadata?: Record<string, unknown>;
 
   dataProviderMode?: "live" | "mock";
   dataProviderDependencies?: string[];

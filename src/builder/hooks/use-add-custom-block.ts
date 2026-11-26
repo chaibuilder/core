@@ -1,8 +1,7 @@
 import { useCallback } from "react";
-import { generateUuid } from "~/builder/core/functions/common-functions";
 import { useAddBlock } from "~/builder/hooks/use-add-block";
 import { getRegisteredChaiBlock } from "~/registry";
-import { ChaiBlock } from "~/types/common";
+import { buildCustomBlockTree, sanitizeAiProps } from "~/server/chai-actions/ai/ask-ai/ai-edit-executors";
 
 /**
  * Adds a registered custom block to the page from typed props JSON.
@@ -19,13 +18,8 @@ export const useAddCustomBlock = () => {
         return;
       }
 
-      const block: ChaiBlock = {
-        _id: generateUuid(),
-        _type: type,
-        ...props,
-      };
-
-      await addPredefinedBlock([block], parentId, position);
+      // Same tree manual Add inserts (template slots/children, registered defaults), with the AI's props on the root.
+      await addPredefinedBlock(buildCustomBlockTree(type, sanitizeAiProps(props)), parentId, position);
     },
     [addPredefinedBlock],
   );

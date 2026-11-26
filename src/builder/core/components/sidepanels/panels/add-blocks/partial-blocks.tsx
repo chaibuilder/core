@@ -156,7 +156,7 @@ export const PartialBlocks = ({
         <button
           onClick={handleRefresh}
           className="rounded-md bg-primary px-3 py-1 text-sm text-primary-foreground hover:bg-primary/90">
-          Refresh
+          {t("Refresh")}
         </button>
       </div>
     );

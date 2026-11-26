@@ -55,11 +55,9 @@ const TranslationWarningModal = ({
           <DialogHeader>
             <DialogTitle>{t("Translation Warning")}</DialogTitle>
             <DialogDescription>
-              {untranslatedBlocks.length === 1
-                ? t("1 block needs translations before publishing. Review it or continue anyway.")
-                : t("{{count}} blocks need translations before publishing. Review them or continue anyway.", {
-                    count: untranslatedBlocks.length,
-                  })}
+              {t("{{count}} blocks need translations before publishing. Review them or continue anyway.", {
+                count: untranslatedBlocks.length,
+              })}
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-64 space-y-2 overflow-y-auto">
@@ -92,18 +90,16 @@ const TranslationWarningModal = ({
             ))}
             {hiddenCount > 0 && (
               <div className="text-muted-foreground text-xs">
-                {hiddenCount === 1
-                  ? t("And 1 more block...")
-                  : t("And {{count}} more blocks...", { count: hiddenCount })}
+                {t("And {{count}} more blocks...", { count: hiddenCount })}
               </div>
             )}
           </div>
           <DialogFooter className="flex gap-2">
             <Button variant="outline" onClick={handleCancel} disabled={isPending}>
-              Cancel
+              {t("Cancel")}
             </Button>
             <Button loading={isPending} onClick={handleContinue}>
-              Continue Anyway
+              {t("Continue Anyway")}
             </Button>
           </DialogFooter>
         </DialogContent>

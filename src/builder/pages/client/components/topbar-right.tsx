@@ -148,7 +148,8 @@ const SaveButton = () => {
   }, [savePageAsync, isSaving]);
 
   const handleSave = useCallback(async () => {
-    if ((hasErrors || hasWarnings) && !isSnoozed()) {
+    // Errors always show the dialog; only warnings can be snoozed.
+    if (hasErrors || (hasWarnings && !isSnoozed())) {
       setShowValidationModal(true);
       return;
     }
@@ -303,7 +304,8 @@ const PublishButton = () => {
 
   const handlePublish = (ids: string[]) => {
     publishIdsRef.current = ids;
-    if ((hasValidationErrors || hasValidationWarnings) && !isValidationSnoozed()) {
+    // Errors block publishing; only warnings can be snoozed.
+    if (hasValidationErrors || (hasValidationWarnings && !isValidationSnoozed())) {
       setShowValidationModal(true);
       return;
     }
@@ -387,7 +389,7 @@ const PublishButton = () => {
                 className="cursor-pointer text-xs"
                 onClick={() => handlePublish([currentPage?.id])}>
                 <Send className="mr-0.5 h-3 w-3" />
-                {t("Publish")} page
+                {t("Publish page")}
               </DropdownMenuItem>
             )}
             {languagePageIds.length > 1 && (
@@ -403,7 +405,7 @@ const PublishButton = () => {
             {isPublished && (
               <DropdownMenuItem onClick={() => setUnpublishPage(activePage)} className="cursor-pointer text-xs">
                 <TriangleAlert className="mr-0.5 h-3 w-3" />
-                {t("Unpublish")} page {selectedLang ? `(${upperCase(selectedLang)})` : ""}
+                {t("Unpublish page")} {selectedLang ? `(${upperCase(selectedLang)})` : ""}
               </DropdownMenuItem>
             )}
 
@@ -485,6 +487,7 @@ const PublishButton = () => {
         errors={validationErrors}
         actionLabel={t("Publish anyway")}
         showSnooze
+        blocked={hasValidationErrors}
       />
     </>
   );

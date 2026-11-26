@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ACTIONS } from "~/builder/pages/constants/ACTIONS";
 import { useChaiApiUrl } from "~/builder/pages/hooks/project/use-builder-prop";
@@ -11,6 +12,7 @@ import { useFetch } from "~/builder/pages/hooks/utils/use-fetch";
  * Used by the uploader's URL import and the stock-image search tab.
  */
 export const useDownloadSearchImage = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
@@ -39,7 +41,7 @@ export const useDownloadSearchImage = () => {
       queryClient.invalidateQueries({ queryKey: [ACTIONS.GET_ASSETS] });
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Something went wrong. Please try again");
+      toast.error(error.message || t("Something went wrong. Please try again"));
     },
   });
 };

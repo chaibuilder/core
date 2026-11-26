@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Input } from "~/components/ui/input";
 
 interface DynamicSlugInputProps {
@@ -25,6 +26,7 @@ export function DynamicSlugInput({
   dynamicPattern,
   onValidationChange,
 }: DynamicSlugInputProps) {
+  const { t } = useTranslation();
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -116,7 +118,9 @@ export function DynamicSlugInput({
   return (
     <div>
       <div className="relative">
-        <p className="mb-2 text-xs text-gray-500">{`${dynamicPattern}`} is a dynamic segment of slug</p>
+        <p className="mb-2 text-xs text-gray-500">
+          {t("{{pattern}} is a dynamic segment of slug", { pattern: dynamicPattern })}
+        </p>
         <Input
           id={id}
           ref={inputRef}

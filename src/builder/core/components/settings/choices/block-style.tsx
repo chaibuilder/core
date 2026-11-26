@@ -234,17 +234,17 @@ export const BlockStyle = (props: EditOptionProps) => {
                   <TooltipContent>
                     <div className="text-right">
                       <div>
-                        Current style is set at &nbsp;
+                        {t("Current style is set at")} &nbsp;
                         <span className="font-bold">
                           {getBreakpoint(get(currentClass, "mq"))}
-                          {dark && !currentClass.dark ? "(Light mode)" : ""}
+                          {dark && !currentClass.dark ? ` (${t("Light mode")})` : ""}
                         </span>
                         <br />
                         <button
                           type="button"
                           onClick={() => setCanvasWidth(get(currentClass, "mq"))}
                           className="block w-full cursor-default text-right font-semibold text-blue-500">
-                          Switch to {get(currentClass, "mq").toUpperCase()}
+                          {t("Switch to")} {get(currentClass, "mq").toUpperCase()}
                         </button>
                       </div>
                     </div>
@@ -252,7 +252,7 @@ export const BlockStyle = (props: EditOptionProps) => {
                 </Tooltip>
               ) : null
             ) : (
-              <button type="button" onClick={() => removeClass()} title="Reset" className="flex px-1.5 text-xs">
+              <button type="button" onClick={() => removeClass()} title={t("Reset")} className="flex px-1.5 text-xs">
                 <CrossCircledIcon className="h-5 w-5 text-blue-500 hover:opacity-80" />
               </button>
             )}

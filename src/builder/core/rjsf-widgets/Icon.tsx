@@ -48,10 +48,10 @@ const IconPickerField = ({ value, onChange, id }: WidgetProps) => {
           {svgInput ? (
             <div className="h-5 w-5 [&>svg]:h-full [&>svg]:w-full" dangerouslySetInnerHTML={{ __html: svgInput }} />
           ) : (
-            <span className="text-[10px] text-muted-foreground">SVG</span>
+            <span className="text-[10px] text-muted-foreground">{t("SVG")}</span>
           )}
         </div>
-        <Suspense fallback={<div className="h-6 text-[10px] text-muted-foreground">Loading...</div>}>
+        <Suspense fallback={<div className="h-6 text-[10px] text-muted-foreground">{t("Loading...")}</div>}>
           <IconPicker onSelectIcon={handleSvgChange} />
         </Suspense>
       </div>

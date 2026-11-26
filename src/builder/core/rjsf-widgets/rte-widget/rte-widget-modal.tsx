@@ -1,5 +1,6 @@
 import { Editor } from "@tiptap/react";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { usePageExternalData } from "~/builder/atoms/builder";
 import { ChaiNestedPathSelector } from "~/builder/core/components/nested-path-selector";
 import { Button } from "~/components/ui/button";
@@ -24,6 +25,7 @@ const RTEModal = ({
   onClose: () => void;
   rteElement: React.ReactNode;
 }) => {
+  const { t } = useTranslation();
   const pageExternalData = usePageExternalData();
 
   const handlePathSelect = (path: string) => {
@@ -77,10 +79,10 @@ const RTEModal = ({
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[800px]">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between pr-8">
-            <span>Rich Text Editor</span>
+            <span>{t("Rich Text Editor")}</span>
             {pageExternalData && Object.keys(pageExternalData).length > 0 && (
               <div className="flex items-center">
-                <span className="text-foreground/50 mr-2 text-xs">Add field:</span>
+                <span className="text-foreground/50 mr-2 text-xs">{t("Add field:")}</span>
                 <div className="rte-path-selector">
                   <ChaiNestedPathSelector data={pageExternalData} onSelect={handlePathSelect} />
                 </div>
@@ -90,7 +92,7 @@ const RTEModal = ({
         </DialogHeader>
         {rteElement}
         <div className="mt-4 flex justify-end">
-          <Button onClick={onClose}>Done</Button>
+          <Button onClick={onClose}>{t("Done")}</Button>
         </div>
       </DialogContent>
     </Dialog>

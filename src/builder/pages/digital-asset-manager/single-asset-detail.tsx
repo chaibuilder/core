@@ -94,10 +94,10 @@ function formatFileSize(_bytes: number): string {
   }
 }
 
-function formatDate(dateString: string): string {
+function formatDate(dateString: string, locale: string): string {
   if (!dateString) return "N/A";
   const date = new Date(dateString);
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(locale || "en", {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -134,7 +134,7 @@ export type SingleAssetDetailProps = {
 };
 
 export const SingleAssetDetail = ({ assetId, onBack, onEdit, onSave, isSaving }: SingleAssetDetailProps) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { data: asset, isLoading, isError } = useAsset(assetId || "");
   const [description, setDescription] = useState<Record<string, string>>({});
   const [isImageLoaded, setIsImageLoaded] = useState(false);
@@ -335,11 +335,11 @@ export const SingleAssetDetail = ({ assetId, onBack, onEdit, onSave, isSaving }:
                   : []),
                 {
                   label: t("Created"),
-                  value: formatDate(asset.createdAt),
+                  value: formatDate(asset.createdAt, i18n.language),
                 },
                 {
                   label: t("Updated"),
-                  value: formatDate(asset.metadata?.updatedAt || asset?.updatedAt || asset.createdAt),
+                  value: formatDate(asset.metadata?.updatedAt || asset?.updatedAt || asset.createdAt, i18n.language),
                 },
                 {
                   label: t("URL"),

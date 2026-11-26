@@ -1,10 +1,12 @@
 import { WidgetProps } from "@rjsf/utils";
 import { find, get } from "lodash-es";
+import { useTranslation } from "react-i18next";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
 import { COLLECTION_PREFIX } from "~/constants/STRINGS";
 
 const CollectionFilterSortField = ({ id, value, onChange, onBlur }: WidgetProps) => {
+  const { t } = useTranslation();
   const collections = useBuilderProp("collections", []);
   const selectedBlock = useSelectedBlock();
   const repeaterItem = get(selectedBlock, "repeaterItems", "")
@@ -22,7 +24,7 @@ const CollectionFilterSortField = ({ id, value, onChange, onBlur }: WidgetProps)
         value={value}
         onChange={(e) => onChange(e.target.value)}
         onBlur={(e) => onBlur(id, e.target.value)}>
-        <option value="">Select</option>
+        <option value="">{t("Select")}</option>
         {options.map((field: any) => (
           <option key={field.id} value={field.id}>
             {field.name}

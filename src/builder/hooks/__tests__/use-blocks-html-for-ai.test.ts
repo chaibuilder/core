@@ -466,4 +466,57 @@ describe("transformNode", () => {
       expect(result.children?.[0].children).toHaveLength(0);
     });
   });
+
+  describe("Icon blocks", () => {
+    test("emits icon-name for Lucide SVGs and omits raw icon SVG", () => {
+      const node: HimalayaNode = {
+        type: "element",
+        tagName: "div",
+        attributes: [
+          { key: "data-block-type", value: "Icon" },
+          { key: "data-block-id", value: "ico-lucide" },
+        ],
+        children: [],
+      };
+      const result = transformNode(node, [
+        {
+          _id: "ico-lucide",
+          _type: "Icon",
+          icon: '<svg class="lucide lucide-arrow-right"><path d="M5 12h14"/></svg>',
+          width: "20",
+          height: "20",
+        },
+      ]);
+
+      expect(result.tagName).toBe("chai-icon");
+      expect(result.attributes).toContainEqual({ key: "icon-name", value: "arrow-right" });
+      expect(result.attributes?.find((a) => a.key === "icon")).toBeUndefined();
+    });
+
+    test("preserves raw icon SVG attribute when icon is non-Lucide", () => {
+      const rawSvg = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/></svg>';
+      const node: HimalayaNode = {
+        type: "element",
+        tagName: "div",
+        attributes: [
+          { key: "data-block-type", value: "Icon" },
+          { key: "data-block-id", value: "ico-custom" },
+        ],
+        children: [],
+      };
+      const result = transformNode(node, [
+        {
+          _id: "ico-custom",
+          _type: "Icon",
+          icon: rawSvg,
+          width: "24",
+          height: "24",
+        },
+      ]);
+
+      expect(result.tagName).toBe("chai-icon");
+      expect(result.attributes?.find((a) => a.key === "icon-name")).toBeUndefined();
+      expect(result.attributes).toContainEqual({ key: "icon", value: rawSvg });
+    });
+  });
 });

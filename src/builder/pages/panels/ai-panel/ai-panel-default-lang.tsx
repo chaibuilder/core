@@ -9,7 +9,10 @@ import { useBlocksHtmlForAi } from "~/builder/hooks/use-blocks-html-for-ai";
 import { usePageExternalData } from "~/builder/atoms/builder";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
 import { CHAI_BUILDER_EVENTS } from "~/builder/core/events";
+import { getHiddenBlockTypes } from "~/builder/core/functions/block-helpers";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
+import { useRegisteredChaiBlocks } from "~/registry";
+import type { ChaiCanShowBlock } from "~/types/chaibuilder-editor-props";
 import { usePubSubListener } from "~/builder/hooks/use-pub-sub";
 import { useChaiSavePage } from "~/builder/hooks/use-save-page";
 import { useSelectedBlock, useSelectedBlockIds } from "~/builder/hooks/use-selected-blockIds";
@@ -93,6 +96,8 @@ const AiPanelForDefaultLang = ({
   const designTokens = useAtomValue(chaiDesignTokensAtom);
   const pageExternalData = usePageExternalData();
   const { data: currentPage } = usePrimaryPage();
+  const registeredBlocks = useRegisteredChaiBlocks();
+  const canShowBlock = useBuilderProp<ChaiCanShowBlock | undefined>("canShowBlock", undefined);
 
   const processAiStream = useProcessAiStream();
   const handleSend = async (
@@ -160,6 +165,7 @@ const AiPanelForDefaultLang = ({
           animation: isAnimationEnabled,
           dataBindingPaths: buildDataBindingPayload(pageExternalData),
           pageType: currentPage?.pageType ?? undefined,
+          hiddenBlockTypes: getHiddenBlockTypes(registeredBlocks, currentPage?.pageType || "page", canShowBlock),
         },
       };
 
@@ -311,7 +317,7 @@ const AiPanelForDefaultLang = ({
           {messages.length === 0 && (
             <ConversationEmptyState
               icon={<Bot size={30} className="text-foreground/50" />}
-              title="Start a conversation"
+              title={t("Start a conversation")}
               description={t("Start a conversation with the AI assistant to add/edit current page")}
             />
           )}
@@ -364,7 +370,7 @@ const AiPanelForDefaultLang = ({
           isLoading={isLoading}
         />
         <AiContextModal open={isContextModalOpen} onOpenChange={setIsContextModalOpen} defaultTab={contextModalTab} />
-        <Suspense fallback={<div>Loading...</div>}>
+        <Suspense fallback={<div>{t("Loading...")}</div>}>
           <AiPromptInput
             input={input}
             setInput={setInput}

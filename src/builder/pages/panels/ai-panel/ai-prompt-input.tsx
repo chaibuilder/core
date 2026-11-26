@@ -193,7 +193,7 @@ const AiPromptInput = ({
 
             {isLoading ? (
               <Button onClick={onStop} size="xs" variant="secondary" title={t("Stop generation")}>
-                <Square className="!h-3 !w-3" /> Stop
+                <Square className="!h-3 !w-3" /> {t("Stop")}
               </Button>
             ) : (
               <PromptInputSubmit disabled={!input.trim() || disabled} className="h-6 w-6">

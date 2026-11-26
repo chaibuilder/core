@@ -1,6 +1,7 @@
 import { InfoCircledIcon } from "@radix-ui/react-icons";
 import { get } from "lodash-es";
 import { useContext, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useCurrentClassByProperty } from "~/builder/core/components/settings/choices/block-style";
 import { StyleContext } from "~/builder/core/components/settings/choices/style-context";
 import { useUndoManager } from "~/builder/hooks/history/use-undo-manager";
@@ -9,6 +10,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "~/components/ui/tooltip
 import { useTailwindClassList } from "~/constants/CLASSES_LIST";
 
 export const DropDownChoices = ({ label, property, onChange }: any) => {
+  const { t } = useTranslation();
   const { getClasses } = useTailwindClassList();
   const classes = getClasses(property);
   const currentClass = useCurrentClassByProperty(property);
@@ -26,7 +28,7 @@ export const DropDownChoices = ({ label, property, onChange }: any) => {
                 <InfoCircledIcon />
               </button>
             </TooltipTrigger>
-            <TooltipContent>Current value is using a Tailwind arbitrary value.</TooltipContent>
+            <TooltipContent>{t("Current value is using a Tailwind arbitrary value.")}</TooltipContent>
           </Tooltip>
         </div>
       ) : (

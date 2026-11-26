@@ -28,6 +28,7 @@ export const ValidationErrorsModal = ({
   errors,
   actionLabel,
   showSnooze = false,
+  blocked = false,
 }: {
   isOpen: boolean;
   onClose: () => void;
@@ -36,6 +37,8 @@ export const ValidationErrorsModal = ({
   errors: StructureError[];
   actionLabel: string;
   showSnooze?: boolean;
+  /** Errors must be fixed first: hides the continue action and snooze. */
+  blocked?: boolean;
 }) => {
   const { t } = useTranslation();
   const [snoozeDays, setSnoozeDays] = useState(NO_SNOOZE);
@@ -45,7 +48,7 @@ export const ValidationErrorsModal = ({
     if (isOpen) setSnoozeDays(NO_SNOOZE);
   }, [isOpen]);
   const [, setSelectedBlockIds] = useSelectedBlockIds();
-  const gotoPage = useBuilderProp("gotoPage", (_arg: { pageId: string; lang?: string }) => {});
+  const gotoPage = useBuilderProp("gotoPage", (_arg: { pageId: string; lang?: string }) => { });
   const { selectedLang, fallbackLang } = useLanguages();
 
   const errorList = errors.filter((e) => e.severity === "error");
@@ -74,7 +77,9 @@ export const ValidationErrorsModal = ({
             {t("Page Validation Issues")}
           </DialogTitle>
           <DialogDescription>
-            {t("The following issues were found on this page. You can fix them or continue anyway.")}
+            {blocked
+              ? t("The following issues were found on this page.")
+              : t("The following issues were found on this page. You can fix them or continue anyway.")}
           </DialogDescription>
         </DialogHeader>
 
@@ -112,7 +117,9 @@ export const ValidationErrorsModal = ({
         </div>
 
         <DialogFooter className="gap-2 sm:items-center sm:justify-between sm:gap-0">
-          {showSnooze ? (
+          {blocked ? (
+            <span className="text-xs font-medium text-red-600">{t("Resolve errors to publish the page.")}</span>
+          ) : showSnooze ? (
             <div className="flex items-center gap-2">
               <span className="text-muted-foreground whitespace-nowrap text-xs">{t("Do not show for")}</span>
               <Select value={snoozeDays} onValueChange={setSnoozeDays}>
@@ -138,9 +145,11 @@ export const ValidationErrorsModal = ({
             <Button variant="outline" size="sm" onClick={onClose}>
               {t("Cancel")}
             </Button>
-            <Button size="sm" onClick={() => onContinue(showSnooze ? Number(snoozeDays) : 0)}>
-              {actionLabel}
-            </Button>
+            {!blocked && (
+              <Button size="sm" onClick={() => onContinue(showSnooze ? Number(snoozeDays) : 0)}>
+                {actionLabel}
+              </Button>
+            )}
           </div>
         </DialogFooter>
       </DialogContent>
@@ -164,12 +173,11 @@ const ValidationErrorItem = ({
 
   return (
     <div
-      className={`rounded p-2 text-xs ${
-        isError
+      className={`rounded p-2 text-xs ${isError
           ? "border border-red-200 bg-red-50 text-red-700"
           : "border border-orange-200 bg-orange-50 text-orange-700"
-      }`}>
-      <div className="mb-1">{error.message}</div>
+        }`}>
+      <div>{error.message}</div>
       <div className="flex items-center gap-2">
         {error.blockId && !isInPartial && (
           <button

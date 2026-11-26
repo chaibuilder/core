@@ -155,7 +155,7 @@ const SiteContextTab = ({
           <Label htmlFor="look-select">{t("Look")}</Label>
           <Select value={site.look || ""} onValueChange={(value) => onChange({ site: { ...site, look: value } })}>
             <SelectTrigger id="look-select">
-              <SelectValue placeholder="Select look" />
+              <SelectValue placeholder={t("Select look")} />
             </SelectTrigger>
             <SelectContent>
               {LOOK_OPTIONS.map((option) => (
@@ -170,7 +170,7 @@ const SiteContextTab = ({
           <Label htmlFor="tone-select">{t("Tone")}</Label>
           <Select value={site.tone || ""} onValueChange={(value) => onChange({ site: { ...site, tone: value } })}>
             <SelectTrigger id="tone-select">
-              <SelectValue placeholder="Select tone" />
+              <SelectValue placeholder={t("Select tone")} />
             </SelectTrigger>
             <SelectContent>
               {TONE_OPTIONS.map((option) => (
@@ -190,11 +190,11 @@ const SiteContextTab = ({
           id="banned-words-input"
           value={site.bannedWords || ""}
           onChange={(e) => onChange({ site: { ...site, bannedWords: e.target.value } })}
-          placeholder="e.g. word1, word2, word3"
+          placeholder={t("e.g. word1, word2, word3")}
         />
         <p className="text-muted-foreground mt-1 text-[10px]">
-          <span className="font-medium">Note:</span> These words will be avoided by AI. Enter them as a comma-separated
-          list.
+          <span className="font-medium">{t("Note:")}</span>{" "}
+          {t("These words will be avoided by AI. Enter them as a comma-separated list.")}
         </p>
       </div>
     </div>
@@ -356,13 +356,13 @@ export const AiContextModal = ({
       if (error?.canBuyCredits) {
         toast.error(<p className="font-medium">{error.message || t("Failed to enhance with AI")}</p>, {
           action: {
-            label: "Buy Credits",
+            label: t("Buy Credits"),
             onClick: () => window.open("/plan/addons", "_blank"),
           },
           duration: 8000,
         });
       } else {
-        toast.error(error?.message || "Failed to enhance with AI");
+        toast.error(error?.message || t("Failed to enhance with AI"));
       }
     } finally {
       setIsSiteEnhancing(false);
@@ -402,9 +402,9 @@ export const AiContextModal = ({
     } catch (error: any) {
       console.error("Enhance page error:", error);
       if (error?.canBuyCredits) {
-        toast.error(<p className="font-medium">{error.message || "Failed to enhance with AI"}</p>, {
+        toast.error(<p className="font-medium">{error.message || t("Failed to enhance with AI")}</p>, {
           action: {
-            label: "Buy Credits",
+            label: t("Buy Credits"),
             onClick: () => window.open("/plan/addons", "_blank"),
           },
           duration: 8000,
@@ -462,8 +462,7 @@ export const AiContextModal = ({
         <DialogHeader className="px-5 pt-3 pb-2">
           <DialogTitle className="py-0 text-sm leading-none">{t("Manage Context")}</DialogTitle>
           <DialogDescription id="ai-context-description" className="text-muted-foreground py-0 text-xs leading-none">
-            {t("Configure site and page context to help AI generate better, more")}
-            relevant content.
+            {t("Configure site and page context to help AI generate better, more relevant content.")}
           </DialogDescription>
         </DialogHeader>
 

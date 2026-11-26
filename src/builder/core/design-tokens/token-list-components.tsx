@@ -107,7 +107,7 @@ export const SingleToken: React.FC<SingleTokenProps> = ({
                   e.stopPropagation();
                   unarchiveToken(tokenId);
                 }}>
-                <span className="text-[10px]">Restore</span>
+                <span className="text-[10px]">{t("Restore")}</span>
               </Button>
             )}
             {canDelete && (
@@ -119,7 +119,7 @@ export const SingleToken: React.FC<SingleTokenProps> = ({
                   deleteToken(tokenId);
                 }}
                 className="text-destructive hover:text-destructive">
-                <span className="text-[10px]">Delete</span>
+                <span className="text-[10px]">{t("Delete")}</span>
               </Button>
             )}
           </>
@@ -325,7 +325,7 @@ export const CustomTokensList: React.FC = () => {
                             e.stopPropagation();
                             handleArchiveClick(tokenId, token.name);
                           }}>
-                          <span className="text-[10px]">Archive</span>
+                          <span className="text-[10px]">{t("Archive")}</span>
                         </Button>
                       )}
                     </div>

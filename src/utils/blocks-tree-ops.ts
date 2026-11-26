@@ -15,6 +15,21 @@ export { insertBlocksAtPosition } from "~/builder/hooks/history/insert-block-at-
 const fitsMaxDepth = (parentId: string, allBlocks: ChaiBlock[], maxDepth: number) =>
   maxDepth < 0 || getBlockDepth(parentId, allBlocks) + 1 <= maxDepth;
 
+const canPlaceInto = (parent: ChaiBlock, childType: string, allBlocks: ChaiBlock[], depthLimit: number) =>
+  canAcceptInto(parent, childType, allBlocks) &&
+  canBeNestedInside(parent._type, childType) &&
+  // A slot takes whatever its owner's accept rule allows at any depth: the owner made room for it.
+  (fitsMaxDepth(parent._id, allBlocks, depthLimit) || parent._type === "ChaiSlot");
+
+// Whether a block of `childType` may take `blockId`'s place under the same parent.
+export const canReplaceWith = (blockId: string, childType: string, allBlocks: ChaiBlock[], maxDepth?: number) => {
+  const target = find(allBlocks, { _id: blockId });
+  if (!target) return false;
+  if (!target._parent) return true;
+  const parent = find(allBlocks, { _id: target._parent });
+  return !!parent && canPlaceInto(parent, childType, allBlocks, maxDepth ?? getBlockMaxDepth(childType));
+};
+
 /**
  * Resolve the nearest valid parent and insertion position for a new block.
  * Callers that accept an explicit parent must validate that id exists first;
@@ -45,12 +60,7 @@ export const getParentAndPosition = (
     const candidateParent = allBlocks.find((block) => block._id === currentTargetId);
     if (!candidateParent) break;
 
-    if (
-      canAcceptInto(candidateParent, childType, allBlocks) &&
-      canBeNestedInside(candidateParent._type, childType) &&
-      // A slot takes whatever its owner's accept rule allows at any depth: the owner made room for it.
-      (fitsMaxDepth(candidateParent._id, allBlocks, depthLimit) || candidateParent._type === "ChaiSlot")
-    ) {
+    if (canPlaceInto(candidateParent, childType, allBlocks, depthLimit)) {
       parentBlockId = candidateParent._id;
       break;
     }
@@ -198,3 +208,24 @@ export const removeNestedBlocks = (blocks: ChaiBlock[], blockIds: Array<string>)
   if (!isEmpty(_blockIds)) return removeNestedBlocks(_blocks, _blockIds);
   return _blocks;
 };
+
+/** Collect the given root block IDs and every descendant ID inside them. */
+export function collectSubtreeIds(blocks: ChaiBlock[], roots: string[]): Set<string> {
+  const children = new Map<string, string[]>();
+  for (const block of blocks) {
+    if (!block._parent) continue;
+    const list = children.get(block._parent);
+    if (list) list.push(block._id);
+    else children.set(block._parent, [block._id]);
+  }
+  const ids = new Set<string>();
+  const stack = [...roots];
+  while (stack.length) {
+    const id = stack.pop() as string;
+    if (ids.has(id)) continue;
+    ids.add(id);
+    const next = children.get(id);
+    if (next) stack.push(...next);
+  }
+  return ids;
+}

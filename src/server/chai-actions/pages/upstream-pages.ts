@@ -87,6 +87,15 @@ export class CloneUpstreamPageAction extends ChaiBaseAction<{ id: string }, { ta
 
     // The upstream is reached only through the linked page's own stored pointer.
     const { upstream: upstreamId, lastSaved } = await readUpstreamPointer(id, appId, true);
+    let duplicable: Record<string, boolean> | undefined;
+    try {
+      duplicable = await source.canDuplicate?.({ ids: [upstreamId], appId });
+    } catch (error) {
+      throw new ActionError("Failed to read upstream page", "UPSTREAM_LOOKUP_FAILED", 500, error);
+    }
+    if (duplicable?.[upstreamId] === false) {
+      throw new ActionError("This page can't be duplicated", "UPSTREAM_PAGE_LOCKED", 403);
+    }
     const content = await source.getContent(upstreamId, { appId }).catch((error: unknown) => {
       throw new ActionError("Failed to read upstream page", "UPSTREAM_LOOKUP_FAILED", 500, error);
     });

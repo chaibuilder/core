@@ -22,7 +22,7 @@ export function BreakpointSelector() {
         <p className="flex flex-1 items-center space-x-2 text-[10px] text-foreground">
           <span className="text-xs text-foreground">
             <span className="rounded-md bg-muted px-1 py-px text-xs font-bold uppercase text-muted-foreground">
-              {breakpoint === "xs" ? "Base" : breakpoint}
+              {breakpoint === "xs" ? t("Base") : breakpoint}
             </span>
             &nbsp; {t(message)}
           </span>

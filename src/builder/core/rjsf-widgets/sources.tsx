@@ -1,11 +1,13 @@
 import { Cross1Icon, PlusIcon } from "@radix-ui/react-icons";
 import { FieldProps } from "@rjsf/utils";
 import { get, map, reject } from "lodash-es";
+import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Label } from "~/components/ui/label";
 
 const SourcesField = ({ formData, onChange }: FieldProps) => {
+  const { t } = useTranslation();
   const srcsets = get(formData, "srcsets", []) || [];
 
   const onChangeSources = (e: React.ChangeEvent<HTMLInputElement>, index: number) => {
@@ -33,7 +35,7 @@ const SourcesField = ({ formData, onChange }: FieldProps) => {
   return (
     <div>
       <div className="flex items-center justify-between pb-2">
-        <Label>Responsive Video (optional)</Label>
+        <Label>{t("Responsive Video (optional)")}</Label>
         <Button onClick={addNewSource} variant="outline" size="icon-xs">
           <PlusIcon className="h-3 w-3" />
         </Button>
@@ -41,7 +43,7 @@ const SourcesField = ({ formData, onChange }: FieldProps) => {
       <div className="space-y-2">
         {srcsets.length === 0 ? (
           <div className="rounded border border-dashed border-border p-2 text-xs italic text-gray-500">
-            Add additional sources to create responsive videos
+            {t("Add additional sources to create responsive videos")}
           </div>
         ) : (
           map(srcsets, (source, index) => {
@@ -54,10 +56,10 @@ const SourcesField = ({ formData, onChange }: FieldProps) => {
                   <Cross1Icon className="h-2.5 w-2.5 text-white" />
                 </button>
                 <div className="flex items-center gap-x-2">
-                  <Label className="mb-0 flex w-1/5 items-center justify-start">Width</Label>
+                  <Label className="mb-0 flex w-1/5 items-center justify-start">{t("Width")}</Label>
                   <Input
                     name="width"
-                    placeholder="Enter width (in px)"
+                    placeholder={t("Enter width (in px)")}
                     type="number"
                     value={get(source, "width")}
                     onChange={(e) => onChangeSources(e, index)}
@@ -65,10 +67,10 @@ const SourcesField = ({ formData, onChange }: FieldProps) => {
                   />
                 </div>
                 <div className="flex items-center gap-x-2">
-                  <Label className="mb-0 flex w-1/5 items-center justify-start">URL</Label>
+                  <Label className="mb-0 flex w-1/5 items-center justify-start">{t("URL")}</Label>
                   <Input
                     name="url"
-                    placeholder="Enter url"
+                    placeholder={t("Enter url")}
                     className="h-8 text-xs"
                     value={get(source, "url", "")}
                     onChange={(e) => onChangeSources(e, index)}

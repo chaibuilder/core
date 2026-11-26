@@ -202,22 +202,21 @@ export const transformNode = (node: HimalayaNode, currentBlocks: ChaiBlock[], op
         node.attributes.push(...getSlotAcceptAttrs(block, ownerType));
       }
 
-      // Icon blocks: strip the raw SVG and replace with a Lucide icon name
-      // when extractable, so the AI knows which icon is used.
+      // Icon blocks: replace Lucide SVG with `icon-name` when extractable; keep
+      // the raw `icon` SVG when no Lucide name can be derived (matching blocksToAiHtml)
+      // so non-Lucide icons survive a read -> edit round-trip.
       if (blockType === "Icon") {
         const iconAttr = node.attributes.find((attr) => attr.key === "icon");
         const svg = iconAttr?.value ?? "";
         const isDefault = svg.includes("chai-default-svg");
-        node.attributes = node.attributes.filter((attr) => attr.key !== "icon");
-        if (!isDefault) {
-          // SVGs may carry both `lucide-{name}-icon` and `lucide-{name}`.
-          // Collect all tokens and prefer the one without a `-icon` suffix.
-          const tokens = svg.match(/\blucide-([\w-]+)\b/g);
-          if (tokens) {
-            const names = tokens.map((t) => t.replace("lucide-", ""));
-            const name = names.find((n) => !n.endsWith("-icon")) ?? names[0].replace(/-icon$/, "");
-            node.attributes.push({ key: "icon-name", value: name });
-          }
+        const tokens = isDefault ? null : svg.match(/\blucide-([\w-]+)\b/g);
+        if (isDefault) {
+          node.attributes = node.attributes.filter((attr) => attr.key !== "icon");
+        } else if (tokens) {
+          const names = tokens.map((t) => t.replace("lucide-", ""));
+          const name = names.find((n) => !n.endsWith("-icon")) ?? names[0].replace(/-icon$/, "");
+          node.attributes = node.attributes.filter((attr) => attr.key !== "icon");
+          node.attributes.push({ key: "icon-name", value: name });
         }
       }
 

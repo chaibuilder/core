@@ -226,7 +226,7 @@ const RootLayout: ComponentType = () => {
                       "no-scrollbar h-full max-h-full overflow-y-auto " +
                       (get(activePanelItem, "label", "") !== "" ? "pt-10" : "")
                     }>
-                    <Suspense fallback={<div>Loading...</div>}>
+                    <Suspense fallback={<div>{t("Loading...")}</div>}>
                       {React.createElement(get(activePanelItem, "panel", NoopComponent), {})}
                     </Suspense>
                   </div>
@@ -281,7 +281,7 @@ const RootLayout: ComponentType = () => {
                     </div>
                   </h2>
                   <div className="flex h-full max-h-full min-h-0 w-full">
-                    <Suspense fallback={<div>Loading...</div>}>
+                    <Suspense fallback={<div>{t("Loading...")}</div>}>
                       {panel === "theme" ? <GlobalStylesPanel /> : <SettingsPanel />}
                     </Suspense>
                   </div>
@@ -305,7 +305,7 @@ const RootLayout: ComponentType = () => {
                 </SheetTitle>
               </SheetHeader>
               <div className="h-full max-h-full overflow-y-auto p-4">
-                <Suspense fallback={<div>Loading...</div>}>
+                <Suspense fallback={<div>{t("Loading...")}</div>}>
                   {React.createElement(get(activePanelItem, "panel", NoopComponent), {
                     close: closeNonStandardPanel,
                   } as any)}
@@ -325,7 +325,7 @@ const RootLayout: ComponentType = () => {
                 </DialogTitle>
               </DialogHeader>
               <div className="max-h-[70vh] overflow-y-auto p-4">
-                <Suspense fallback={<div>Loading...</div>}>
+                <Suspense fallback={<div>{t("Loading...")}</div>}>
                   {React.createElement(get(activePanelItem, "panel", NoopComponent), {
                     close: closeNonStandardPanel,
                   } as any)}
@@ -359,7 +359,7 @@ const RootLayout: ComponentType = () => {
                   </Button>
                 </div>
                 <div className="flex-1 overflow-y-auto p-4">
-                  <Suspense fallback={<div>Loading...</div>}>
+                  <Suspense fallback={<div>{t("Loading...")}</div>}>
                     {React.createElement(get(activePanelItem, "panel", NoopComponent), {
                       close: closeNonStandardPanel,
                     } as any)}

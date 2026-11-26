@@ -1,9 +1,10 @@
 import { filter, groupBy, map, uniq } from "lodash-es";
 import { ChaiBuilderBlocks } from "~/builder/core/components/sidepanels/panels/add-blocks/add-blocks";
-import { isBlockAvailableForPageType } from "~/builder/core/functions/block-helpers";
+import { isBlockAvailable } from "~/builder/core/functions/block-helpers";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { usePrimaryPage } from "~/builder/pages/hooks/pages/use-current-page";
 import { useRegisteredChaiBlocks } from "~/registry";
+import type { ChaiCanShowBlock } from "~/types/chaibuilder-editor-props";
 
 export const DefaultChaiBlocks = ({
   parentId,
@@ -24,12 +25,13 @@ export const DefaultChaiBlocks = ({
   const { data: currentPage } = usePrimaryPage();
   const currentPageType = currentPage?.pageType || "page";
   const layoutPagesEnabled = useBuilderProp("flags.layoutPages", false);
+  const canShowBlock = useBuilderProp<ChaiCanShowBlock | undefined>("canShowBlock", undefined);
   const showPageSlot = layoutPagesEnabled && currentPageType === "_layout";
 
   const groupedBlocks = groupBy(chaiBlocks, "category") as Record<string, any[]>;
   const availableBlocks = filter(
     groupedBlocks.core,
-    (block) => !block.showInLibrary && isBlockAvailableForPageType(block, currentPageType),
+    (block) => !block.showInLibrary && isBlockAvailable(block, currentPageType, canShowBlock),
   ).map((block) => (block.type === "PageSlot" && showPageSlot ? { ...block, hidden: false } : block));
   const uniqueTypeGroup = uniq(map(availableBlocks, "group"));
 

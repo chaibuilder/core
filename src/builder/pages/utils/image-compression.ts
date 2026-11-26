@@ -1,5 +1,6 @@
 import Compressor from "compressorjs";
 import { toast } from "sonner";
+import i18n from "~/builder/core/locales/load";
 
 // Maximum size before compression (3MB)
 const MAX_COMPRESS_SIZE = 0.5 * 1024 * 1024;
@@ -47,7 +48,13 @@ export function compressImageIfNeeded(
       },
       error(err) {
         toast.error(
-          `Failed to compress image. Image size is ${formatFileSize(file.size)}, which exceeds the maximum allowed size of ${formatFileSize(MAX_AFTER_COMPRESS_SIZE)}.`,
+          i18n.t(
+            "Failed to compress image. Image size is {{size}}, which exceeds the maximum allowed size of {{maxSize}}.",
+            {
+              size: formatFileSize(file.size),
+              maxSize: formatFileSize(MAX_AFTER_COMPRESS_SIZE),
+            },
+          ),
         );
         reject(err);
       },

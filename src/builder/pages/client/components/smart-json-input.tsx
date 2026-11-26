@@ -1,5 +1,6 @@
 import { AlertTriangle, Code, Eye, FileCode2 } from "lucide-react";
 import { startTransition, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ErrorBoundary } from "react-error-boundary";
 import { ChaiNestedPathSelector } from "~/builder/core/components/nested-path-selector";
 import {
@@ -52,6 +53,7 @@ export const SmartJsonInput: React.FC<SmartJsonInputProps> = ({
   copyJsonLDFromDefaultPage,
   topRightComponent = null,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("edit");
   const [jsonError, setJsonError] = useState<JsonError | null>(null);
   const [previewJson, setPreviewJson] = useState("");
@@ -178,18 +180,18 @@ export const SmartJsonInput: React.FC<SmartJsonInputProps> = ({
   };
 
   return (
-    <ErrorBoundary fallback={<div>Some error</div>}>
+    <ErrorBoundary fallback={<div>{t("Some error")}</div>}>
       <div className="space-y-2">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <div className="mb-2 flex items-center justify-between">
             <TabsList className="w-max">
               <TabsTrigger value="edit" className="px-3">
                 <Code className="h-4 w-4" />
-                <span>Edit</span>
+                <span>{t("Edit")}</span>
               </TabsTrigger>
               <TabsTrigger value="preview" className="px-3" disabled={!value.trim() || jsonError !== null}>
                 <Eye className="h-4 w-4" />
-                <span>Preview</span>
+                <span>{t("Preview")}</span>
               </TabsTrigger>
             </TabsList>
             <div className="flex items-center gap-1">
@@ -206,7 +208,7 @@ export const SmartJsonInput: React.FC<SmartJsonInputProps> = ({
 
           <TabsContent value="edit" className="relative mt-0">
             {!showOptionToCopyJsonLd && activeTab === "edit" && (
-              <Tooltip content="Format JSON" side="right" showTooltip={!disabled && !jsonError}>
+              <Tooltip content={t("Format JSON")} side="right" showTooltip={!disabled && !jsonError}>
                 <Button
                   type="button"
                   variant="outline"
@@ -225,10 +227,10 @@ export const SmartJsonInput: React.FC<SmartJsonInputProps> = ({
               <div className="bg-muted/10 flex h-40 items-center justify-center rounded-md">
                 <div className="rounded-m flex max-w-[400px] flex-col items-center gap-3 p-4">
                   <div className="text-muted max-w-xl text-center text-xs">
-                    JSON-LD for is not added for selected language. JSON LD will be used from default language.
+                    {t("JSON-LD for is not added for selected language. JSON LD will be used from default language.")}
                   </div>
                   <Button type="button" variant="default" size="sm" onClick={copyJsonLDFromDefaultPage}>
-                    Copy & Edit from default language
+                    {t("Copy & Edit from default language")}
                   </Button>
                 </div>
               </div>
@@ -268,7 +270,7 @@ export const SmartJsonInput: React.FC<SmartJsonInputProps> = ({
                   <span>{`${jsonError.message}`}</span>
                   {!bindingMode && (
                     <Button type="button" variant="link" size="sm" className="h-auto p-0" onClick={highlightError}>
-                      Show
+                      {t("Show")}
                     </Button>
                   )}
                 </div>

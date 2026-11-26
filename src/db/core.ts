@@ -52,19 +52,40 @@ export type ChaiDbSetup = {
   withSchema?: (schema: Record<string, unknown>) => ChaiDbInstance;
 };
 
-let _db: ChaiDbInstance | null = null;
-let _activeSchema: Record<string, unknown> | null = null;
-let _dialect: ChaiDbDialect = "pg";
-let _teardown: (() => void) | null = null;
+type ChaiDbSingletonState = {
+  db: ChaiDbInstance | null;
+  activeSchema: Record<string, unknown> | null;
+  dialect: ChaiDbDialect;
+  teardown: (() => void) | null;
+  tornDown: WeakSet<ChaiDbInstance>;
+};
+
+// Kept on `globalThis` like `site-domains.ts`, `state.ts`, and `action-hooks.ts`:
+// Next.js / Turbopack builds separate server module graphs per route chunk, so a
+// plugin resolver registered on `globalThis` (e.g. `appDomainsResolver`) must see
+// the same live DB singleton registered by whichever chunk handles the request.
+const _g = globalThis as typeof globalThis & { __chaiDbState?: ChaiDbSingletonState };
+
+function getState(): ChaiDbSingletonState {
+  return (_g.__chaiDbState ??= {
+    db: null,
+    activeSchema: null,
+    dialect: "pg",
+    teardown: null,
+    tornDown: new WeakSet(),
+  });
+}
 
 function teardownSingletonDb(): void {
-  if (_teardown) {
-    _teardown();
+  const state = getState();
+  if (state.teardown) {
+    if (state.db) state.tornDown.add(state.db);
+    state.teardown();
   }
-  _db = null;
-  _activeSchema = null;
-  _dialect = "pg";
-  _teardown = null;
+  state.db = null;
+  state.activeSchema = null;
+  state.dialect = "pg";
+  state.teardown = null;
 }
 
 /** Registers the ChaiBuilder DB singleton from `buildChaiBuilderConfig({ db })`. */
@@ -73,22 +94,30 @@ export function registerChaiDb(setup: ChaiDbSetup): void {
     throw new Error("ChaiBuilder: invalid `db` setup. Pass `db: createPostgresDB(...)` (or libsql/d1/better-sqlite3).");
   }
 
-  if (_db !== null && _db === setup.drizzle) {
-    _activeSchema = setup.schema;
-    _dialect = setup.dialect ?? "pg";
-    _teardown = setup.teardown ?? null;
+  const state = getState();
+
+  if (state.db !== null && state.db === setup.drizzle) {
+    state.activeSchema = setup.schema;
+    state.dialect = setup.dialect ?? "pg";
+    state.teardown = setup.teardown ?? null;
+    return;
+  }
+
+  // A stale route chunk can invoke `createCore(config)` after another chunk already
+  // replaced and tore down its pool. Keep the live DB instead of resurrecting a closed pool.
+  if (state.db !== null && state.tornDown.has(setup.drizzle)) {
     return;
   }
 
   teardownSingletonDb();
-  _db = setup.drizzle;
-  _activeSchema = setup.schema;
-  _dialect = setup.dialect ?? "pg";
-  _teardown = setup.teardown ?? null;
+  state.db = setup.drizzle;
+  state.activeSchema = setup.schema;
+  state.dialect = setup.dialect ?? "pg";
+  state.teardown = setup.teardown ?? null;
 }
 
 export function getChaiDbDialect(): ChaiDbDialect {
-  return _dialect;
+  return getState().dialect;
 }
 
 /** Drops the singleton and runs teardown when ChaiBuilder opened the connection. */
@@ -98,7 +127,7 @@ export function resetChaiDbForTests(): void {
 
 /** Ensures the database singleton is registered (sync — no lazy init). */
 export async function ensureChaiDbReady(): Promise<void> {
-  if (!_db) {
+  if (!getState().db) {
     throw new Error(
       "ChaiBuilder database was not initialized. Pass `db` to `buildChaiBuilderConfig` " +
         "(`db: createPostgresDB(...)`, `createLibsqlDB(...)`, etc.).",
@@ -108,13 +137,14 @@ export async function ensureChaiDbReady(): Promise<void> {
 
 /** Chai Drizzle singleton; configured only through `buildChaiBuilderConfig({ db: … })`. */
 export function getChaiDb(): ChaiDbInstance {
-  if (!_db) {
+  const current = getState().db;
+  if (!current) {
     throw new Error(
       "ChaiBuilder database was not initialized. Pass `db` to `buildChaiBuilderConfig` " +
         "(`db: createPostgresDB(...)`, `createLibsqlDB(...)`, etc.).",
     );
   }
-  return _db;
+  return current;
 }
 
 export const db: ChaiDbInstance = new Proxy({} as ChaiDbInstance, {
@@ -143,7 +173,7 @@ export const schema = new Proxy({} as ChaiCoreSchema, {
   get(_, prop) {
     // Fallback covers code paths that touch tables before registerDb (scripts,
     // unit tests); a registered setup always wins, whatever its dialect.
-    const active = _activeSchema || coreSchema;
+    const active = getState().activeSchema || coreSchema;
     return (active as any)[prop];
   },
 }) as ChaiCoreSchema;

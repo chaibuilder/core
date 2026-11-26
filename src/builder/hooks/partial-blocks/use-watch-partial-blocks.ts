@@ -1,6 +1,7 @@
 import { useAtom } from "jotai";
 import { get } from "lodash-es";
 import { useEffect, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { useBlocksStore } from "~/builder/hooks/history/use-blocks-store-undoable-actions";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
 import { MAX_PARTIAL_DEPTH } from "~/constants/PARTIAL_BLOCKS";
@@ -9,6 +10,7 @@ import { partialBlocksAtom } from "./atoms";
 import { extractPartialIds, isMissingPartialError } from "./utils";
 
 export const useWatchPartialBlocks = () => {
+  const { t } = useTranslation();
   const [blocksStore] = useBlocksStore();
   const [partialBlocks, setPartialBlocks] = useAtom(partialBlocksAtom);
   const getPartialBlockBlocks = useBuilderProp("getPartialBlockBlocks", async (_key: string) => []);
@@ -88,10 +90,10 @@ export const useWatchPartialBlocks = () => {
               dependencies: [],
               status: isMissing ? "missing" : "error",
               error: isMissing
-                ? "This global block no longer exists"
+                ? t("This global block no longer exists")
                 : error instanceof Error
                   ? error.message
-                  : "Failed to fetch",
+                  : t("Failed to fetch"),
             },
           }));
         } finally {
@@ -99,5 +101,5 @@ export const useWatchPartialBlocks = () => {
         }
       }),
     );
-  }, [partialBlocksList, partialBlocks, setPartialBlocks, getPartialBlockBlocks]);
+  }, [partialBlocksList, partialBlocks, setPartialBlocks, getPartialBlockBlocks, t]);
 };

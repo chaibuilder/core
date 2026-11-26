@@ -48,7 +48,7 @@ describe("Structure Rule: no-animation-above-the-fold", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       id: "animation-above-the-fold-hero-title",
-      message: "Avoid using animations on above-the-fold content for better performance and SEO",
+      message: "Remove the animation from content at the top of the page. It slows the page down and can hurt search ranking.",
       severity: "warning",
       blockId: "hero-title",
       partialBlockId: undefined,
@@ -131,7 +131,7 @@ describe("Structure Rule: no-lazy-load-above-the-fold", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       id: "lazy-load-above-the-fold-image-1",
-      message: "Avoid lazy loading above-the-fold images for better LCP (Largest Contentful Paint)",
+      message: "This image is at the top of the page. Turn off Lazy Load so it shows up right away.",
       severity: "warning",
       blockId: "image-1",
       partialBlockId: undefined,
@@ -200,7 +200,7 @@ describe("Structure Rule: form-has-required-field", () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]).toEqual({
       id: "form-has-required-field-form-1",
-      message: "Form should contain at least one required field.",
+      message: "Make at least one field in this form required.",
       severity: "warning",
       blockId: "form-1",
       partialBlockId: undefined,

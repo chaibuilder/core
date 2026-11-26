@@ -39,8 +39,7 @@ export const PartialBlockCard = ({
 
   const addBlockToPage = () => {
     if (isDisabled) return;
-    addCoreBlock(block, parentId || null, position);
-    pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
+    if (addCoreBlock(block, parentId || null, position)) pubsub.publish(CHAI_BUILDER_EVENTS.CLOSE_ADD_BLOCK);
   };
 
   return (

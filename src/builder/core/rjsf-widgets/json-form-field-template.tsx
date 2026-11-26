@@ -2,6 +2,7 @@ import { ChevronDownIcon, ChevronRightIcon, InfoCircledIcon, ListBulletIcon } fr
 import { FieldTemplateProps } from "@rjsf/utils";
 import { get, isEmpty } from "lodash-es";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { usePageExternalData } from "~/builder/atoms/builder";
 import { useLanguages } from "~/builder/hooks/use-languages";
 import { useSelectedBlock } from "~/builder/hooks/use-selected-blockIds";
@@ -15,6 +16,7 @@ import { useRegisteredChaiBlocks } from "~/registry";
 import { DataBindingSelector } from "./data-binding-selector";
 
 const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
+  const { t } = useTranslation();
   const { id, classNames, label, children, errors, help, hidden, required, schema, formData, onChange } = props;
   const { selectedLang, fallbackLang, languages } = useLanguages();
   const lang = useMemo(
@@ -140,8 +142,8 @@ const JSONFormFieldTemplate = (props: FieldTemplateProps) => {
                   <Tooltip
                     content={
                       <>
-                        No translation provided. <br />
-                        Using default language value.
+                        {t("No translation provided.")} <br />
+                        {t("Using default language value.")}
                       </>
                     }
                     side="left">

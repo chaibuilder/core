@@ -1,5 +1,5 @@
 import { useAtomValue, useSetAtom } from "jotai";
-import { isEqual } from "lodash-es";
+import { find, isEqual } from "lodash-es";
 import { useCallback } from "react";
 import {
   hasStructureErrorsAtom,
@@ -7,14 +7,29 @@ import {
   structureErrorsAtom,
   structureValidationValidAtom,
 } from "~/builder/atoms/blocks";
+import { chaiBuilderPropsAtom } from "~/builder/atoms/builder";
+import { builderStore } from "~/builder/atoms/store";
 import { canvasIframeAtom } from "~/builder/atoms/ui";
 import { useBuilderProp } from "~/builder/hooks/use-builder-prop";
-import { StructureError, StructureRule, defaultRuleRegistry } from "./structure-rules";
+import {
+  StructureError,
+  StructureRule,
+  StructureRuleContext,
+  defaultRuleRegistry,
+  isRuleApplicable,
+} from "./structure-rules";
 
 export interface UseCheckStructureOptions {
   enableAccessibilityRules?: boolean;
   customRules?: StructureRule[];
 }
+
+// Read at run time, not render time: page-load validation fires from a closure older than the props.
+const getStructureRuleContext = (): StructureRuleContext => {
+  const { pageType, pageTypes } = builderStore.get(chaiBuilderPropsAtom) ?? {};
+  // A slugless page type is a partial/global block being edited on its own.
+  return find(pageTypes, { key: pageType })?.hasSlug === false ? "global-block" : "page";
+};
 
 // One timer for every caller, so a pending check survives its caller unmounting (e.g. a deleted block's toolbar).
 let validationTimer: ReturnType<typeof setTimeout> | undefined;
@@ -52,14 +67,17 @@ export const useCheckStructure = (options: UseCheckStructureOptions = {}) => {
     }
 
     // Run all structure validation rules
-    rulesToApply.forEach((rule) => {
-      try {
-        const ruleErrors = rule.validate(canvasDocument);
-        allErrors.push(...ruleErrors);
-      } catch (error) {
-        console.error(`Error running structure rule "${rule.name}":`, error);
-      }
-    });
+    const context = getStructureRuleContext();
+    rulesToApply
+      .filter((rule) => isRuleApplicable(rule, context))
+      .forEach((rule) => {
+        try {
+          const ruleErrors = rule.validate(canvasDocument);
+          allErrors.push(...ruleErrors);
+        } catch (error) {
+          console.error(`Error running structure rule "${rule.name}":`, error);
+        }
+      });
 
     const hasErrors = allErrors.filter((e) => e.severity === "error").length > 0;
     const hasWarnings = allErrors.filter((e) => e.severity === "warning").length > 0;
@@ -118,18 +136,21 @@ export const validateStructureSync = (
   }
 
   // Run all structure validation rules
-  rulesToApply.forEach((rule) => {
-    try {
-      const ruleErrors = rule.validate(canvasDocument);
-      allErrors.push(...ruleErrors);
-    } catch (error) {
-      console.error(`Error running structure rule "${rule.name}":`, error);
-    }
-  });
+  const context = getStructureRuleContext();
+  rulesToApply
+    .filter((rule) => isRuleApplicable(rule, context))
+    .forEach((rule) => {
+      try {
+        const ruleErrors = rule.validate(canvasDocument);
+        allErrors.push(...ruleErrors);
+      } catch (error) {
+        console.error(`Error running structure rule "${rule.name}":`, error);
+      }
+    });
 
   return allErrors;
 };
 
 // Export the rule registry for external use
 export { defaultRuleRegistry } from "./structure-rules";
-export type { StructureError, StructureRule } from "./structure-rules";
+export type { StructureError, StructureRule, StructureRuleContext } from "./structure-rules";

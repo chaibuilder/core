@@ -1,5 +1,6 @@
 import { useIsMutating, useMutation, useQueryClient } from "@tanstack/react-query";
 import { find, get } from "lodash-es";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { useQuerySync } from "~/builder/hooks/use-query-sync";
 import { useChaiSavePage } from "~/builder/hooks/use-save-page";
@@ -36,6 +37,7 @@ const getPageTypeLabel = (pageTypeObject: ChaiPageType | undefined, fallback: st
 };
 
 export const useCreatePage = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
@@ -67,16 +69,18 @@ export const useCreatePage = () => {
       });
 
       const successMessage = args.template
-        ? `Page created from "${args.template.name}" template`
+        ? t('Page created from "{{name}}" template', { name: args.template.name })
         : args.hasSlug === false
-          ? "New " + getPageTypeLabel(find(pageTypes, { key: args.pageType }), "item") + " added successfully"
-          : "New page added successfully";
+          ? t("New {{type}} added successfully", {
+              type: getPageTypeLabel(find(pageTypes, { key: args.pageType }), "item"),
+            })
+          : t("New page added successfully");
 
       toast.success(successMessage);
     },
     onError: (response, args) => {
       const pageTypeObject = find(pageTypes, { key: args.pageType });
-      toast.error(`Failed to add new ${getPageTypeLabel(pageTypeObject, "item")}.`, {
+      toast.error(t("Failed to add new {{type}}.", { type: getPageTypeLabel(pageTypeObject, "item") }), {
         description: get(ERRORS, response.message, response.message),
       });
     },
@@ -84,6 +88,7 @@ export const useCreatePage = () => {
 };
 
 export const useUpdatePage = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
@@ -125,7 +130,7 @@ export const useUpdatePage = () => {
     },
     onError: (response, args) => {
       const pageTypeObject = find(pageTypes, { key: args.pageType });
-      toast.error(`Failed to update ${getPageTypeLabel(pageTypeObject, "page")}.`, {
+      toast.error(t("Failed to update {{type}}.", { type: getPageTypeLabel(pageTypeObject, "page") }), {
         description: response.message,
       });
     },
@@ -133,6 +138,7 @@ export const useUpdatePage = () => {
 };
 
 export const useDeletePage = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const queryClient = useQueryClient();
   const fetchAPI = useFetch();
@@ -150,8 +156,8 @@ export const useDeletePage = () => {
     },
     onSuccess: (response: DeletePageMutationResult | null, args: any) => {
       if (response?.code === "PAGE_LOCKED") {
-        toast.error("Delete not allowed", {
-          description: `Page is currently being edited by another user.`,
+        toast.error(t("Delete not allowed"), {
+          description: t("Page is currently being edited by another user."),
         });
         return;
       }
@@ -175,7 +181,7 @@ export const useDeletePage = () => {
 
     onError: (response, args: any) => {
       const pageTypeObject = find(pageTypes, { key: args.pageType });
-      toast.error(`Failed to delete ${getPageTypeLabel(pageTypeObject, "page")}.`, {
+      toast.error(t("Failed to delete {{type}}.", { type: getPageTypeLabel(pageTypeObject, "page") }), {
         description: response.message,
       });
     },
@@ -183,6 +189,7 @@ export const useDeletePage = () => {
 };
 
 export const useUnpublishPage = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const { data: pageTypes } = useChaiPageTypes();
@@ -208,14 +215,14 @@ export const useUnpublishPage = () => {
       const pageTypeObject = find(pageTypes, { key: args.pageType });
       toast.success(
         !pageTypeObject?.hasSlug
-          ? "New " + getPageTypeLabel(pageTypeObject, "item") + " added successfully."
-          : "Page unpublished successfully.",
+          ? t("New {{type}} added successfully.", { type: getPageTypeLabel(pageTypeObject, "item") })
+          : t("Page unpublished successfully."),
       );
     },
 
     onError: (response, args: any) => {
       const pageTypeObject = find(pageTypes, { key: args.pageType });
-      toast.error(`Failed to take offline ${getPageTypeLabel(pageTypeObject, "page")}.`, {
+      toast.error(t("Failed to take offline {{type}}.", { type: getPageTypeLabel(pageTypeObject, "page") }), {
         description: response.message,
       });
     },
@@ -223,6 +230,7 @@ export const useUnpublishPage = () => {
 };
 
 export const usePublishPages = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const { savePageAsync } = useChaiSavePage();
@@ -249,7 +257,7 @@ export const usePublishPages = () => {
     },
     onError: (error) => {
       console.log(error);
-      toast.error("Failed to publish pages.");
+      toast.error(t("Failed to publish pages."));
     },
   });
 };
@@ -261,6 +269,7 @@ export const usePublishPages = () => {
 export const useIsPublishing = () => useIsMutating({ mutationKey: [ACTIONS.PUBLISH_CHANGES] }) > 0;
 
 export const useMarkAsTemplate = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
@@ -288,15 +297,16 @@ export const useMarkAsTemplate = () => {
       queryClient.invalidateQueries({
         queryKey: [ACTIONS.GET_WEBSITE_PAGES],
       });
-      toast.success("Page marked as template successfully.");
+      toast.success(t("Page marked as template successfully."));
     },
     onError: () => {
-      toast.error("Failed to mark page as template.");
+      toast.error(t("Failed to mark page as template."));
     },
   });
 };
 
 export const useUnmarkAsTemplate = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
@@ -312,15 +322,16 @@ export const useUnmarkAsTemplate = () => {
       queryClient.invalidateQueries({
         queryKey: [ACTIONS.GET_WEBSITE_PAGES],
       });
-      toast.success("Page unmarked as template successfully.");
+      toast.success(t("Page unmarked as template successfully."));
     },
     onError: () => {
-      toast.error("Failed to unmark page as template.");
+      toast.error(t("Failed to unmark page as template."));
     },
   });
 };
 
 export const useChangeSlug = () => {
+  const { t } = useTranslation();
   const apiUrl = useChaiApiUrl();
   const fetchAPI = useFetch();
   const queryClient = useQueryClient();
@@ -333,7 +344,7 @@ export const useChangeSlug = () => {
       });
     },
     onSuccess: (_, { primaryPage }: any) => {
-      toast.success("Slug changed successfully.");
+      toast.success(t("Slug changed successfully."));
       if (primaryPage) {
         queryClient.invalidateQueries({
           queryKey: [ACTIONS.GET_LANGUAGE_PAGES, primaryPage],
@@ -349,7 +360,7 @@ export const useChangeSlug = () => {
       });
     },
     onError: () => {
-      toast.error("Failed to change slug");
+      toast.error(t("Failed to change slug"));
     },
   });
 };

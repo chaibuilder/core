@@ -17,6 +17,7 @@ import React, { useMemo } from "react";
 import { STYLES_KEY } from "~/constants/STRINGS";
 import type { ChaiBlockConfig, ChaiBlockVariant } from "~/types/blocks";
 import { ChaiBlockComponentProps } from "~/types/blocks";
+import type { ChaiCanShowBlock } from "~/types/chaibuilder-editor-props";
 import { ChaiBlock, ChaiBlockPropsSchema, ChaiPageProps } from "~/types/common";
 
 const REGISTERED_CHAI_BLOCKS: Record<
@@ -28,12 +29,22 @@ export const useRegisteredChaiBlocks = () => {
   return REGISTERED_CHAI_BLOCKS;
 };
 
-/** Returns all registered ChaiBlock configs. Safe to call outside React. */
-export const getRegisteredChaiBlocks = (): Record<
+/** Returns all registered ChaiBlock configs, optionally narrowed by a filter. Safe to call outside React. */
+export const getRegisteredChaiBlocks = (
+  filter?: ChaiCanShowBlock,
+): Record<
   string,
   ChaiBlockConfig & { component: React.ComponentType<ChaiBlockComponentProps> }
 > => {
-  return REGISTERED_CHAI_BLOCKS;
+  if (!filter) return REGISTERED_CHAI_BLOCKS;
+  const filtered: Record<
+    string,
+    ChaiBlockConfig & { component: React.ComponentType<ChaiBlockComponentProps> }
+  > = {};
+  for (const [type, block] of Object.entries(REGISTERED_CHAI_BLOCKS)) {
+    if (filter(block, {})) filtered[type] = block;
+  }
+  return filtered;
 };
 
 export const useRegisteredChaiBlock = (type: keyof typeof REGISTERED_CHAI_BLOCKS) => {

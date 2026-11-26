@@ -13,6 +13,7 @@
 import { useAtom, useSetAtom } from "jotai";
 import { filter, find, get, has, isEmpty, isFunction } from "lodash-es";
 import { DragEvent, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   canvasRenderKeyAtom,
@@ -63,6 +64,7 @@ import { ChaiBlock } from "~/types/common";
  * <div onDrop={onDrop} />
  */
 export const useBlockDrop = () => {
+  const { t } = useTranslation();
   const [draggedBlock, setDraggedBlock] = useAtom(dragAndDropAtom);
   const setDropIndicator = useSetAtom(dropIndicatorAtom);
   const [iframe] = useCanvasIframe();
@@ -211,7 +213,7 @@ export const useBlockDrop = () => {
           const partialBlockId = dropBlock.partialBlockId || "";
           const { canAdd, reason } = checkPartialCanAdd(partialBlockId);
           if (!canAdd) {
-            toast.error(reason || `Cannot add this ${singular}`);
+            toast.error(reason || t("Cannot add this {{name}}", { name: singular }));
             return;
           }
           addCoreBlock(

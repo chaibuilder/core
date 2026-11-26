@@ -3,6 +3,7 @@ import { WidgetProps } from "@rjsf/utils";
 import { get } from "lodash-es";
 import { CheckCircle } from "lucide-react";
 import { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "~/components/ui/sheet";
@@ -26,13 +27,18 @@ const VariantCard = ({
   actionLabel: string;
   onSelect: (value: string) => void;
 }) => {
+  const { t } = useTranslation();
   const [broken, setBroken] = useState(false);
 
   return (
     <button
       type="button"
       aria-pressed={selected}
-      aria-label={selected ? `${option.label} (current)` : `${actionLabel} ${option.label}`}
+      aria-label={
+        selected
+          ? t("{{label}} (current)", { label: option.label })
+          : t("{{action}} {{label}}", { action: actionLabel, label: option.label })
+      }
       data-selected={selected || undefined}
       onClick={() => onSelect(option.value)}
       className={cn(
@@ -52,13 +58,13 @@ const VariantCard = ({
         ) : (
           <div className="flex h-20 flex-col items-center justify-center gap-1 text-xs text-muted-foreground">
             <ImageIcon className="h-4 w-4" />
-            No preview
+            {t("No preview")}
           </div>
         )}
         {selected ? (
           <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[10px] font-medium text-primary-foreground shadow-sm">
             <CheckCircle className="h-3 w-3" />
-            Current
+            {t("Current")}
           </span>
         ) : (
           // Shown on hover or keyboard focus: the whole card is the click target, this names the action.
@@ -81,6 +87,7 @@ const VariantCard = ({
 
 /** The Variant picker: a button naming the current variant that opens a sheet of variants with their images. */
 const VariantSelectWidget = ({ id, label, value, options, onChange, disabled, readonly, registry }: WidgetProps) => {
+  const { t } = useTranslation();
   const block = getRegisteredChaiBlock(get(registry, "formContext.blockType", ""));
   const [sheetOpen, setSheetOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -90,7 +97,13 @@ const VariantSelectWidget = ({ id, label, value, options, onChange, disabled, re
   const variantOptions: VariantOption[] = (options.enumOptions ?? []).map(({ value: optionValue, label: optionLabel }) => {
     // Default shows the block's own Library card.
     const entry = optionValue ? block?.variants?.[optionValue] : { preview: block?.preview };
-    return { value: optionValue, label: optionLabel, preview: entry?.preview, description: get(entry, "description") };
+    const rawDescription = get(entry, "description");
+    return {
+      value: optionValue,
+      label: optionLabel ? t(optionLabel) : "",
+      preview: entry?.preview,
+      description: rawDescription ? t(rawDescription) : undefined,
+    };
   });
   const currentLabel = variantOptions.find((option) => option.value === current)?.label;
   const search = query.trim().toLowerCase();
@@ -143,10 +156,10 @@ const VariantSelectWidget = ({ id, label, value, options, onChange, disabled, re
           <SheetHeader className="space-y-1 border-b border-border p-4 pr-10">
             <SheetTitle className="flex items-center gap-2 text-sm">
               <LayersIcon className="h-4 w-4 text-primary" />
-              Choose {label?.toLowerCase()}
+              {t("Choose {{label}}", { label: label?.toLowerCase() })}
             </SheetTitle>
             <SheetDescription className="text-xs">
-              {block?.label} · {variantOptions.length} layouts
+              {block?.label ? t(block.label) : ""} · {t("{{count}} layouts", { count: variantOptions.length })}
             </SheetDescription>
             {variantOptions.length > SEARCH_THRESHOLD && (
               <div className="relative pt-2">
@@ -155,8 +168,8 @@ const VariantSelectWidget = ({ id, label, value, options, onChange, disabled, re
                   type="search"
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search layouts"
-                  aria-label="Search layouts"
+                  placeholder={t("Search layouts")}
+                  aria-label={t("Search layouts")}
                   className="pl-8"
                 />
               </div>
@@ -169,12 +182,14 @@ const VariantSelectWidget = ({ id, label, value, options, onChange, disabled, re
                 option={option}
                 selected={option.value === current}
                 // Switching off a chosen layout resets its settings, so name it a replacement.
-                actionLabel={current ? "Replace" : "Choose"}
+                actionLabel={current ? t("Replace") : t("Choose")}
                 onSelect={choose}
               />
             ))}
             {visibleOptions.length === 0 && (
-              <p className="py-10 text-center text-xs text-muted-foreground">No layouts match “{query}”.</p>
+              <p className="py-10 text-center text-xs text-muted-foreground">
+                {t("No layouts match “{{query}}”.", { query })}
+              </p>
             )}
           </div>
         </SheetContent>

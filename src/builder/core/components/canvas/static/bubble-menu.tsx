@@ -13,6 +13,7 @@ import {
   UnderlineIcon,
 } from "@radix-ui/react-icons";
 import { Editor } from "@tiptap/react";
+import { useTranslation } from "react-i18next";
 import { cn } from "~/lib/utils";
 
 const BUBBLE_MENU_ICONS = {
@@ -59,10 +60,11 @@ interface BubbleMenuProps {
 }
 
 export const BubbleMenu = ({ editor }: BubbleMenuProps) => {
+  const { t } = useTranslation();
   if (!editor) return null;
 
   const addLink = () => {
-    const url = window.prompt("Enter URL");
+    const url = window.prompt(t("Enter URL"));
     if (url) {
       editor.chain().focus().setLink({ href: url }).run();
     }
@@ -73,32 +75,32 @@ export const BubbleMenu = ({ editor }: BubbleMenuProps) => {
       <div className="flex items-center p-1">
         <BubbleMenuButton
           icon="bold"
-          title="Bold"
+          title={t("Bold")}
           onClick={() => editor.chain().focus().toggleBold().run()}
           isActive={editor.isActive("bold")}
         />
         <BubbleMenuButton
           icon="italic"
-          title="Italic"
+          title={t("Italic")}
           onClick={() => editor.chain().focus().toggleItalic().run()}
           isActive={editor.isActive("italic")}
         />
         <BubbleMenuButton
           icon="underline"
-          title="Underline"
+          title={t("Underline")}
           onClick={() => editor.chain().focus().toggleUnderline().run()}
           isActive={editor.isActive("underline")}
         />
         <BubbleMenuButton
           icon="strikethrough"
-          title="Strikethrough"
+          title={t("Strikethrough")}
           onClick={() => editor.chain().focus().toggleStrike().run()}
           isActive={editor.isActive("strike")}
         />
         <div className="mx-1 h-4 w-[1px] bg-white/20" />
         <BubbleMenuButton
           icon="link"
-          title={editor.isActive("link") ? "Remove link" : "Add link"}
+          title={editor.isActive("link") ? t("Remove link") : t("Add link")}
           onClick={() => {
             if (editor.isActive("link")) {
               editor.chain().focus().unsetLink().run();
@@ -111,32 +113,32 @@ export const BubbleMenu = ({ editor }: BubbleMenuProps) => {
         <div className="mx-1 h-4 w-[1px] bg-white/20" />
         <BubbleMenuButton
           icon="bulletList"
-          title="Bullet list"
+          title={t("Bullet list")}
           onClick={() => editor.chain().focus().toggleBulletList().run()}
           isActive={editor.isActive("bulletList")}
         />
         <BubbleMenuButton
           icon="orderedList"
-          title="Numbered list"
+          title={t("Numbered list")}
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
           isActive={editor.isActive("orderedList")}
         />
         <div className="mx-1 h-4 w-[1px] bg-white/20" />
         <BubbleMenuButton
           icon="alignLeft"
-          title="Align left"
+          title={t("Align left")}
           onClick={() => editor.chain().focus().setTextAlign("left").run()}
           isActive={editor.isActive({ textAlign: "left" })}
         />
         <BubbleMenuButton
           icon="alignCenter"
-          title="Align center"
+          title={t("Align center")}
           onClick={() => editor.chain().focus().setTextAlign("center").run()}
           isActive={editor.isActive({ textAlign: "center" })}
         />
         <BubbleMenuButton
           icon="alignRight"
-          title="Align right"
+          title={t("Align right")}
           onClick={() => editor.chain().focus().setTextAlign("right").run()}
           isActive={editor.isActive({ textAlign: "right" })}
         />

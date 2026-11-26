@@ -1,6 +1,7 @@
 import { Cross1Icon, PlusIcon } from "@radix-ui/react-icons";
 import { FieldProps } from "@rjsf/utils";
 import { isArray, map, reject } from "lodash-es";
+import { useTranslation } from "react-i18next";
 import { Label } from "~/components/ui/label";
 import type { ChaiRepeaterSort } from "~/types/repeater-data";
 import { useRepeaterSource } from "./use-repeater-source";
@@ -14,6 +15,7 @@ const selectClassName =
 const makeRow = (field: string, direction: "asc" | "desc"): ChaiRepeaterSort => ({ field, direction });
 
 const RepeaterSortField = ({ formData, onChange }: FieldProps) => {
+  const { t } = useTranslation();
   const source = useRepeaterSource();
   const rows: ChaiRepeaterSort[] = isArray(formData) ? formData : [];
   const { keys, dropKey } = useRowKeys(rows.length);
@@ -39,7 +41,7 @@ const RepeaterSortField = ({ formData, onChange }: FieldProps) => {
   return (
     <div>
       <div className="flex items-center justify-between pb-2">
-        <Label>Sort by</Label>
+        <Label>{t("Sort by")}</Label>
         <button
           type="button"
           onClick={addRow}
@@ -50,7 +52,7 @@ const RepeaterSortField = ({ formData, onChange }: FieldProps) => {
       <div className="space-y-2">
         {rows.length === 0 ? (
           <div className="rounded border border-dashed border-border p-2 text-xs italic text-muted-foreground">
-            Default order. Add sorting to change it
+            {t("Default order. Add sorting to change it")}
           </div>
         ) : (
           map(rows, (row, index) => (
@@ -75,8 +77,8 @@ const RepeaterSortField = ({ formData, onChange }: FieldProps) => {
                 className={selectClassName}
                 value={row.direction === "desc" ? "desc" : "asc"}
                 onChange={(e) => updateRow(index, makeRow(row.field, e.target.value === "desc" ? "desc" : "asc"))}>
-                <option value="asc">Ascending</option>
-                <option value="desc">Descending</option>
+                <option value="asc">{t("Ascending")}</option>
+                <option value="desc">{t("Descending")}</option>
               </select>
             </div>
           ))

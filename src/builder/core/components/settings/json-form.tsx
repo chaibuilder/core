@@ -3,8 +3,9 @@ import { useThrottledCallback } from "@react-hookz/web";
 import RjForm from "@rjsf/core";
 import { RJSFSchema, UiSchema } from "@rjsf/utils";
 import validator from "@rjsf/validator-ajv8";
-import { get, set, take } from "lodash-es";
+import { get, isPlainObject, set, take } from "lodash-es";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { BindingInputWidget, BindingTextareaWidget } from "~/builder/core/rjsf-widgets/binding-editor/binding-editor-widget";
 import { CodeEditor } from "~/builder/core/rjsf-widgets/code-widget";
 import { CollectionFilterSortField } from "~/builder/core/rjsf-widgets/collection-select";
@@ -97,15 +98,107 @@ type JSONFormType = {
   onChange: ({ formData }: any, key?: string) => void;
 };
 
-const CustomAddButton = (props: any) => (
-  <button {...props} className="duration absolute right-2 top-2 cursor-pointer text-blue-400 hover:text-blue-500">
-    <div className="flex items-center gap-x-0.5 text-[11px] leading-tight">
-      <PlusIcon className="h-3 w-3" /> <span>Add</span>
-    </div>
-  </button>
-);
+type TranslateFn = (key: string) => string;
 
-const JSONFormContent = ({ formRef, blockId, blockType, formData, selectedLang, uiSchemaCopy, schemaCopy, onChange }: any) => {
+const translateNonEmpty = (value: unknown, t: TranslateFn) =>
+  typeof value === "string" && value.length > 0 ? t(value) : value;
+
+/**
+ * Returns a copy of `schema` with user-facing labels translated.
+ * `group` and `subgroup` are intentionally preserved untranslated because
+ * `GroupedObjectFieldTemplate` keys accordion collapse state on them.
+ */
+export const translateSchema = (schema: any, t: TranslateFn): any => {
+  if (Array.isArray(schema)) {
+    return schema.map((item) => translateSchema(item, t));
+  }
+  if (!isPlainObject(schema)) {
+    return schema;
+  }
+
+  const next: Record<string, any> = { ...schema };
+  if (typeof next.title === "string" && next.title.length > 0) {
+    next.title = t(next.title);
+  }
+  if (typeof next.description === "string" && next.description.length > 0) {
+    next.description = t(next.description);
+  }
+  if (Array.isArray(next.enumNames)) {
+    next.enumNames = next.enumNames.map((name: unknown) => translateNonEmpty(name, t));
+  }
+  if (isPlainObject(next.properties)) {
+    const props: Record<string, any> = {};
+    for (const [k, v] of Object.entries(next.properties)) {
+      props[k] = translateSchema(v, t);
+    }
+    next.properties = props;
+  }
+  if (next.items !== undefined) {
+    next.items = translateSchema(next.items, t);
+  }
+  if (isPlainObject(next.additionalProperties)) {
+    next.additionalProperties = translateSchema(next.additionalProperties, t);
+  }
+  if (isPlainObject(next.dependencies)) {
+    const deps: Record<string, any> = {};
+    for (const [k, v] of Object.entries(next.dependencies)) {
+      deps[k] = translateSchema(v, t);
+    }
+    next.dependencies = deps;
+  }
+  for (const key of ["allOf", "oneOf", "anyOf"] as const) {
+    if (Array.isArray(next[key])) {
+      next[key] = next[key].map((item: unknown) => translateSchema(item, t));
+    }
+  }
+  for (const key of ["if", "then", "else"] as const) {
+    if (isPlainObject(next[key])) {
+      next[key] = translateSchema(next[key], t);
+    }
+  }
+  return next;
+};
+
+/** Returns a copy of `uiSchema` with `ui:placeholder`, `ui:help`, and `ui:title` translated. */
+export const translateUiSchema = (uiSchema: any, t: TranslateFn): any => {
+  if (!isPlainObject(uiSchema)) {
+    return uiSchema;
+  }
+  const next: Record<string, any> = {};
+  for (const [k, v] of Object.entries(uiSchema)) {
+    if (k === "ui:placeholder" || k === "ui:help" || k === "ui:title") {
+      next[k] = translateNonEmpty(v, t);
+    } else if (isPlainObject(v) && !k.startsWith("ui:")) {
+      next[k] = translateUiSchema(v, t);
+    } else {
+      next[k] = v;
+    }
+  }
+  return next;
+};
+
+const CustomAddButton = (props: any) => {
+  const { t } = useTranslation();
+  return (
+    <button {...props} className="duration absolute right-2 top-2 cursor-pointer text-blue-400 hover:text-blue-500">
+      <div className="flex items-center gap-x-0.5 text-[11px] leading-tight">
+        <PlusIcon className="h-3 w-3" /> <span>{t("Add")}</span>
+      </div>
+    </button>
+  );
+};
+
+const JSONFormContent = ({
+  formRef,
+  blockId,
+  blockType,
+  formData,
+  selectedLang,
+  language,
+  uiSchemaCopy,
+  schemaCopy,
+  onChange,
+}: any) => {
   const { widgets, fields, templates } = useJsonFormElements();
 
   const onFormDataChange = useCallback(
@@ -125,7 +218,7 @@ const JSONFormContent = ({ formRef, blockId, blockType, formData, selectedLang, 
   return (
     <RjForm
       ref={formRef}
-      key={`json-form-${blockId}-${selectedLang}`}
+      key={`json-form-${blockId}-${selectedLang}-${language}`}
       widgets={widgets}
       fields={fields}
       templates={templates}
@@ -145,6 +238,7 @@ const JSONFormContent = ({ formRef, blockId, blockType, formData, selectedLang, 
 };
 
 export const JSONForm = memo(({ blockId, blockType, schema, uiSchema, formData, onChange }: JSONFormType) => {
+  const { t, i18n } = useTranslation();
   const { selectedLang } = useLanguages();
   const formDataRef = useRef(formData);
   const formRef = useRef(null);
@@ -153,6 +247,8 @@ export const JSONForm = memo(({ blockId, blockType, schema, uiSchema, formData, 
   const [_formData, setFormData] = useState(formData);
   const [isFocused, setIsFocused] = useState(false);
   const [{ schema: schemaCopy, uiSchema: uiSchemaCopy }] = useState({ schema, uiSchema });
+  const translatedSchema = useMemo(() => translateSchema(schemaCopy, t), [schemaCopy, t, i18n.language]);
+  const translatedUiSchema = useMemo(() => translateUiSchema(uiSchemaCopy, t), [uiSchemaCopy, t, i18n.language]);
 
   useEffect(() => {
     const formElement = (formRef?.current as any)?.formElement?.current as HTMLFormElement;
@@ -202,15 +298,16 @@ export const JSONForm = memo(({ blockId, blockType, schema, uiSchema, formData, 
         formRef={formRef}
         formData={_formData}
         selectedLang={selectedLang}
-        uiSchemaCopy={uiSchemaCopy}
-        schemaCopy={schemaCopy}
+        language={i18n.language}
+        uiSchemaCopy={translatedUiSchema}
+        schemaCopy={translatedSchema}
         onChange={(data: any, id?: string) => {
           setFormData(data.formData);
           throttledChange(data, id);
         }}
       />
     ),
-    [blockId, blockType, _formData, selectedLang, uiSchemaCopy, schemaCopy, throttledChange],
+    [blockId, blockType, _formData, selectedLang, i18n.language, translatedUiSchema, translatedSchema, throttledChange],
   );
 
   return memoizedJSONFormContent;

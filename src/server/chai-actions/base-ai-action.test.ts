@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { captureConsola } from "~/tests/utils/capture-consola";
 import { setGlobalDebugLevel } from "~/server/debug/debug-level";
-import { buildAiUsageMessageMetadata, ChaiBaseAiAction as BaseAIAction } from "./base-ai-action";
+import { captureConsola } from "~/tests/utils/capture-consola";
+import { ChaiBaseAiAction as BaseAIAction, buildAiUsageMessageMetadata } from "./base-ai-action";
 
 describe("buildAiUsageMessageMetadata", () => {
   it("returns totalTokens from the finish part's totalUsage (cbpl#161)", () => {
@@ -37,7 +37,7 @@ describe("buildAiUsageMessageMetadata", () => {
   });
 });
 
-describe("ChaiBaseAIAction error streaming", () => {
+describe("ChaiBaseAiAction error streaming", () => {
   const log = captureConsola();
 
   afterEach(() => {

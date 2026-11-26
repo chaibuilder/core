@@ -14,6 +14,7 @@ import {
   ValueIcon,
 } from "@radix-ui/react-icons";
 import { RefObject, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { cn } from "~/builder/core/utils/cn";
 import RteColorPicker from "./rte-color-picker";
 import RteDropdownMenu from "./rte-dropdown-menu";
@@ -38,6 +39,7 @@ interface RteMenubarProps {
 }
 
 const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) => {
+  const { t } = useTranslation();
   const menuRef = useRef<HTMLDivElement | null>(null);
   if (!editor) return null;
 
@@ -67,28 +69,28 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
         type="button"
         onClick={() => editor.chain().focus().toggleBold().run()}
         className={cn(getActiveClasses(editor, ["bold"], from), btnSize)}
-        title="Bold">
+        title={t("Bold")}>
         <FontBoldIcon className={iconSize} />
       </button>
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleItalic().run()}
         className={cn(getActiveClasses(editor, ["italic"], from), btnSize)}
-        title="Italic">
+        title={t("Italic")}>
         <FontItalicIcon className={iconSize} />
       </button>
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleUnderline().run()}
         className={cn(getActiveClasses(editor, ["underline"], from), btnSize)}
-        title="Underline">
+        title={t("Underline")}>
         <UnderlineIcon className={iconSize} />
       </button>
       <button
         type="button"
         onClick={() => editor.chain().focus().toggleStrike().run()}
         className={cn(getActiveClasses(editor, ["strike"], from), btnSize)}
-        title="Strike">
+        title={t("Strike")}>
         <StrikethroughIcon className={iconSize} />
       </button>
 
@@ -108,7 +110,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
           <button
             type="button"
             className={cn("flex items-center", getActiveClasses(editor, ["bulletList", "orderedList"], from), btnSize)}
-            title="Bullet List">
+            title={t("Bullet List")}>
             <ListBulletIcon className={iconSize} />
             <CaretDownIcon className="h-3 w-3 opacity-50" />
           </button>
@@ -124,7 +126,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
                 "flex cursor-pointer items-center gap-x-1 outline-none hover:outline-none",
                 getActiveClasses(editor, ["bulletList"], from),
               )}>
-              <ListBulletIcon className="h-4 w-4" /> Unordered List
+              <ListBulletIcon className="h-4 w-4" /> {t("Unordered List")}
             </div>
             <div
               onClick={() => {
@@ -136,7 +138,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
                 getActiveClasses(editor, ["orderedList"], from),
               )}>
               <ValueIcon className="h-4 w-4" />
-              Ordered List
+              {t("Ordered List")}
             </div>
           </>
         )}
@@ -159,7 +161,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
               ),
               btnSize,
             )}
-            title="Text Alignment">
+            title={t("Text Alignment")}>
             {editor.isActive({ textAlign: "center" }) ? (
               <TextAlignCenterIcon className={iconSize} />
             ) : editor.isActive({ textAlign: "right" }) ? (
@@ -181,7 +183,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
                 "flex cursor-pointer items-center gap-x-1 outline-none hover:outline-none",
                 getActiveClasses(editor, editor.isActive({ textAlign: "left" }), from),
               )}>
-              <TextAlignLeftIcon className="h-4 w-4" /> Align Left
+              <TextAlignLeftIcon className="h-4 w-4" /> {t("Align Left")}
             </div>
             <div
               onClick={() => {
@@ -192,7 +194,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
                 "flex cursor-pointer items-center gap-x-1 outline-none hover:outline-none",
                 getActiveClasses(editor, editor.isActive({ textAlign: "center" }), from),
               )}>
-              <TextAlignCenterIcon className="h-4 w-4" /> Align Center
+              <TextAlignCenterIcon className="h-4 w-4" /> {t("Align Center")}
             </div>
             <div
               onClick={() => {
@@ -203,7 +205,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
                 "flex cursor-pointer items-center gap-x-1 outline-none hover:outline-none",
                 getActiveClasses(editor, editor.isActive({ textAlign: "right" }), from),
               )}>
-              <TextAlignRightIcon className="h-4 w-4" /> Align Right
+              <TextAlignRightIcon className="h-4 w-4" /> {t("Align Right")}
             </div>
           </>
         )}
@@ -218,7 +220,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
           <button
             type="button"
             className={cn(getActiveClasses(editor, ["link"], from), btnSize)}
-            title={editor.isActive("link") ? "Edit Link" : "Add Link"}>
+            title={editor.isActive("link") ? t("Edit Link") : t("Add Link")}>
             <Link2Icon className={smallIconSize} />
           </button>
         }
@@ -229,7 +231,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
           type="button"
           onClick={removeLink}
           className={cn(getActiveClasses(editor, false, from), btnSize)}
-          title="Remove Link">
+          title={t("Remove Link")}>
           <LinkBreak2Icon className={smallIconSize} />
         </button>
       )}
@@ -242,7 +244,7 @@ const RteMenubar = ({ editor, from = "settings", onExpand }: RteMenubarProps) =>
             type="button"
             onClick={onExpand}
             className={cn(getActiveClasses(editor, false, from), btnSize)}
-            title="Open in full screen mode">
+            title={t("Open in full screen mode")}>
             <EnterFullScreenIcon className={smallIconSize} />
           </button>
         </>

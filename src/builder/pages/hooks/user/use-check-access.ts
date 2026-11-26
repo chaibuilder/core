@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { noop } from "lodash-es";
+import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import {
   isChaiHttpActionFailure,
@@ -21,6 +22,7 @@ type CheckUserAccessResponse = {
  * @returns Object with access, role, permissions, and loading states
  */
 export const useChaiUserPermissions = (checkInterval: number = 300) => {
+  const { t } = useTranslation();
   const logout = usePagesProp("onLogout", noop);
   const getAccessToken = usePagesProp("getAccessToken");
   const apiUrl = useChaiApiUrl();
@@ -39,13 +41,13 @@ export const useChaiUserPermissions = (checkInterval: number = 300) => {
       const body = await response.json();
 
       if (response.status === 401 || (isChaiHttpActionFailure(body) && body.error.status === 401)) {
-        toast.error("You do not have access to edit this website. Please contact administrator");
+        toast.error(t("You do not have access to edit this website. Please contact administrator"));
         await logout("UNAUTHORIZED");
         throw new Error("Unauthorized");
       }
 
       if (!response.ok || isChaiHttpActionFailure(body)) {
-        toast.error("You do not have access to edit this website. Please contact administrator");
+        toast.error(t("You do not have access to edit this website. Please contact administrator"));
         await logout("UNAUTHORIZED");
         throw new Error("Unauthorized");
       }

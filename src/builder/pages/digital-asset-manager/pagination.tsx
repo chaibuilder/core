@@ -1,5 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "~/components/ui/button";
 import { Input } from "~/components/ui/input";
 
@@ -20,6 +21,7 @@ export function Pagination({
   showPageInput = true,
   className = "",
 }: PaginationProps) {
+  const { t } = useTranslation();
   const [pageInput, setPageInput] = useState<string>(String(currentPage));
 
   const pageNumbers = useMemo(() => {
@@ -107,7 +109,7 @@ export function Pagination({
           disabled={currentPage === 1}
           className="px-2 py-1 text-sm hover:bg-muted">
           <ChevronLeft className="h-4 w-4" />
-          Previous
+          {t("Previous")}
         </Button>
 
         {/* Page Numbers */}
@@ -148,7 +150,7 @@ export function Pagination({
           onClick={handleNext}
           disabled={currentPage === totalPages}
           className="px-2 py-1 text-sm hover:bg-muted">
-          Next
+          {t("Next")}
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
@@ -156,7 +158,7 @@ export function Pagination({
       {/* Page Input */}
       {showPageInput && (
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Go to</span>
+          <span className="text-sm text-muted-foreground">{t("Go to")}</span>
           <Input
             type="number"
             min={1}
@@ -174,7 +176,7 @@ export function Pagination({
             size="sm"
             onClick={handleGoToPage}
             disabled={pageInput === "" || Number(pageInput) < 1 || Number(pageInput) > totalPages}>
-            Go
+            {t("Go")}
           </Button>
         </div>
       )}

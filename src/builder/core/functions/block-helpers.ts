@@ -1,6 +1,7 @@
 import { get, has, omit } from "lodash-es";
 import { getRegisteredChaiBlock } from "~/registry";
 import { getSlotRule, matchesAccept } from "~/render/block-slots";
+import type { ChaiCanShowBlock } from "~/types/chaibuilder-editor-props";
 
 type BlockDefinition = {
   canAcceptBlock?: (target: string) => boolean;
@@ -128,6 +129,32 @@ export const isBlockAvailableForPageType = (block: { pageTypes?: string[] }, pag
   return pageTypes.includes(pageType);
 };
 
+/**
+ * Combines `pageTypes` availability with the host's optional `canShowBlock` predicate.
+ * When `canShowBlock` is omitted, falls back to `isBlockAvailableForPageType`.
+ */
+export const isBlockAvailable = (
+  block: { pageTypes?: string[]; type?: string; id?: string; metadata?: Record<string, unknown> },
+  pageType: string,
+  canShowBlock?: ChaiCanShowBlock,
+) => isBlockAvailableForPageType(block, pageType) && (canShowBlock ? canShowBlock(block, { pageType }) : true);
+
+/**
+ * Returns registered block type names rejected by the host's `canShowBlock` predicate.
+ */
+export const getHiddenBlockTypes = (
+  blocks: Record<string, { pageTypes?: string[]; type?: string; id?: string; metadata?: Record<string, unknown> }>,
+  pageType: string,
+  canShowBlock?: ChaiCanShowBlock,
+): string[] => {
+  if (!canShowBlock) return [];
+  const hidden = Object.entries(blocks)
+    .filter(([, block]) => !canShowBlock(block, { pageType }))
+    .map(([registryKey, block]) => block.type ?? registryKey)
+    .filter((type): type is string => typeof type === "string" && type.length > 0);
+  return Array.from(new Set(hidden));
+};
+
 if (import.meta.vitest) {
   describe("canDropBlock Function", () => {
     it('should return false if dragSourceType is "Slot"', () => {
@@ -160,6 +187,53 @@ if (import.meta.vitest) {
 
     it("should support multiple page types", () => {
       expect(isBlockAvailableForPageType({ pageTypes: ["product", "collection"] }, "collection")).toBe(true);
+    });
+  });
+
+  describe("isBlockAvailable Function", () => {
+    it("falls back to pageTypes when no canShowBlock is given", () => {
+      expect(isBlockAvailable({ type: "A", pageTypes: ["product"] }, "product")).toBe(true);
+      expect(isBlockAvailable({ type: "A", pageTypes: ["product"] }, "page")).toBe(false);
+    });
+
+    it("applies canShowBlock with pageType context alongside pageTypes", () => {
+      const seen: Array<{ type?: string; pageType?: string }> = [];
+      const canShowBlock: ChaiCanShowBlock = (block, ctx) => {
+        seen.push({ type: block.type, pageType: ctx.pageType });
+        return block.metadata?.allowed === true;
+      };
+
+      expect(isBlockAvailable({ type: "Allowed", metadata: { allowed: true } }, "page", canShowBlock)).toBe(true);
+      expect(isBlockAvailable({ type: "Hidden", metadata: { allowed: false } }, "page", canShowBlock)).toBe(false);
+      // Fails pageTypes first, so canShowBlock is not even called.
+      expect(
+        isBlockAvailable({ type: "WrongPage", pageTypes: ["product"], metadata: { allowed: true } }, "page", canShowBlock),
+      ).toBe(false);
+      expect(seen).toEqual([
+        { type: "Allowed", pageType: "page" },
+        { type: "Hidden", pageType: "page" },
+      ]);
+    });
+  });
+
+  describe("getHiddenBlockTypes Function", () => {
+    it("returns an empty array when canShowBlock is omitted", () => {
+      expect(getHiddenBlockTypes({ A: { type: "A" } }, "page")).toEqual([]);
+    });
+
+    it("returns block types rejected by canShowBlock with pageType context", () => {
+      const canShowBlock: ChaiCanShowBlock = (block, ctx) =>
+        ctx.pageType === "page" && block.metadata?.allowed !== false;
+      expect(
+        getHiddenBlockTypes(
+          {
+            Allowed: { type: "Allowed", metadata: { allowed: true } },
+            Hidden: { type: "Hidden", metadata: { allowed: false } },
+          },
+          "page",
+          canShowBlock,
+        ),
+      ).toEqual(["Hidden"]);
     });
   });
 }

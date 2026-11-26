@@ -16,7 +16,18 @@ export type ChaiLibraryBlock<T = Record<string, any>> = {
   description?: string;
   /** Overrides `libraryGroupMaxDepth` for this block. See `ChaiBlockConfig.maxDepth`. */
   maxDepth?: number;
+  /** Arbitrary host-defined metadata. Chai stores it and passes it to `canShowBlock`. */
+  metadata?: Record<string, unknown>;
 } & T;
+
+export type ChaiCanShowBlockContext = {
+  pageType?: string;
+};
+
+export type ChaiCanShowBlock = (
+  block: { type?: string; id?: string; metadata?: Record<string, unknown> },
+  ctx: ChaiCanShowBlockContext,
+) => boolean;
 
 export type ChaiLibrary<T = Record<string, any>> = {
   id: string;
@@ -158,6 +169,11 @@ export interface ChaiBuilderEditorProps {
    * Optional pageId. If not provided, a random pageId will be generated
    */
   pageId?: string;
+
+  /**
+   * Page type of the open page; a slugless type marks a partial/global block
+   */
+  pageType?: string;
 
   /**
    * Page external data
@@ -426,6 +442,12 @@ export interface ChaiBuilderEditorProps {
       upstreamPage?: string | Record<string, string>;
     };
   };
+
+  /**
+   * Host-supplied predicate deciding whether a block should appear in the Add Block panels
+   * and search results. Omitted means every block is shown (subject to `pageTypes`).
+   */
+  canShowBlock?: ChaiCanShowBlock;
 
   /**
    * Screen to small message component

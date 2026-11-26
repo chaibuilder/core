@@ -341,11 +341,14 @@ const ChaiSlotPlaceholder = ({ name }: { name: string }) => {
   );
 };
 
-const PartialDepthExceededPlaceholder = () => (
-  <div className="border-destructive bg-destructive/10 text-destructive flex items-center justify-center rounded-md border p-4 text-center text-sm">
-    <p>Maximum partial nesting depth ({MAX_PARTIAL_DEPTH} levels) exceeded</p>
-  </div>
-);
+const PartialDepthExceededPlaceholder = () => {
+  const { t } = useTranslation();
+  return (
+    <div className="border-destructive bg-destructive/10 text-destructive flex items-center justify-center rounded-md border p-4 text-center text-sm">
+      <p>{t("Maximum partial nesting depth ({{depth}} levels) exceeded", { depth: MAX_PARTIAL_DEPTH })}</p>
+    </div>
+  );
+};
 
 const PartialBlocksRenderer = ({ partialBlockId }: { partialBlockId: string }) => {
   const { getPartialBlocks } = usePartialBlocksStore();
